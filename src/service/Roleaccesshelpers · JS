@@ -1,0 +1,23 @@
+export const ROLES = ["Admin", "Manager", "Operator", "Viewer", "Support", "Auditor"];
+
+export const MENU_GROUPS = [
+  {
+    group: "Dashboard",
+    items: [
+      { key: "dashboard", label: "Dashboard" },
+    ],
+  },
+  {
+    group: "Collection",
+    items: [
+      { key: "col_reports", label: "Payment Reports" },
+    ],
+  },
+  {
+    group: "User Management",
+    items: [
+      { key: "um_users", label: "All Users" },
+      { key: "um_roles", label: "Roles & Access" },
+    ],
+  },
+];
