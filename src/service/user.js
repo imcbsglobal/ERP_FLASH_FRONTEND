@@ -2,10 +2,16 @@
 const BASE_URL = "http://127.0.0.1:8000/api";
 
 // ── Helper: build headers with auth token ────────────────────────────────────
-const authHeaders = () => ({
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
-});
+const authHeaders = (isMultipart = false) => {
+  const headers = {
+    Authorization: `Bearer ${localStorage.getItem("access_token") || ""}`,
+  };
+  // Do NOT set Content-Type for multipart — the browser sets it with the boundary
+  if (!isMultipart) {
+    headers["Content-Type"] = "application/json";
+  }
+  return headers;
+};
 
 // ── Helper: refresh access token ─────────────────────────────────────────────
 const refreshAccessToken = async () => {
@@ -41,51 +47,56 @@ const handleResponse = async (res, retryFn) => {
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    err._status = res.status;   // attach HTTP status so callers can check e.g. 404
+    err._status = res.status;
     throw err;
   }
   if (res.status === 204) return null;
   return res.json();
 };
 
+// ── Helper: build FormData or JSON body ──────────────────────────────────────
+/**
+ * If payload contains a `photo` File, return a FormData object so the browser
+ * sends multipart/form-data.  Otherwise return a plain JSON string.
+ */
+const buildBody = (payload) => {
+  const { photo, ...rest } = payload;
+
+  if (photo instanceof File) {
+    const fd = new FormData();
+    Object.entries(rest).forEach(([k, v]) => {
+      if (v !== undefined && v !== null) fd.append(k, String(v));
+    });
+    fd.append("photo", photo);
+    return fd;
+  }
+
+  return JSON.stringify(rest);
+};
+
 // ════════════════════════════════════════════════════════════════════════════
 //  USER APIs
 // ════════════════════════════════════════════════════════════════════════════
 
-/**
- * Save user info to localStorage after login
- */
 export const saveUserInfo = (userData) => {
-  localStorage.setItem('user', JSON.stringify(userData));
+  localStorage.setItem("user", JSON.stringify(userData));
 };
 
-/**
- * Get current logged in user
- */
 export const getCurrentUser = () => {
-  const userStr = localStorage.getItem('user');
+  const userStr = localStorage.getItem("user");
   if (!userStr) return null;
-  try {
-    return JSON.parse(userStr);
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(userStr); } catch { return null; }
 };
 
-/**
- * Logout user
- */
 export const logout = () => {
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('refresh_token');
-  localStorage.removeItem('user');
-  window.location.href = '/login';
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+  localStorage.removeItem("user");
+  window.location.href = "/login";
 };
 
 /**
  * GET /api/users/
- * login-app UserListView returns a plain array; normalise to { count, results }
- * so user_list.jsx's  data.results  works correctly.
  */
 export const getUsers = async (filters = {}) => {
   const params = new URLSearchParams();
@@ -95,28 +106,27 @@ export const getUsers = async (filters = {}) => {
   if (filters.search) params.append("search", filters.search);
 
   const query = params.toString() ? `?${params.toString()}` : "";
-  const doFetch = () => fetch(`${BASE_URL}/users/${query}`, {
-    method: "GET",
-    headers: authHeaders(),
-  });
+  const doFetch = () =>
+    fetch(`${BASE_URL}/users/${query}`, { method: "GET", headers: authHeaders() });
   const data = await handleResponse(await doFetch(), doFetch);
-  // Normalise plain array → { count, results }
   if (Array.isArray(data)) return { count: data.length, results: data };
   return data;
 };
 
 /**
  * POST /api/users/
- * Creates a user in the same `users` table that list/delete/patch all query.
- * All CRUD operations must use the same table — mismatching endpoints causes
- * 404s on delete because IDs come from a different table.
+ * payload may include a `photo` File field.
  */
 export const createUser = async (payload) => {
-  const doFetch = () => fetch(`${BASE_URL}/users/`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify(payload),
-  });
+  const body        = buildBody(payload);
+  const isMultipart = body instanceof FormData;
+
+  const doFetch = () =>
+    fetch(`${BASE_URL}/users/`, {
+      method:  "POST",
+      headers: authHeaders(isMultipart),
+      body,
+    });
   return handleResponse(await doFetch(), doFetch);
 };
 
@@ -124,34 +134,42 @@ export const createUser = async (payload) => {
  * GET /api/users/:id/
  */
 export const getUserById = async (id) => {
-  const doFetch = () => fetch(`${BASE_URL}/users/${id}/`, {
-    method: "GET",
-    headers: authHeaders(),
-  });
+  const doFetch = () =>
+    fetch(`${BASE_URL}/users/${id}/`, { method: "GET", headers: authHeaders() });
   return handleResponse(await doFetch(), doFetch);
 };
 
 /**
  * PUT /api/users/:id/
+ * payload may include a `photo` File field.
  */
 export const updateUser = async (id, payload) => {
-  const doFetch = () => fetch(`${BASE_URL}/users/${id}/`, {
-    method: "PUT",
-    headers: authHeaders(),
-    body: JSON.stringify(payload),
-  });
+  const body        = buildBody(payload);
+  const isMultipart = body instanceof FormData;
+
+  const doFetch = () =>
+    fetch(`${BASE_URL}/users/${id}/`, {
+      method:  "PUT",
+      headers: authHeaders(isMultipart),
+      body,
+    });
   return handleResponse(await doFetch(), doFetch);
 };
 
 /**
  * PATCH /api/users/:id/
+ * payload may include a `photo` File field.
  */
 export const patchUser = async (id, payload) => {
-  const doFetch = () => fetch(`${BASE_URL}/users/${id}/`, {
-    method: "PATCH",
-    headers: authHeaders(),
-    body: JSON.stringify(payload),
-  });
+  const body        = buildBody(payload);
+  const isMultipart = body instanceof FormData;
+
+  const doFetch = () =>
+    fetch(`${BASE_URL}/users/${id}/`, {
+      method:  "PATCH",
+      headers: authHeaders(isMultipart),
+      body,
+    });
   return handleResponse(await doFetch(), doFetch);
 };
 
@@ -159,10 +177,8 @@ export const patchUser = async (id, payload) => {
  * DELETE /api/users/:id/
  */
 export const deleteUser = async (id) => {
-  const doFetch = () => fetch(`${BASE_URL}/users/${id}/`, {
-    method: "DELETE",
-    headers: authHeaders(),
-  });
+  const doFetch = () =>
+    fetch(`${BASE_URL}/users/${id}/`, { method: "DELETE", headers: authHeaders() });
   return handleResponse(await doFetch(), doFetch);
 };
 
@@ -170,10 +186,11 @@ export const deleteUser = async (id) => {
  * PATCH /api/users/:id/toggle-status/
  */
 export const toggleUserStatus = async (id) => {
-  const doFetch = () => fetch(`${BASE_URL}/users/${id}/toggle-status/`, {
-    method: "PATCH",
-    headers: authHeaders(),
-  });
+  const doFetch = () =>
+    fetch(`${BASE_URL}/users/${id}/toggle-status/`, {
+      method: "PATCH",
+      headers: authHeaders(),
+    });
   return handleResponse(await doFetch(), doFetch);
 };
 
@@ -182,18 +199,17 @@ export const toggleUserStatus = async (id) => {
 // ════════════════════════════════════════════════════════════════════════════
 
 export const getBranches = async () => {
-  const doFetch = () => fetch(`${BASE_URL}/branches/`, {
-    method: "GET",
-    headers: authHeaders(),
-  });
+  const doFetch = () =>
+    fetch(`${BASE_URL}/branches/`, { method: "GET", headers: authHeaders() });
   return handleResponse(await doFetch(), doFetch);
 };
 
 export const createBranch = async (payload) => {
-  const doFetch = () => fetch(`${BASE_URL}/branches/`, {
-    method: "POST",
-    headers: authHeaders(),
-    body: JSON.stringify(payload),
-  });
+  const doFetch = () =>
+    fetch(`${BASE_URL}/branches/`, {
+      method:  "POST",
+      headers: authHeaders(),
+      body:    JSON.stringify(payload),
+    });
   return handleResponse(await doFetch(), doFetch);
 };

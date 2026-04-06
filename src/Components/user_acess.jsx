@@ -1,55 +1,75 @@
 import React, { useState, useEffect, useCallback } from "react";
+
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
-import { saveUserPermissions } from "../service/useracess";
+
+// NOTE: We do NOT import saveUserPermissions from useracess.js because
+// that service only sends 4 keys. We handle the full 7-key PATCH directly here.
+
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import LibraryAddOutlinedIcon from '@mui/icons-material/LibraryAddOutlined';
 import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 import GradingOutlinedIcon from '@mui/icons-material/GradingOutlined';
 import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
+import StarsOutlinedIcon from '@mui/icons-material/StarsOutlined';
+import DirectionsCarOutlinedIcon from '@mui/icons-material/DirectionsCarOutlined';
+import AirportShuttleOutlinedIcon from '@mui/icons-material/AirportShuttleOutlined';
+import PlaylistAddCheckOutlinedIcon from '@mui/icons-material/PlaylistAddCheckOutlined';
+import DriveEtaOutlinedIcon from '@mui/icons-material/DriveEtaOutlined';
 
 // ── Static config ─────────────────────────────────────────────────────────────
 const ROLES = ["Admin", "Manager", "Operator", "Viewer", "Support", "Auditor"];
+
+// All 7 permission keys — mirrors Layout.jsx NAV exactly
+const ALL_PERM_KEYS = ["dashboard", "col_reports", "vm_trips", "vm_service", "um_users", "um_roles", "mm_vehicle"];
 
 const MENU_GROUPS = [
   {
     group: "Dashboard",
     icon: <DashboardOutlinedIcon style={{ width: 18, height: 18 }} />,
     items: [
-      { key: "dashboard",   label: "Dashboard",   icon: <DashboardOutlinedIcon style={{ width: 16, height: 16 }} /> },
+      { key: "dashboard", label: "Dashboard", icon: <DashboardOutlinedIcon style={{ width: 16, height: 16 }} /> },
     ],
   },
   {
     group: "Collection",
     icon: <CategoryOutlinedIcon style={{ width: 18, height: 18 }} />,
     items: [
-      { key: "col_reports", label: "Reports",      icon: <GradingOutlinedIcon style={{ width: 16, height: 16 }} /> },
+      { key: "col_reports", label: "Reports", icon: <GradingOutlinedIcon style={{ width: 16, height: 16 }} /> },
+    ],
+  },
+  {
+    group: "Vehicle Management",
+    icon: <AirportShuttleOutlinedIcon style={{ width: 18, height: 18 }} />,
+    items: [
+      { key: "vm_trips",   label: "Trip",    icon: <DriveEtaOutlinedIcon style={{ width: 16, height: 16 }} /> },
+      { key: "vm_service", label: "Challan", icon: <PlaylistAddCheckOutlinedIcon style={{ width: 16, height: 16 }} /> },
     ],
   },
   {
     group: "User Management",
     icon: <ManageAccountsIcon style={{ width: 18, height: 18 }} />,
     items: [
-      { key: "um_users",    label: "All Users",    icon: <LibraryAddOutlinedIcon style={{ width: 16, height: 16 }} /> },
-      { key: "um_roles",    label: "User Control", icon: <AdminPanelSettingsOutlinedIcon style={{ width: 16, height: 16 }} /> },
+      { key: "um_users", label: "All Users",    icon: <LibraryAddOutlinedIcon style={{ width: 16, height: 16 }} /> },
+      { key: "um_roles", label: "User Control", icon: <AdminPanelSettingsOutlinedIcon style={{ width: 16, height: 16 }} /> },
+    ],
+  },
+  {
+    group: "Master",
+    icon: <StarsOutlinedIcon style={{ width: 18, height: 18 }} />,
+    items: [
+      { key: "mm_vehicle", label: "Vehicle Master", icon: <DirectionsCarOutlinedIcon style={{ width: 16, height: 16 }} /> },
     ],
   },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function getInitials(name) {
-  if (!name) return "U";
-  const p = name.trim().split(" ");
-  return p.length === 1 ? p[0][0].toUpperCase() : (p[0][0] + p[p.length - 1][0]).toUpperCase();
-}
-
 const ROLE_BADGE = {
-  Admin:    { bg: "#ede9fe", color: "#7c3aed" },
-  Manager:  { bg: "#dbeafe", color: "#1d4ed8" },
-  Operator: { bg: "#dcfce7", color: "#15803d" },
-  Viewer:   { bg: "#fef9c3", color: "#a16207" },
-  Support:  { bg: "#ffe4e6", color: "#be123c" },
-  Auditor:  { bg: "#f0fdf4", color: "#166534" },
+  Admin:    { bg: "#ffffff", color: "#1d4ed8" },
+  Manager:  { bg: "#ffffff", color: "#1d4ed8" },
+  Operator: { bg: "#ffffff", color: "#1d4ed8" },
+  Viewer:   { bg: "#ffffff", color: "#1d4ed8" },
+  Support:  { bg: "#ffffff", color: "#1d4ed8" },
+  Auditor:  { bg: "#ffffff", color: "#1d4ed8" },
 };
 
 function flattenMenuItems() {
@@ -58,18 +78,51 @@ function flattenMenuItems() {
 
 function buildDefaultPerms() {
   const p = {};
-  flattenMenuItems().forEach(item => { p[item.key] = false; });
+  ALL_PERM_KEYS.forEach(k => { p[k] = false; });
   return p;
 }
 
-// Normalize API response → flat { key: bool } map
 function normalizePerms(apiData) {
   const defaults = buildDefaultPerms();
   if (!apiData) return defaults;
   return {
     ...defaults,
-    ...Object.fromEntries(Object.entries(apiData).filter(([k]) => k in defaults)),
+    ...Object.fromEntries(
+      Object.entries(apiData).filter(([k]) => k in defaults)
+    ),
   };
+}
+
+// ── Direct save — sends ALL 7 keys so nothing gets dropped ────────────────────
+async function saveAllPermissions(userId, perms) {
+  const token = localStorage.getItem("access_token");
+
+  const payload = {};
+  ALL_PERM_KEYS.forEach(k => { payload[k] = !!perms[k]; });
+
+  console.log(`[UserControl] Saving all permissions for user ${userId}:`, payload);
+
+  const res = await fetch(`${API_BASE}/users/${userId}/permissions/`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    let errBody;
+    try { errBody = await res.json(); }
+    catch { errBody = { error: res.statusText }; }
+    const msg = errBody?.error || errBody?.detail || JSON.stringify(errBody) || "Failed to save.";
+    const err = new Error(msg);
+    err.detail = errBody;
+    err.status  = res.status;
+    throw err;
+  }
+
+  return res.json();
 }
 
 // ── Skeletons ─────────────────────────────────────────────────────────────────
@@ -89,7 +142,7 @@ function UserSkeleton() {
 function PermSkeleton() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "16px 24px" }}>
-      {[...Array(5)].map((_, i) => (
+      {[...Array(7)].map((_, i) => (
         <div key={i} style={{
           height: "44px", borderRadius: "8px", background: "#f1f3f4",
           animation: "pulse 1.4s ease-in-out infinite", animationDelay: `${i * 0.08}s`,
@@ -107,17 +160,13 @@ export default function RoleAccess() {
   const [roleFilter, setRoleFilter]     = useState("All Job Roles");
   const [selectedUser, setSelectedUser] = useState(null);
 
-  // perms cache: { [userId]: { dashboard, col_reports, um_users, um_roles } }
   const [perms, setPerms]             = useState({});
   const [permLoading, setPermLoading] = useState(false);
   const [saving, setSaving]           = useState(false);
   const [saved, setSaved]             = useState(false);
   const [saveError, setSaveError]     = useState("");
+  const [dirtyUsers, setDirtyUsers]   = useState(new Set());
 
-  // Track which users have unsaved local changes
-  const [dirtyUsers, setDirtyUsers] = useState(new Set());
-
-  // Expanded groups in right panel
   const [expanded, setExpanded] = useState(() => {
     const init = {};
     MENU_GROUPS.forEach(g => { init[g.group] = true; });
@@ -140,7 +189,6 @@ export default function RoleAccess() {
       const list = data.results || data || [];
       setUsers(list);
 
-      // Pre-populate perms cache from the nested menu_permissions
       const initialPerms = {};
       list.forEach(u => {
         console.log(`User ${u.id} (${u.username}) has permissions:`, u.menu_permissions);
@@ -169,24 +217,13 @@ export default function RoleAccess() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
-      
+
       if (response.ok) {
         const data = await response.json();
         console.log(`Loaded fresh permissions for user ${userId}:`, data);
-        
-        // Update permissions cache
-        setPerms(p => ({ 
-          ...p, 
-          [userId]: normalizePerms(data) 
-        }));
-        
-        // Also update the user in the list to reflect loaded permissions
-        setUsers(prev => 
-          prev.map(u => 
-            u.id === userId 
-              ? { ...u, menu_permissions: data }
-              : u
-          )
+        setPerms(p => ({ ...p, [userId]: normalizePerms(data) }));
+        setUsers(prev =>
+          prev.map(u => u.id === userId ? { ...u, menu_permissions: data } : u)
         );
       } else {
         console.error("Failed to load permissions for user", userId);
@@ -201,14 +238,13 @@ export default function RoleAccess() {
   useEffect(() => {
     if (!selectedUser) return;
     const uid = selectedUser.id;
-    
-    // If we don't have permissions for this user yet, fetch them
-    if (perms[uid] === undefined) {
+    if (!(uid in perms)) {
       fetchPermissionsForUser(uid);
     } else {
       setPermLoading(false);
     }
-  }, [selectedUser?.id, fetchPermissionsForUser, perms]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedUser?.id, fetchPermissionsForUser]);
 
   // ── Filtered user list ───────────────────────────────────────────────────────
   const filtered = users.filter(u => {
@@ -251,26 +287,32 @@ export default function RoleAccess() {
     markDirty(uid);
   };
 
-  // ── Save to backend ──────────────────────────────────────────────────────────
+  // ── Save — uses direct fetch with all 7 keys ─────────────────────────────────
   const handleSave = async () => {
     if (!selectedUser) return;
     const uid = selectedUser.id;
     setSaving(true);
     setSaveError("");
     try {
-      const saved_perms = await saveUserPermissions(uid, getUserPerms(uid));
+      const saved_perms = await saveAllPermissions(uid, getUserPerms(uid));
 
-      // Update the perms cache with the confirmed server state
       setPerms(p => ({ ...p, [uid]: normalizePerms(saved_perms) }));
-
-      // Also update the embedded menu_permissions on the user in the users list
       setUsers(prev =>
         prev.map(u =>
           u.id === uid
-            ? { ...u, menu_permissions: saved_perms }
+            ? { ...u, menu_permissions: saved_perms, allowed_menus: saved_perms.allowed_menus || [] }
             : u
         )
       );
+
+      // Update localStorage so Layout.jsx sidebar reflects changes immediately
+      const currentUser = JSON.parse(localStorage.getItem("user") || "null");
+      if (currentUser && currentUser.id === uid) {
+        const persisted = {};
+        ALL_PERM_KEYS.forEach(k => { persisted[k] = !!saved_perms[k]; });
+        localStorage.setItem("menu_permissions", JSON.stringify(persisted));
+        window.dispatchEvent(new CustomEvent("permissionsUpdated", { detail: persisted }));
+      }
 
       setDirtyUsers(prev => { const next = new Set(prev); next.delete(uid); return next; });
       setSaved(true);
@@ -279,13 +321,9 @@ export default function RoleAccess() {
       console.error("Failed to save permissions", e);
       let errorMessage = "Failed to save. Please try again.";
       if (e.detail) {
-        errorMessage = typeof e.detail === 'string' ? e.detail : JSON.stringify(e.detail);
-      } else if (e.error) {
-        errorMessage = e.error;
+        errorMessage = typeof e.detail === "string" ? e.detail : JSON.stringify(e.detail);
       } else if (e.message) {
         errorMessage = e.message;
-      } else if (e.response?.error) {
-        errorMessage = e.response.error;
       }
       setSaveError(errorMessage);
     } finally {
@@ -318,13 +356,13 @@ export default function RoleAccess() {
   return (
     <div style={{
       display: "flex", width: "100%", height: "100%",
-      background: "#f8f9fa", fontFamily: "'Nohemi', sans-serif",
+      background: "#f8f9fa", fontFamily: "Inter, system-ui, sans-serif",
       overflow: "hidden", textAlign: "left",
     }}>
       <style>{`
         @keyframes pulse { 0%,100%{opacity:0.6} 50%{opacity:0.2} }
         @keyframes spin   { to { transform: rotate(360deg); } }
-        * { font-family: 'Nohemi', sans-serif !important; box-sizing: border-box; }
+        * { font-family: Inter, system-ui, sans-serif !important; box-sizing: border-box; }
         .ua-user-row:hover  { background: #f1f3f4 !important; }
         .ua-user-row.active { background: #e8f0fe !important; border-left: 3px solid #1a73e8 !important; }
         .ua-menu-row:hover  { background: #f1f3f4; }
@@ -406,36 +444,29 @@ export default function RoleAccess() {
                       transition: "background 0.15s",
                     }}
                   >
-                    <div style={{
-                      width: "36px", height: "36px", borderRadius: "50%", flexShrink: 0,
-                      background: isActive ? "#1a73e8" : "#5f6368",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      color: "#fff", fontSize: "13px", fontWeight: 700,
-                    }}>
-                      {getInitials(name)}
-                    </div>
+                    {user.photo_url && (
+                      <div style={{
+                        width: "36px", height: "36px", borderRadius: "50%",
+                        overflow: "hidden", flexShrink: 0,
+                        border: isActive ? "2px solid #1a73e8" : "2px solid #d2d4d8",
+                        boxSizing: "border-box",
+                      }}>
+                        <img src={user.photo_url} alt={name}
+                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                      </div>
+                    )}
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
-                        <span style={{ fontSize: "13px", fontWeight: 600, color: "#202124" }}>
-                          {name}
-                        </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                        <span style={{ fontSize: "13px", fontWeight: 600, color: "#202124" }}>{name}</span>
+                        {hasDirty && <span className="ua-dirty-dot" title="Unsaved changes" />}
+                      </div>
+                      <div style={{ marginTop: "3px" }}>
                         <span style={{
                           fontSize: "10px", fontWeight: 700, padding: "1px 7px",
                           borderRadius: "10px", background: badge.bg, color: badge.color,
                           textTransform: "uppercase", letterSpacing: "0.3px",
-                        }}>
-                          {role}
-                        </span>
-                        {hasDirty && <span className="ua-dirty-dot" title="Unsaved changes" />}
+                        }}>{role}</span>
                       </div>
-                      <div style={{ fontSize: "11px", color: "#5f6368", marginTop: "1px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {user.email || user.username}
-                      </div>
-                      {user.job_title && (
-                        <div style={{ fontSize: "10px", color: "#9aa0a6", textTransform: "uppercase", letterSpacing: "0.5px", marginTop: "1px" }}>
-                          {user.job_title}
-                        </div>
-                      )}
                     </div>
                   </div>
                 );
@@ -460,13 +491,16 @@ export default function RoleAccess() {
               display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                <div style={{
-                  width: "42px", height: "42px", borderRadius: "50%",
-                  background: "#1a73e8", display: "flex", alignItems: "center",
-                  justifyContent: "center", color: "#fff", fontSize: "16px", fontWeight: 700, flexShrink: 0,
-                }}>
-                  {getInitials(selectedUser.full_name || selectedUser.username)}
-                </div>
+                {selectedUser.photo_url && (
+                  <div style={{
+                    width: "42px", height: "42px", borderRadius: "50%",
+                    overflow: "hidden", flexShrink: 0,
+                    border: "2px solid #1a73e8", boxSizing: "border-box",
+                  }}>
+                    <img src={selectedUser.photo_url} alt={selectedUser.full_name || selectedUser.username}
+                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  </div>
+                )}
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <span style={{ fontSize: "16px", fontWeight: 700, color: "#202124" }}>
@@ -481,9 +515,7 @@ export default function RoleAccess() {
                       );
                     })()}
                     {isDirty && (
-                      <span style={{ fontSize: "11px", color: "#f59e0b", fontWeight: 500 }}>
-                        • Unsaved changes
-                      </span>
+                      <span style={{ fontSize: "11px", color: "#f59e0b", fontWeight: 500 }}>• Unsaved changes</span>
                     )}
                   </div>
                   <div style={{ fontSize: "13px", color: "#5f6368", marginTop: "2px" }}>

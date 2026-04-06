@@ -1,14 +1,14 @@
 // src/service/useracess.js
 // Called by user_acess.jsx → handleSave()
 // PATCH /api/users/<userId>/permissions/
-// Payload: { dashboard, col_reports, um_users, um_roles }
+// Payload: { dashboard, col_reports, vm_trips, vm_service, um_users, um_roles, mm_vehicle }
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 
 /**
  * Save menu permissions for a single user.
  * @param {number} userId  - login.User PK
- * @param {object} perms   - { dashboard, col_reports, um_users, um_roles }
+ * @param {object} perms   - { dashboard, col_reports, vm_trips, vm_service, um_users, um_roles, mm_vehicle }
  */
 export async function saveUserPermissions(userId, perms) {
   const token = localStorage.getItem("access_token");
@@ -16,8 +16,11 @@ export async function saveUserPermissions(userId, perms) {
   const payload = {
     dashboard:   !!perms.dashboard,
     col_reports: !!perms.col_reports,
+    vm_trips:    !!perms.vm_trips,
+    vm_service:  !!perms.vm_service,
     um_users:    !!perms.um_users,
     um_roles:    !!perms.um_roles,
+    mm_vehicle:  !!perms.mm_vehicle,
   };
 
   console.log(`Saving permissions for user ${userId}:`, payload);
@@ -58,18 +61,21 @@ export async function saveUserPermissions(userId, perms) {
 
 /**
  * Bulk save permissions for multiple users
- * @param {Array} permissionsList - Array of { user_id, dashboard, col_reports, um_users, um_roles }
+ * @param {Array} permissionsList - Array of { user_id, dashboard, col_reports, vm_trips, vm_service, um_users, um_roles, mm_vehicle }
  */
 export async function bulkSaveUserPermissions(permissionsList) {
   const token = localStorage.getItem("access_token");
 
   const payload = {
     permissions: permissionsList.map(item => ({
-      user_id: item.user_id,
-      dashboard: !!item.dashboard,
+      user_id:     item.user_id,
+      dashboard:   !!item.dashboard,
       col_reports: !!item.col_reports,
-      um_users: !!item.um_users,
-      um_roles: !!item.um_roles,
+      vm_trips:    !!item.vm_trips,
+      vm_service:  !!item.vm_service,
+      um_users:    !!item.um_users,
+      um_roles:    !!item.um_roles,
+      mm_vehicle:  !!item.mm_vehicle,
     }))
   };
 

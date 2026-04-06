@@ -108,6 +108,9 @@ const PaymentTable = () => {
   const [isAuthError, setIsAuthError]         = useState(false);
   const [searchTerm, setSearchTerm]           = useState('');
   const [filterType, setFilterType]           = useState('all');
+  const [filterStatus, setFilterStatus]       = useState('all');
+  const [dateFrom, setDateFrom]               = useState('');
+  const [dateTo, setDateTo]                   = useState('');
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [deletingId, setDeletingId]           = useState(null);
   const [updatingId, setUpdatingId]           = useState(null);
@@ -201,11 +204,11 @@ const PaymentTable = () => {
     }
   };
 
-  // ── Status cycle ───────────────────────────────────────────────
-  const STATUS_CYCLE = { Pending: 'Completed', Completed: 'Failed', Failed: 'Pending' };
+  // ── Status dropdown ────────────────────────────────────────────
+  const STATUS_OPTIONS = ['Pending', 'Completed', 'Failed'];
 
-  const handleStatusUpdate = async (payment) => {
-    const nextStatus = STATUS_CYCLE[payment.status] || 'Pending';
+  const handleStatusUpdate = async (payment, nextStatus) => {
+    if (nextStatus === payment.status) return;
     setUpdatingId(payment.id);
     try {
       const updated = await apiFetch(`${BASE_URL}/payments/${payment.id}/status/`, {
@@ -234,8 +237,12 @@ const PaymentTable = () => {
       payment.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payment.branch.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payment.paidFor.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === 'all' || payment.collectionType === filterType;
-    return matchesSearch && matchesType;
+    const matchesType   = filterType === 'all' || payment.collectionType === filterType;
+    const matchesStatus = filterStatus === 'all' || (payment.status || '').toLowerCase() === filterStatus.toLowerCase();
+    const payDate = payment.date ? new Date(payment.date) : null;
+    const matchesFrom = !dateFrom || (payDate && payDate >= new Date(dateFrom));
+    const matchesTo   = !dateTo   || (payDate && payDate <= new Date(dateTo + 'T23:59:59'));
+    return matchesSearch && matchesType && matchesStatus && matchesFrom && matchesTo;
   });
 
   // ── Formatters ─────────────────────────────────────────────────
@@ -320,13 +327,21 @@ const PaymentTable = () => {
           font-size: 13px; background: var(--surface); color: var(--text); cursor: pointer; }
         .pt-select:focus { outline: none; border-color: var(--gold); }
 
+        .pt-date { padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px;
+          font-size: 13px; background: var(--surface); color: var(--text); cursor: pointer; font-family: 'Nohemi', sans-serif; }
+        .pt-date:focus { outline: none; border-color: var(--gold); }
+
+        .pt-clear-btn { padding: 7px 12px; border: 1px solid var(--border); border-radius: 7px;
+          font-size: 12px; background: var(--surface); color: var(--muted); cursor: pointer; font-family: 'Nohemi', sans-serif; }
+        .pt-clear-btn:hover { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+
         .pt-card { background: var(--surface); border: 1px solid var(--border);
           border-radius: var(--r); overflow: hidden; margin-bottom: 18px; }
         .pt-scroll { overflow-x: auto; }
 
         .pt-table { width: 100%; border-collapse: collapse; min-width: 900px; table-layout: fixed; }
         .pt-table thead th { font-size: 14px; font-weight: 700; letter-spacing: 1.2px;
-          text-transform: uppercase; color:black; padding: 11px 14px; background:white;
+          text-transform:capitalize; color:black; padding: 11px 14px; background:white;
           border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .pt-table tbody tr { transition: background 0.15s; }
         .pt-table tbody tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
@@ -358,7 +373,7 @@ const PaymentTable = () => {
         .pt-stat { background: var(--surface); border: 1px solid var(--border);
           border-radius: var(--r); padding: 12px 22px; min-width: 130px; text-align: center; }
         .pt-stat .s-label { font-size: 10px; font-weight: 600; letter-spacing: 1.2px;
-          text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+          text-transform:capitalize; color: var(--muted); margin-bottom: 6px; }
         .pt-stat .s-value { font-size: 20px; font-weight: 700; color: var(--accent); line-height: 1; }
         .pt-stat .s-value.green { color: var(--green); }
         .pt-stat .s-value.amber { color: var(--amber); }
@@ -382,6 +397,14 @@ const PaymentTable = () => {
 
         .pill-status-btn { cursor: pointer; border: none; background: none; padding: 0; }
         .pill-status-btn:disabled { cursor: not-allowed; opacity: 0.6; }
+
+        .status-select { padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 600;
+          border: none; cursor: pointer; appearance: none; text-align: center; outline: none; }
+        .status-select:disabled { cursor: not-allowed; opacity: 0.6; }
+        .status-select.pill-green { background: #d1fae5; color: #065f46; }
+        .status-select.pill-amber { background: #fef3c7; color: #92400e; }
+        .status-select.pill-red   { background: #fee2e2; color: #991b1b; }
+        .status-select.pill-muted { background: #f1f5f9; color: #64748b; }
       `}</style>
 
       <div className="payment-table-container">
@@ -401,6 +424,30 @@ const PaymentTable = () => {
                 <option key={type} value={type}>{type === 'all' ? 'All Types' : type}</option>
               ))}
             </select>
+            <select className="pt-select" value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}>
+              <option value="all">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Completed">Completed</option>
+              <option value="Failed">Failed</option>
+            </select>
+            <input
+              className="pt-date" type="date"
+              title="From date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+            />
+            <input
+              className="pt-date" type="date"
+              title="To date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+            />
+            {(dateFrom || dateTo || filterStatus !== 'all') && (
+              <button className="pt-clear-btn" onClick={() => { setDateFrom(''); setDateTo(''); setFilterStatus('all'); }}>
+                Clear
+              </button>
+            )}
           </div>
           <button className="btn-p" onClick={() => setShowPaymentForm(true)}>
             + New Payment
@@ -433,16 +480,16 @@ const PaymentTable = () => {
                     <td style={{ textAlign: 'center' }}>{formatDate(payment.date)}</td>
 
                     <td style={{ textAlign: 'center' }}>
-                      <button
-                        className="pill-status-btn"
-                        onClick={() => handleStatusUpdate(payment)}
+                      <select
+                        className={`status-select ${getStatusClass(payment.status)}`}
+                        value={payment.status}
                         disabled={updatingId === payment.id}
-                        title="Click to change status"
+                        onChange={(e) => handleStatusUpdate(payment, e.target.value)}
                       >
-                        <span className={`pill ${getStatusClass(payment.status)}`}>
-                          {updatingId === payment.id ? '...' : payment.status}
-                        </span>
-                      </button>
+                        {STATUS_OPTIONS.map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
                     </td>
 
                     <td style={{ textAlign: 'center' }}>

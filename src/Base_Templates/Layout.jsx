@@ -3,6 +3,7 @@ import UserList from "../Components/user_list";
 import RoleAccess from "../Components/user_acess";
 import PaymentTable from "../Components/collection_list.jsx";
 import Dashboard from "../Base_Templates/Dashboard.jsx";
+import VehicleMaster from "../Components/Vehicle_Master_List.jsx";
 import floshLogo from "../assets/logo.png";
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
 import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
@@ -10,13 +11,20 @@ import LibraryAddOutlinedIcon from '@mui/icons-material/LibraryAddOutlined';
 import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 import GradingOutlinedIcon from '@mui/icons-material/GradingOutlined';
 import CategoryOutlinedIcon from '@mui/icons-material/CategoryOutlined';
-
+import StarsOutlinedIcon from '@mui/icons-material/StarsOutlined';
+import DirectionsCarOutlinedIcon from '@mui/icons-material/DirectionsCarOutlined';
+import LocalShippingOutlinedIcon from '@mui/icons-material/LocalShippingOutlined';
+import AirportShuttleOutlinedIcon from '@mui/icons-material/AirportShuttleOutlined';
+import EvStationOutlinedIcon from '@mui/icons-material/EvStationOutlined';
+import PlaylistAddCheckOutlinedIcon from '@mui/icons-material/PlaylistAddCheckOutlined';
+import DriveEtaOutlinedIcon from '@mui/icons-material/DriveEtaOutlined';
+import TravelList from "../Components/Travel_Trip.jsx";
 const NAV = [
-
-   {
+  {
     section: "Dashboard",
     icon: <DashboardOutlinedIcon style={{ width: 18, height: 18 }} />,
     id: "dashboard",
+    permKey: "dashboard",
     children: null
   },
   {
@@ -26,28 +34,63 @@ const NAV = [
     children: [
       {
         id: "col_reports",
+        permKey: "col_reports",
         label: "Reports",
         icon: <GradingOutlinedIcon style={{ width: 18, height: 18 }} />
       }
     ],
   },
-
- 
-
   {
+    section: "Vehicle Management",
+    icon: <AirportShuttleOutlinedIcon style={{ width: 18, height: 18 }} />,
+    id: "vehiclemgmt",
+    children: [
+      
+      {
+        id: "vm_trips",
+        permKey: "vm_trips",
+        label: "Trip ",
+        icon: <DriveEtaOutlinedIcon style={{ width: 18, height: 18 }} />
+      },
+     
+      {
+        id: "vm_service",
+        permKey: "vm_service",
+        label: "Challan",
+        icon: <PlaylistAddCheckOutlinedIcon style={{ width: 18, height: 18 }} />
+      },
+    ],
+  },
+
+ {
     section: "User Management",
     icon: <ManageAccountsIcon style={{ width: 18, height: 18 }} />,
     id: "usermgmt",
     children: [
       {
         id: "um_users",
+        permKey: "um_users",
         label: "All Users",
         icon: <LibraryAddOutlinedIcon style={{ width: 18, height: 18 }} />
       },
       {
         id: "um_roles",
+        permKey: "um_roles",
         label: "User Control",
         icon: <AdminPanelSettingsOutlinedIcon style={{ width: 18, height: 18 }} />
+      },
+    ],
+  },
+{
+    section: "Master",
+    icon: <StarsOutlinedIcon style={{ width: 18, height: 18 }} />,
+    id: "mastermenu",
+    children: [
+      {
+        id: "mm_vehicle",
+        permKey: "mm_vehicle",
+        label: "Vehicle Master",
+        icon: <DirectionsCarOutlinedIcon style={{ width: 18, height: 18 }} />
       },
     ],
   },
@@ -57,6 +100,11 @@ const PAGE_META = {
   dashboard:   { title: "My Dashboard",  tag: "Overview",        desc: "Your financial overview, recent activity and collection summary." },
   um_users:    { title: "All Users",      tag: "User Management", desc: "Browse, search and manage every registered user account." },
   um_roles:    { title: "Roles & Access", tag: "User Management", desc: "Define permissions and control what each role can do." },
+  mm_vehicle:  { title: "Vehicle",           tag: "Master Menu",         desc: "Manage vehicle records, types and configurations." },
+  vm_vehicle:  { title: "Vehicle Master",     tag: "Vehicle Management",  desc: "Manage vehicle records, types and configurations." },
+  vm_trips:    { title: "Trip Management",    tag: "Vehicle Management",  desc: "Track and manage all vehicle trips and assignments." },
+  vm_fuel:     { title: "Fuel Logs",          tag: "Vehicle Management",  desc: "Record and monitor fuel consumption across the fleet." },
+  vm_service:  { title: "Service & Maintenance", tag: "Vehicle Management", desc: "Schedule and track vehicle service and maintenance history." },
   col_reports: { title: "Payment Reports", tag: "",      desc: "" },
 };
 
@@ -115,7 +163,7 @@ const CollapseIcon = ({ isCollapsed }) => {
 
 export default function Layout({ children }) {
   const [active, setActive] = useState("dashboard");
-  const [open, setOpen] = useState({ usermgmt: false, collection: false });
+  const [open, setOpen] = useState({ usermgmt: false, collection: false, mastermenu: false, vehiclemgmt: false });
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const storedUser = localStorage.getItem("user");
@@ -123,6 +171,38 @@ export default function Layout({ children }) {
   const displayName = user?.full_name || user?.username || "User";
   const displayRole = user?.role ? user.role.charAt(0).toUpperCase() + user.role.slice(1) : "Agent";
   const initials = getInitials(displayName);
+
+  const readPermissions = () => {
+    try {
+      const raw = localStorage.getItem("menu_permissions");
+      if (!raw) return {};
+      const parsed = JSON.parse(raw);
+      return typeof parsed === "object" && parsed !== null ? parsed : {};
+    } catch {
+      return {};
+    }
+  };
+
+  const permissions = readPermissions();
+  const isAdmin = user?.role === "Admin" || user?.is_staff === true;
+
+  const filteredNav = NAV.map(section => {
+    if (!section.children) {
+      if (isAdmin) return section;
+      if (!section.permKey) return section;
+      if (permissions[section.permKey] === true) return section;
+      return null;
+    }
+
+    const allowedChildren = section.children.filter(item => {
+      if (isAdmin) return true;
+      if (!item.permKey) return true;
+      return permissions[item.permKey] === true;
+    });
+    if (allowedChildren.length === 0) return null;
+
+    return { ...section, children: allowedChildren };
+  }).filter(Boolean);
 
   const handleLogout = async () => {
     const refresh = localStorage.getItem("refresh_token");
@@ -151,6 +231,11 @@ export default function Layout({ children }) {
   const isCol = active.startsWith("col_");
   const isUsersPage = active === "um_users";
   const isRolesPage = active === "um_roles";
+  const isVehiclePage    = active === "mm_vehicle";
+  const isVmVehiclePage  = active === "vm_vehicle";
+  const isVmTripsPage    = active === "vm_trips";
+  const isVmFuelPage     = active === "vm_fuel";
+  const isVmServicePage  = active === "vm_service";
 
   const sidebarWidth = isCollapsed ? "72px" : "256px";
 
@@ -919,7 +1004,7 @@ export default function Layout({ children }) {
           )}
 
           <nav className="sb-nav">
-            {NAV.map((item, idx) => {
+            {filteredNav.map((item, idx) => {
               const isExpanded = open[item.id] || item.children?.some(c => c.id === active);
               return (
                 <div key={item.id}>
@@ -973,6 +1058,50 @@ export default function Layout({ children }) {
 
         {/* ── MAIN ── */}
         <div className="main">
+
+          {isVehiclePage && (
+            <div className="page-full">
+              <VehicleMaster />
+            </div>
+          )}
+
+          {isVmVehiclePage && (
+            <div className="page-full">
+              <VehicleMaster />
+            </div>
+          )}
+
+          {isVmTripsPage && (
+            <div className="page-full">
+              <TravelList />
+            </div>
+          )}
+
+          {isVmFuelPage && (
+            <div className="page">
+              <div className="page-head">
+                <div className="page-tag">Vehicle Management</div>
+                <h1 className="page-title">Fuel Logs</h1>
+                <p className="page-desc">Record and monitor fuel consumption across the fleet.</p>
+              </div>
+              <div style={{ textAlign: "center", padding: "60px 20px", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, color: "#5f6368", fontSize: 14 }}>
+                ⛽ Fuel Logs module coming soon.
+              </div>
+            </div>
+          )}
+
+          {isVmServicePage && (
+            <div className="page">
+              <div className="page-head">
+                <div className="page-tag">Vehicle Management</div>
+                <h1 className="page-title">Service & Maintenance</h1>
+                <p className="page-desc">Schedule and track vehicle service and maintenance history.</p>
+              </div>
+              <div style={{ textAlign: "center", padding: "60px 20px", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, color: "#5f6368", fontSize: 14 }}>
+                🔧 Service & Maintenance module coming soon.
+              </div>
+            </div>
+          )}
 
           {isUsersPage && (
             <div className="page-full">

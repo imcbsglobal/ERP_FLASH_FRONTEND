@@ -6,36 +6,24 @@ import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined
 // ── Constants ─────────────────────────────────────────────────────────────────
 const ROLES    = ["Admin", "Manager", "Operator", "Viewer", "Support", "Auditor"];
 const STATUSES = ["Active", "Inactive"];
-const EMPTY_FORM = { username: "", address: "", phone: "", branch: "", password: "", role: "", status: "" };
-
-const calcStrength = (pwd) => {
-  let s = 0;
-  if (pwd.length >= 8)          s++;
-  if (/[A-Z]/.test(pwd))        s++;
-  if (/[0-9]/.test(pwd))        s++;
-  if (/[^a-zA-Z0-9]/.test(pwd)) s++;
-  return s;
+const EMPTY_FORM = {
+  username: "", address: "", phone: "", branch: "",
+  password: "", role: "", status: "",
+  photo: null,       // File | null
+  photoPreview: "",  // object-URL string for <img> preview
 };
 
-const strengthMeta = (s) => {
-  if (s === 0) return { label: "",       color: "" };
-  if (s === 1) return { label: "Weak",   color: "var(--red)" };
-  if (s === 2) return { label: "Fair",   color: "#f59e0b" };
-  if (s === 3) return { label: "Good",   color: "#3b82f6" };
-  return              { label: "Strong", color: "var(--green)" };
-};
-
-// ── Column definitions in the specified order ─────────────────────────────────
+// ── Column definitions ────────────────────────────────────────────────────────
 const COLS = [
   { key: "sl",       label: "Sl.No",    width: "5%",  align: "center" },
-  { key: "username", label: "Username", width: "12%", align: "left"   },
-  { key: "password", label: "Password", width: "12%", align: "left"   },
-  { key: "address",  label: "Address",  width: "18%", align: "left"   },
+  { key: "username", label: "Username", width: "14%", align: "left"   },
+  { key: "password", label: "Password", width: "11%", align: "left"   },
+  { key: "address",  label: "Address",  width: "17%", align: "left"   },
   { key: "phone",    label: "Phone",    width: "11%", align: "left"   },
-  { key: "branch",   label: "Branch",   width: "12%", align: "left"   },
-  { key: "role",     label: "Role",     width: "9%",  align: "left"   },
+  { key: "branch",   label: "Branch",   width: "11%", align: "left"   },
+  { key: "role",     label: "Role",     width: "8%",  align: "left"   },
   { key: "status",   label: "Status",   width: "8%",  align: "center" },
-  { key: "action",   label: "Action",   width: "8%",  align: "center" },
+  { key: "action",   label: "Action",   width: "10%", align: "center" },
 ];
 
 const thStyle = (col) => ({
@@ -44,7 +32,7 @@ const thStyle = (col) => ({
   fontSize: "14px",
   fontWeight: 600,
   color: "black",
-  textTransform: "uppercase",
+  textTransform: "capitalize",
   letterSpacing: "0.8px",
   borderBottom: "1px solid var(--border)",
   background: "white",
@@ -59,76 +47,229 @@ const tdStyle = (col, extra = {}) => ({
   ...extra,
 });
 
+// ── Photo avatar (table cell) ─────────────────────────────────────────────────
+function UserAvatar({ user }) {
+  const url = user.photo_url || null;
+  const [imgError, setImgError] = useState(false);
+  const [loaded,   setLoaded]   = useState(false);
+  const initials = (user.username || "U").slice(0, 2).toUpperCase();
+
+  // Reset error + loaded flags whenever the URL changes
+  useEffect(() => {
+    setImgError(false);
+    setLoaded(false);
+  }, [url]);
+
+  const avatarBase = {
+    minWidth: "36px",
+    width:    "36px",
+    height:   "36px",
+    borderRadius: "50%",
+    flexShrink: 0,
+  };
+
+  if (url && !imgError) {
+    return (
+      <div style={{ ...avatarBase, position: "relative", overflow: "hidden", border: "2px solid var(--accent)", boxSizing: "border-box" }}>
+        {/* Shimmer shown while loading */}
+        {!loaded && (
+          <div style={{
+            position: "absolute", inset: 0,
+            background: "linear-gradient(90deg, var(--surface2) 25%, var(--border) 50%, var(--surface2) 75%)",
+            backgroundSize: "200% 100%",
+            animation: "shimmer 1.2s infinite",
+          }} />
+        )}
+        <img
+          src={url}
+          alt={user.username}
+          onLoad={() => setLoaded(true)}
+          onError={() => setImgError(true)}
+          style={{
+            width: "100%", height: "100%",
+            objectFit: "cover",
+            display: "block",
+            opacity: loaded ? 1 : 0,
+            transition: "opacity 0.2s ease",
+          }}
+        />
+      </div>
+    );
+  }
+
+  // Initials fallback
+  return (
+    <div style={{
+      ...avatarBase,
+      background: "var(--accent)",
+      color: "#fff",
+      display: "grid",
+      placeItems: "center",
+      fontSize: "13px",
+      fontWeight: 700,
+      border: "2px solid var(--accent)",
+      boxSizing: "border-box",
+    }}>
+      {initials}
+    </div>
+  );
+}
+
+// ── Photo upload widget ───────────────────────────────────────────────────────
+function PhotoUpload({ preview, existingUrl, onChange, onClear }) {
+  const fileRef = useRef(null);
+
+  const displaySrc = preview || existingUrl || null;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
+      {/* Avatar preview */}
+      <div
+        onClick={() => fileRef.current?.click()}
+        style={{
+          width: "72px",
+          height: "72px",
+          borderRadius: "50%",
+          border: "2px dashed var(--border)",
+          overflow: "hidden",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--surface2)",
+          flexShrink: 0,
+          transition: "border-color 0.2s",
+        }}
+        onMouseEnter={e => e.currentTarget.style.borderColor = "var(--accent)"}
+        onMouseLeave={e => e.currentTarget.style.borderColor = "var(--border)"}
+        title="Click to upload photo"
+      >
+        {displaySrc ? (
+          <img
+            src={displaySrc}
+            alt="preview"
+            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          />
+        ) : (
+          <span style={{ fontSize: "26px", lineHeight: 1 }}>📷</span>
+        )}
+      </div>
+
+      {/* Controls */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+        <button
+          type="button"
+          onClick={() => fileRef.current?.click()}
+          style={{
+            padding: "6px 14px",
+            fontSize: "12px",
+            fontWeight: 600,
+            borderRadius: "6px",
+            border: "1px solid var(--accent)",
+            color: "var(--accent)",
+            background: "transparent",
+            cursor: "pointer",
+          }}
+        >
+          {displaySrc ? "Change Photo" : "Upload Photo"}
+        </button>
+        {displaySrc && (
+          <button
+            type="button"
+            onClick={onClear}
+            style={{
+              padding: "5px 14px",
+              fontSize: "11px",
+              borderRadius: "6px",
+              border: "1px solid var(--border)",
+              color: "var(--muted)",
+              background: "transparent",
+              cursor: "pointer",
+            }}
+          >
+            Remove
+          </button>
+        )}
+        
+      </div>
+
+      {/* Hidden file input */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        style={{ display: "none" }}
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (!file) return;
+          if (file.size > 5 * 1024 * 1024) {
+            alert("Photo must be under 5 MB.");
+            return;
+          }
+          onChange(file);
+          e.target.value = "";   // reset so same file can be re-selected
+        }}
+      />
+    </div>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function RegisteredUsers() {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers]     = useState([]);
   const [branches, setBranches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
 
-  const [open, setOpen] = useState(false);
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [open, setOpen]   = useState(false);
+  const [form, setForm]   = useState(EMPTY_FORM);
 
   // ── Edit state ──────────────────────────────────────────────────────────────
-  const [editOpen, setEditOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
-  const [editForm, setEditForm] = useState(EMPTY_FORM);
-  const [editErrors, setEditErrors] = useState({});
+  const [editOpen, setEditOpen]         = useState(false);
+  const [editingUser, setEditingUser]   = useState(null);
+  const [editForm, setEditForm]         = useState(EMPTY_FORM);
+  const [editErrors, setEditErrors]     = useState({});
   const [editSubmitting, setEditSubmitting] = useState(false);
-  const editSubmitInFlight = useRef(false); // synchronous guard — prevents double-click races
-  const [editSuccess, setEditSuccess] = useState(false);
-  const [showEditPwd, setShowEditPwd] = useState(false);
-  const [showPwd, setShowPwd] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [success, setSuccess] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const editSubmitInFlight = useRef(false);
+  const [editSuccess, setEditSuccess]   = useState(false);
+  const [showEditPwd, setShowEditPwd]   = useState(false);
+  const [showPwd, setShowPwd]           = useState(false);
+  const [errors, setErrors]             = useState({});
+  const [success, setSuccess]           = useState(false);
+  const [submitting, setSubmitting]     = useState(false);
 
-  // Plain-text passwords persisted in localStorage so the eye toggle
-  // works after page refresh for any user created via this UI.
   const [plainPwds, setPlainPwds] = useState(() => {
     try { return JSON.parse(localStorage.getItem("user_plain_pwds") || "{}"); }
     catch { return {}; }
   });
-  
-  // Initialize revealed passwords from localStorage
+
   const [revealedPwds, setRevealedPwds] = useState(() => {
-    try { 
-      const revealed = localStorage.getItem("user_revealed_pwds");
-      return new Set(revealed ? JSON.parse(revealed) : []);
-    } catch { 
-      return new Set(); 
-    }
+    try {
+      const r = localStorage.getItem("user_revealed_pwds");
+      return new Set(r ? JSON.parse(r) : []);
+    } catch { return new Set(); }
   });
 
-  // Keep localStorage in sync whenever plainPwds changes
   useEffect(() => {
     try { localStorage.setItem("user_plain_pwds", JSON.stringify(plainPwds)); }
-    catch { /* quota exceeded — ignore */ }
+    catch {}
   }, [plainPwds]);
 
-  // Keep localStorage in sync whenever revealedPwds changes
   useEffect(() => {
-    try { 
-      localStorage.setItem("user_revealed_pwds", JSON.stringify([...revealedPwds])); 
-    } catch { 
-      /* ignore */ 
-    }
+    try { localStorage.setItem("user_revealed_pwds", JSON.stringify([...revealedPwds])); }
+    catch {}
   }, [revealedPwds]);
 
-  const [newBranchMode, setNewBranchMode] = useState(false);
-  const [newBranchName, setNewBranchName] = useState("");
+  const [newBranchMode, setNewBranchMode]   = useState(false);
+  const [newBranchName, setNewBranchName]   = useState("");
   const [newBranchError, setNewBranchError] = useState("");
   const [creatingBranch, setCreatingBranch] = useState(false);
 
-  // ── Delete confirmation state ────────────────────────────────────────────────
-  const [deleteConfirm, setDeleteConfirm] = useState(null); // { id, username } | null
-  const [deleting, setDeleting] = useState(false);
-  const deleteInFlight = useRef(false); // synchronous guard — prevents double-click / StrictMode double-invoke
+  const [deleteConfirm, setDeleteConfirm] = useState(null);
+  const [deleting, setDeleting]           = useState(false);
+  const deleteInFlight = useRef(false);
 
-  const strength = calcStrength(form.password);
-  const { label: strengthLabel, color: strengthColor } = strengthMeta(strength);
-
-  // ── Fetch users from backend ────────────────────────────────────────────────
+  // ── Fetch ───────────────────────────────────────────────────────────────────
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setApiError("");
@@ -143,89 +284,97 @@ export default function RegisteredUsers() {
     }
   }, []);
 
-  // ── Fetch branches for dropdown ─────────────────────────────────────────────
   const fetchBranches = useCallback(async () => {
     try {
       const data = await getBranches();
-      let branchList = [];
-      if (Array.isArray(data)) {
-        branchList = data;
-      } else if (data.results && Array.isArray(data.results)) {
-        branchList = data.results;
-      } else if (data.data && Array.isArray(data.data)) {
-        branchList = data.data;
-      }
-      setBranches(branchList);
+      let list = [];
+      if (Array.isArray(data))                       list = data;
+      else if (data.results && Array.isArray(data.results)) list = data.results;
+      else if (data.data   && Array.isArray(data.data))     list = data.data;
+      setBranches(list);
     } catch (err) {
       console.error("Failed to fetch branches:", err);
       setApiError("Failed to load branches. Please refresh the page.");
     }
   }, []);
 
-  useEffect(() => {
-    fetchUsers();
-    fetchBranches();
-  }, [fetchUsers, fetchBranches]);
+  useEffect(() => { fetchUsers(); fetchBranches(); }, [fetchUsers, fetchBranches]);
 
-  // ── Form handlers ───────────────────────────────────────────────────────────
+  // ── Helpers ─────────────────────────────────────────────────────────────────
   const handleInput = (e) => {
     const { name, value } = e.target;
     setForm(f => ({ ...f, [name]: value }));
-    if (errors[name]) setErrors(err => ({ ...err, [name]: "" }));
+    if (errors[name]) setErrors(er => ({ ...er, [name]: "" }));
   };
 
   const handleSelect = (name) => (value) => {
     setForm(f => ({ ...f, [name]: value }));
-    if (errors[name]) setErrors(err => ({ ...err, [name]: "" }));
+    if (errors[name]) setErrors(er => ({ ...er, [name]: "" }));
   };
 
   const validate = () => {
     const e = {};
     if (!form.username.trim()) e.username = "Username is required";
-    if (!form.address.trim()) e.address = "Address is required";
-    if (!form.phone.trim()) e.phone = "Phone number is required";
+    if (!form.address.trim())  e.address  = "Address is required";
+    if (!form.phone.trim())    e.phone    = "Phone number is required";
     else if (!/^\+?[\d\s\-()]{7,15}$/.test(form.phone)) e.phone = "Invalid phone number";
-    if (!form.branch) e.branch = "Please select a branch";
-    if (!form.password) e.password = "Password is required";
+    if (!form.branch)          e.branch   = "Please select a branch";
+    if (!form.password)        e.password = "Password is required";
     if (form.password && form.password.length < 8) e.password = "Password must be at least 8 characters";
-    if (!form.role) e.role = "Please select a role";
-    if (!form.status) e.status = "Please select a status";
+    if (!form.role)            e.role     = "Please select a role";
+    if (!form.status)          e.status   = "Please select a status";
     return e;
   };
 
-  // ── Helper function to get branch name from branch ID ───────────────────────
   const getBranchName = (branchId) => {
     if (!branchId) return "—";
-    const branch = branches.find(b => b.id === parseInt(branchId) || b.id === branchId);
-    return branch ? branch.name : branchId;
+    const b = branches.find(b => b.id === parseInt(branchId) || b.id === branchId);
+    return b ? b.name : branchId;
   };
 
-  // ── Submit: POST to backend ─────────────────────────────────────────────────
+  // ── Photo helpers ───────────────────────────────────────────────────────────
+  const handlePhotoChange = (file) => {
+    const preview = URL.createObjectURL(file);
+    setForm(f => ({ ...f, photo: file, photoPreview: preview }));
+  };
+
+  const handlePhotoClear = () => {
+    if (form.photoPreview) URL.revokeObjectURL(form.photoPreview);
+    setForm(f => ({ ...f, photo: null, photoPreview: "" }));
+  };
+
+  const handleEditPhotoChange = (file) => {
+    const preview = URL.createObjectURL(file);
+    setEditForm(f => ({ ...f, photo: file, photoPreview: preview }));
+  };
+
+  const handleEditPhotoClear = () => {
+    if (editForm.photoPreview) URL.revokeObjectURL(editForm.photoPreview);
+    setEditForm(f => ({ ...f, photo: null, photoPreview: "" }));
+  };
+
+  // ── Submit: POST ────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
     const validationErrors = validate();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
+    if (Object.keys(validationErrors).length > 0) { setErrors(validationErrors); return; }
 
     setSubmitting(true);
     setApiError("");
 
     try {
-      // Payload matches UserWriteSerializer exactly
       const userData = {
         username:  form.username.trim(),
         address:   form.address.trim(),
         phone:     form.phone.trim(),
         password:  form.password,
         branch_id: parseInt(form.branch, 10),
-        role:      form.role,      // title-cased: "Admin", "Manager", …
-        status:    form.status,    // "Active" | "Inactive"
+        role:      form.role,
+        status:    form.status,
+        ...(form.photo ? { photo: form.photo } : {}),
       };
 
       const response = await createUser(userData);
 
-      // Keep the plain-text password so the table can show/hide it
       if (response?.id) {
         setPlainPwds(prev => ({ ...prev, [String(response.id)]: form.password }));
       }
@@ -236,15 +385,14 @@ export default function RegisteredUsers() {
       setTimeout(() => {
         setSuccess(false);
         setOpen(false);
+        if (form.photoPreview) URL.revokeObjectURL(form.photoPreview);
         setForm(EMPTY_FORM);
         setShowPwd(false);
         setErrors({});
       }, 1500);
     } catch (err) {
-      // err is the parsed JSON error body (thrown by handleResponse in user.js)
       const fieldErrors = {};
       const knownFields = ["username", "address", "phone", "password", "branch_id", "role", "status"];
-
       knownFields.forEach(field => {
         if (err[field]) {
           fieldErrors[field === "branch_id" ? "branch" : field] =
@@ -267,10 +415,8 @@ export default function RegisteredUsers() {
     }
   };
 
-  // ── Delete: DELETE to backend ───────────────────────────────────────────────
-  const handleDelete = (user) => {
-    setDeleteConfirm({ id: user.id, username: user.username });
-  };
+  // ── Delete ──────────────────────────────────────────────────────────────────
+  const handleDelete = (user) => setDeleteConfirm({ id: user.id, username: user.username });
 
   const confirmDelete = async () => {
     if (!deleteConfirm || deleteInFlight.current) return;
@@ -280,40 +426,28 @@ export default function RegisteredUsers() {
     try {
       await deleteUser(deleteConfirm.id);
     } catch (err) {
-      // 404 = already deleted — treat as success, don't surface an error
       if (err?._status !== 404) {
         console.error("Delete user error:", err);
-        const msg = err?.detail || "Failed to delete user. Please try again.";
-        setApiError(msg);
+        setApiError(err?.detail || "Failed to delete user. Please try again.");
         setDeleteConfirm(null);
         setDeleting(false);
         deleteInFlight.current = false;
         return;
       }
     }
-    // Remove from local state whether the API returned 200/204 or 404
     const deletedId = deleteConfirm.id;
     setUsers(prev => prev.filter(u => u.id !== deletedId));
-    setPlainPwds(prev => {
-      const next = { ...prev };
-      delete next[String(deletedId)];
-      return next;
-    });
-    // Also clean up revealedPwds so the eye-toggle state doesn't leak
-    setRevealedPwds(prev => {
-      const next = new Set(prev);
-      next.delete(deletedId);
-      return next;
-    });
+    setPlainPwds(prev => { const n = { ...prev }; delete n[String(deletedId)]; return n; });
+    setRevealedPwds(prev => { const n = new Set(prev); n.delete(deletedId); return n; });
     setDeleteConfirm(null);
     setDeleting(false);
     deleteInFlight.current = false;
-    // Re-sync from DB to confirm permanent deletion
     fetchUsers();
   };
 
   const handleClose = () => {
     setOpen(false);
+    if (form.photoPreview) URL.revokeObjectURL(form.photoPreview);
     setForm(EMPTY_FORM);
     setShowPwd(false);
     setErrors({});
@@ -324,20 +458,20 @@ export default function RegisteredUsers() {
     setNewBranchError("");
   };
 
-  // ── Open edit modal ────────────────────────────────────────────────────────
+  // ── Edit ────────────────────────────────────────────────────────────────────
   const handleOpenEdit = (user) => {
     setEditingUser(user);
-    // UserReadSerializer returns both `branch` (FK int) and `branch_id` (same value).
-    // Prefer branch_id; fall back to branch so both shapes work.
     const branchVal = user.branch_id ?? user.branch ?? null;
     setEditForm({
-      username:  user.username  || '',
-      address:   user.address   || '',
-      phone:     user.phone     || '',
-      branch:    branchVal != null ? String(branchVal) : '',
-      password:  '',            // leave blank — only update if filled
-      role:      user.role      || '',
-      status:    user.status    || '',
+      username:     user.username  || "",
+      address:      user.address   || "",
+      phone:        user.phone     || "",
+      branch:       branchVal != null ? String(branchVal) : "",
+      password:     "",
+      role:         user.role      || "",
+      status:       user.status    || "",
+      photo:        null,
+      photoPreview: "",
     });
     setEditErrors({});
     setEditSuccess(false);
@@ -348,6 +482,7 @@ export default function RegisteredUsers() {
   const handleCloseEdit = () => {
     setEditOpen(false);
     setEditingUser(null);
+    if (editForm.photoPreview) URL.revokeObjectURL(editForm.photoPreview);
     setEditForm(EMPTY_FORM);
     setEditErrors({});
     setEditSuccess(false);
@@ -357,21 +492,18 @@ export default function RegisteredUsers() {
 
   const validateEdit = () => {
     const e = {};
-    if (!editForm.username.trim()) e.username = 'Username is required';
-    if (!editForm.address.trim())  e.address  = 'Address is required';
-    if (!editForm.phone.trim())    e.phone    = 'Phone number is required';
-    else if (!/^\+?[\d\s\-()]{7,15}$/.test(editForm.phone)) e.phone = 'Invalid phone number';
-    if (!editForm.branch)  e.branch = 'Please select a branch';
-    if (!editForm.role)    e.role   = 'Please select a role';
-    if (!editForm.status)  e.status = 'Please select a status';
-    if (editForm.password && editForm.password.length < 8) e.password = 'Password must be at least 8 characters';
+    if (!editForm.username.trim()) e.username = "Username is required";
+    if (!editForm.address.trim())  e.address  = "Address is required";
+    if (!editForm.phone.trim())    e.phone    = "Phone number is required";
+    else if (!/^\+?[\d\s\-()]{7,15}$/.test(editForm.phone)) e.phone = "Invalid phone number";
+    if (!editForm.branch)  e.branch = "Please select a branch";
+    if (!editForm.role)    e.role   = "Please select a role";
+    if (!editForm.status)  e.status = "Please select a status";
+    if (editForm.password && editForm.password.length < 8) e.password = "Password must be at least 8 characters";
     return e;
   };
 
-  // ── Submit edit: PATCH to backend ───────────────────────────────────────────
   const handleEditSubmit = async () => {
-    // Ref guard fires synchronously — blocks the second click before React can
-    // re-render and disable the button via the editSubmitting state update.
     if (editSubmitInFlight.current) return;
     editSubmitInFlight.current = true;
 
@@ -383,7 +515,7 @@ export default function RegisteredUsers() {
     }
 
     setEditSubmitting(true);
-    setApiError('');
+    setApiError("");
 
     try {
       const payload = {
@@ -393,36 +525,31 @@ export default function RegisteredUsers() {
         branch_id: parseInt(editForm.branch, 10),
         role:      editForm.role,
         status:    editForm.status,
+        ...(editForm.password ? { password: editForm.password } : {}),
+        ...(editForm.photo    ? { photo:    editForm.photo    } : {}),
       };
-      if (editForm.password) payload.password = editForm.password;
 
       const updated = await patchUser(editingUser.id, payload);
 
-      // If password was changed, persist the plain-text copy
       if (editForm.password) {
         setPlainPwds(prev => ({ ...prev, [String(editingUser.id)]: editForm.password }));
       }
 
-      // Merge updated fields into the list row
       setUsers(prev => prev.map(u => u.id === editingUser.id ? { ...u, ...updated } : u));
-
-      // Re-fetch to pull fresh branch_name and any server-side changes
       await fetchUsers();
 
       setEditSuccess(true);
       setTimeout(() => { handleCloseEdit(); }, 1200);
     } catch (err) {
-      console.error('Edit user error — status:', err?._status, '| body:', err);
+      console.error("Edit user error:", err);
 
-      // 404 means the user was deleted in another session — close and resync
       if (err?._status === 404) {
         handleCloseEdit();
-        setApiError('That user no longer exists and has been removed from the list.');
+        setApiError("That user no longer exists and has been removed from the list.");
         await fetchUsers();
         return;
       }
 
-      // Mirror the same field-error handling as handleSubmit
       const fieldErrors = {};
       const knownFields = ["username", "address", "phone", "password", "branch_id", "role", "status"];
       knownFields.forEach(field => {
@@ -440,7 +567,7 @@ export default function RegisteredUsers() {
       } else if (err.non_field_errors) {
         setApiError(Array.isArray(err.non_field_errors) ? err.non_field_errors[0] : err.non_field_errors);
       } else {
-        setApiError('Failed to update user. Please try again.');
+        setApiError("Failed to update user. Please try again.");
       }
     } finally {
       editSubmitInFlight.current = false;
@@ -462,8 +589,7 @@ export default function RegisteredUsers() {
       setNewBranchName("");
       if (errors.branch) setErrors(e => ({ ...e, branch: "" }));
     } catch (err) {
-      const msg = err?.name?.[0] || err?.detail || "Failed to create branch.";
-      setNewBranchError(msg);
+      setNewBranchError(err?.name?.[0] || err?.detail || "Failed to create branch.");
     } finally {
       setCreatingBranch(false);
     }
@@ -482,76 +608,148 @@ export default function RegisteredUsers() {
     boxSizing: "border-box",
   });
 
-  // ── Get password to display (only for users created this session) ───────────
-  const getDisplayPassword = (user) => plainPwds[String(user.id)] || null;
-
-  // ── Toggle password visibility ─────────────────────────────────────────────
+  const getDisplayPassword   = (user) => plainPwds[String(user.id)] || null;
   const togglePasswordVisibility = (userId) => {
     setRevealedPwds(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(userId)) {
-        newSet.delete(userId);
-      } else {
-        newSet.add(userId);
-      }
-      return newSet;
+      const n = new Set(prev);
+      n.has(userId) ? n.delete(userId) : n.add(userId);
+      return n;
     });
   };
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", background: "var(--surface)" }}>
+      <style>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes shimmer {
+          0%   { background-position: 200% 0; }
+          100% { background-position: -200% 0; }
+        }
+        
+        /* Mobile Responsive Styles */
+        @media (max-width: 768px) {
+          .user-table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+          }
+          .user-table {
+            min-width: 768px;
+          }
+          .header-title {
+            font-size: 18px !important;
+          }
+          .add-user-btn {
+            padding: 6px 14px !important;
+            font-size: 13px !important;
+          }
+          .modal-content {
+            width: 95vw !important;
+            max-height: 90vh !important;
+          }
+          .modal-padding {
+            padding: 16px 20px !important;
+          }
+          .form-group {
+            margin-bottom: 14px !important;
+          }
+          .form-label {
+            font-size: 13px !important;
+          }
+          .form-input, .form-select {
+            padding: 8px 10px !important;
+            font-size: 13px !important;
+          }
+          .branch-inline {
+            flex-wrap: wrap !important;
+          }
+          .branch-input {
+            min-width: 120px !important;
+          }
+          .modal-actions {
+            padding: 12px 20px !important;
+          }
+          .delete-modal {
+            width: 85vw !important;
+          }
+        }
+        
+        @media (max-width: 480px) {
+          .header-container {
+            padding: 12px 16px !important;
+          }
+          .header-title {
+            font-size: 16px !important;
+          }
+          .add-user-btn {
+            padding: 5px 12px !important;
+            font-size: 12px !important;
+          }
+          .api-error-banner {
+            padding: 8px 16px !important;
+            font-size: 12px !important;
+          }
+          .modal-padding {
+            padding: 14px 16px !important;
+          }
+          .modal-header {
+            padding: 16px 20px !important;
+          }
+          .modal-title {
+            font-size: 18px !important;
+          }
+          .modal-subtitle {
+            font-size: 12px !important;
+          }
+          .form-input, .form-select {
+            padding: 7px 9px !important;
+            font-size: 12px !important;
+          }
+          .photo-upload {
+            width: 64px !important;
+            height: 64px !important;
+          }
+          .btn-cancel, .btn-submit {
+            padding: 6px 14px !important;
+            font-size: 12px !important;
+          }
+          .success-toast {
+            top: -38px !important;
+            padding: 6px 12px !important;
+            font-size: 11px !important;
+          }
+        }
+      `}</style>
+
       {/* Header */}
-      <div style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "16px 24px",
-        borderBottom: "1px solid var(--border)",
-        background: "var(--surface)",
-        flexShrink: 0,
-      }}>
-        <div>
-          <div style={{ fontSize: "20px", fontWeight: 700, color: "black" }}>Registered Users</div>
-          
-        </div>
-        <button 
-          className="btn btn-p" 
-          onClick={() => setOpen(true)} 
-          style={{ padding: "8px 20px", cursor: "pointer" }}
-        >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", borderBottom: "1px solid var(--border)", background: "var(--surface)", flexShrink: 0 }} className="header-container">
+        <div style={{ fontSize: "20px", fontWeight: 700, color: "black" }} className="header-title">Registered Users</div>
+        <button className="btn btn-p add-user-btn" onClick={() => setOpen(true)} style={{ padding: "8px 20px", cursor: "pointer" }}>
           + Add User
         </button>
       </div>
 
       {/* API Error Banner */}
       {apiError && (
-        <div style={{ background: "var(--red-lt)", color: "var(--red)", padding: "10px 24px", fontSize: "13px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ background: "var(--red-lt)", color: "var(--red)", padding: "10px 24px", fontSize: "13px", display: "flex", justifyContent: "space-between", alignItems: "center" }} className="api-error-banner">
           <span>{apiError}</span>
           <button onClick={() => setApiError("")} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--red)", fontWeight: 700, fontSize: "18px" }}>×</button>
         </div>
       )}
 
-      {/* Table Area */}
-      <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", minHeight: 0 }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
-          <colgroup>
-            {COLS.map(col => <col key={col.key} style={{ width: col.width }} />)}
-          </colgroup>
+      {/* Table */}
+      <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", minHeight: 0 }} className="user-table-container">
+        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }} className="user-table">
+          <colgroup>{COLS.map(col => <col key={col.key} style={{ width: col.width }} />)}</colgroup>
           <thead style={{ position: "sticky", top: 0, zIndex: 5, background: "#1a4f1a" }}>
-            <tr>
-              {COLS.map(col => (
-                <th key={col.key} style={thStyle(col)}>{col.label}</th>
-              ))}
-            </tr>
+            <tr>{COLS.map(col => <th key={col.key} style={thStyle(col)}>{col.label}</th>)}</tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr>
-                <td colSpan={COLS.length} style={{ textAlign: "center", padding: "80px 20px", color: "var(--muted)" }}>
-                  <div style={{ fontSize: "14px" }}>Loading users…</div>
-                </td>
-              </tr>
+              <tr><td colSpan={COLS.length} style={{ textAlign: "center", padding: "80px 20px", color: "var(--muted)" }}>Loading users…</td></tr>
             ) : users.length === 0 ? (
               <tr>
                 <td colSpan={COLS.length} style={{ textAlign: "center", padding: "80px 20px", color: "var(--muted)" }}>
@@ -565,56 +763,30 @@ export default function RegisteredUsers() {
               users.map((u, i) => {
                 const displayPassword = getDisplayPassword(u);
                 return (
-                  <tr
-                    key={u.id}
-                    style={{ borderBottom: "1px solid var(--border)", transition: "background 0.15s" }}
+                  <tr key={u.id} style={{ borderBottom: "1px solid var(--border)", transition: "background 0.15s" }}
                     onMouseEnter={e => e.currentTarget.style.background = "var(--surface2)"}
                     onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                   >
                     {/* Sl.No */}
                     <td style={tdStyle(COLS[0], { color: "var(--muted)" })}>{i + 1}</td>
-                    
-                    {/* Username */}
+
+                    {/* Username — now shows photo avatar */}
                     <td style={tdStyle(COLS[1])}>
                       <div style={{ display: "flex", alignItems: "center", gap: "9px", overflow: "hidden" }}>
-                        <div style={{
-                          minWidth: "30px",
-                          width: "30px",
-                          height: "30px",
-                          borderRadius: "8px",
-                          background: "var(--accent)",
-                          color: "#fff",
-                          display: "grid",
-                          placeItems: "center",
-                          fontSize: "15px",
-                          fontWeight: 700,
-                          flexShrink: 0,
-                        }}>
-                          {u.username?.slice(0, 2).toUpperCase() || "U"}
-                        </div>
+                        <UserAvatar user={u} />
                         <span style={{ fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {u.username}
                         </span>
                       </div>
                     </td>
-                    
+
                     {/* Password */}
                     <td style={tdStyle(COLS[2])}>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{
-                          fontFamily: "monospace",
-                          fontSize: "13px",
-                          color: revealedPwds.has(u.id) ? "var(--text)" : "var(--muted)",
-                          letterSpacing: revealedPwds.has(u.id) ? "0.5px" : "2px",
-                          minWidth: 0,
-                          overflow: "hidden",
-                          textOverflow: "ellipsis",
-                          whiteSpace: "nowrap",
-                        }}>
+                        <span style={{ fontFamily: "monospace", fontSize: "13px", color: revealedPwds.has(u.id) ? "var(--text)" : "var(--muted)", letterSpacing: revealedPwds.has(u.id) ? "0.5px" : "2px", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {revealedPwds.has(u.id) ? (displayPassword || "••••••••") : "••••••••"}
                         </span>
-                        <button
-                          onClick={() => togglePasswordVisibility(u.id)}
+                        <button onClick={() => togglePasswordVisibility(u.id)}
                           style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px", lineHeight: 1, flexShrink: 0, display: "flex", alignItems: "center" }}
                           title={revealedPwds.has(u.id) ? "Hide password" : "Show password"}
                         >
@@ -622,57 +794,41 @@ export default function RegisteredUsers() {
                         </button>
                       </div>
                     </td>
-                    
+
                     {/* Address */}
-                    <td style={tdStyle(COLS[3], { color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" })} title={u.address}>
-                      {u.address}
-                    </td>
-                    
+                    <td style={tdStyle(COLS[3], { color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" })} title={u.address}>{u.address}</td>
+
                     {/* Phone */}
                     <td style={tdStyle(COLS[4])}>{u.phone}</td>
-                    
+
                     {/* Branch */}
                     <td style={tdStyle(COLS[5], { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" })} title={u.branch_name || getBranchName(u.branch_id) || "—"}>
                       {u.branch_name || getBranchName(u.branch_id) || "—"}
                     </td>
-                    
+
                     {/* Role */}
                     <td style={tdStyle(COLS[6])}>{u.role}</td>
-                    
+
                     {/* Status */}
                     <td style={tdStyle(COLS[7])}>
-                      <span style={{
-                        display: "inline-block",
-                        padding: "4px 10px",
-                        borderRadius: "12px",
-                        fontSize: "11px",
-                        fontWeight: 600,
-                        background: u.status === "Active" ? "#d1fae5" : "#fee2e2",
-                        color: u.status === "Active" ? "#065f46" : "#991b1b",
-                      }}>
+                      <span style={{ display: "inline-block", padding: "4px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: 600, background: u.status === "Active" ? "#d1fae5" : "#fee2e2", color: u.status === "Active" ? "#065f46" : "#991b1b" }}>
                         {u.status}
                       </span>
                     </td>
-                    
+
                     {/* Action */}
                     <td style={tdStyle(COLS[8])}>
                       <div style={{ display: "flex", gap: "5px", justifyContent: "center" }}>
-                        <button
-                          onClick={() => handleOpenEdit(u)}
+                        <button onClick={() => handleOpenEdit(u)}
                           style={{ background: "none", border: "1px solid var(--border)", color: "var(--accent)", cursor: "pointer", fontSize: "12px", fontWeight: 600, padding: "4px 10px", borderRadius: "6px", transition: "background 0.15s" }}
                           onMouseEnter={e => e.currentTarget.style.background = "var(--surface2)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => handleDelete(u)}
+                        >Edit</button>
+                        <button onClick={() => handleDelete(u)}
                           style={{ background: "none", border: "none", color: "var(--red)", cursor: "pointer", fontSize: "12px", fontWeight: 600, padding: "4px 10px", borderRadius: "6px", transition: "background 0.15s" }}
                           onMouseEnter={e => e.currentTarget.style.background = "var(--red-lt)"}
                           onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                        >
-                          Delete
-                        </button>
+                        >Delete</button>
                       </div>
                     </td>
                   </tr>
@@ -683,44 +839,49 @@ export default function RegisteredUsers() {
         </table>
       </div>
 
-      {/* Add User Modal */}
+      {/* ── Add User Modal ── */}
       {open && (
-        <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(2px)" }}
-          onClick={handleClose}
-        >
-          <div
-            style={{ background: "var(--surface)", borderRadius: "12px", width: "min(520px, 92vw)", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.25)" }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div style={{ padding: "22px 28px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(2px)" }} onClick={handleClose}>
+          <div style={{ background: "var(--surface)", borderRadius: "12px", width: "min(520px, 92vw)", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.25)" }} onClick={e => e.stopPropagation()} className="modal-content">
+
+            {/* Header */}
+            <div style={{ padding: "22px 28px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }} className="modal-header">
               <div>
-                <h2 style={{ fontSize: "20px", fontFamily: "var(--ffd)", color: "var(--accent)", marginBottom: "4px" }}>Add New User</h2>
-                <p style={{ fontSize: "13px", color: "var(--muted)" }}>Fill in the details to create a new user account.</p>
+                <h2 style={{ fontSize: "20px", fontFamily: "var(--ffd)", color: "var(--accent)", marginBottom: "4px" }} className="modal-title">Add New User</h2>
+                <p style={{ fontSize: "13px", color: "var(--muted)" }} className="modal-subtitle">Fill in the details to create a new user account.</p>
               </div>
               <button onClick={handleClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "24px", lineHeight: 1, padding: "2px 6px" }}>×</button>
             </div>
 
-            {/* Modal Form */}
-            <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: "16px" }}>
+            {/* Form */}
+            <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: "16px" }} className="modal-padding">
+
+              {/* ── Photo upload ── */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <PhotoUpload
+                  preview={form.photoPreview}
+                  existingUrl={null}
+                  onChange={handlePhotoChange}
+                  onClear={handlePhotoClear}
+                />
+              </div>
 
               {/* Username */}
-              <div>
-                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }}>
+              <div className="form-group">
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Username <span style={{ color: "var(--red)" }}>*</span>
                 </label>
-                <input name="username" type="text" value={form.username} onChange={handleInput} placeholder="e.g. john_doe" style={inputStyle(errors.username)} />
+                <input name="username" type="text" value={form.username} onChange={handleInput} placeholder="e.g. john_doe" style={inputStyle(errors.username)} className="form-input" />
                 {errors.username && <p style={{ fontSize: "12px", color: "var(--red)", marginTop: "4px" }}>{errors.username}</p>}
               </div>
 
               {/* Password */}
-              <div>
-                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }}>
+              <div className="form-group">
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Password <span style={{ color: "var(--red)" }}>*</span>
                 </label>
                 <div style={{ position: "relative" }}>
-                  <input name="password" type={showPwd ? "text" : "password"} value={form.password} onChange={handleInput} placeholder="Min. 8 characters" style={{ ...inputStyle(errors.password), paddingRight: "40px" }} />
+                  <input name="password" type={showPwd ? "text" : "password"} value={form.password} onChange={handleInput} placeholder="Min. 8 characters" style={{ ...inputStyle(errors.password), paddingRight: "40px" }} className="form-input" />
                   <button type="button" onClick={() => setShowPwd(v => !v)} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "flex", alignItems: "center" }}>
                     {showPwd ? <VisibilityOffOutlinedIcon style={{ fontSize: 18 }} /> : <VisibilityOutlinedIcon style={{ fontSize: 18 }} />}
                   </button>
@@ -729,27 +890,27 @@ export default function RegisteredUsers() {
               </div>
 
               {/* Address */}
-              <div>
-                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }}>
+              <div className="form-group">
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Address <span style={{ color: "var(--red)" }}>*</span>
                 </label>
-                <input name="address" type="text" value={form.address} onChange={handleInput} placeholder="Full address" style={inputStyle(errors.address)} />
+                <input name="address" type="text" value={form.address} onChange={handleInput} placeholder="Full address" style={inputStyle(errors.address)} className="form-input" />
                 {errors.address && <p style={{ fontSize: "12px", color: "var(--red)", marginTop: "4px" }}>{errors.address}</p>}
               </div>
 
               {/* Phone */}
-              <div>
-                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }}>
+              <div className="form-group">
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Phone <span style={{ color: "var(--red)" }}>*</span>
                 </label>
-                <input name="phone" type="tel" value={form.phone} onChange={handleInput} placeholder="+91 98765 43210" style={inputStyle(errors.phone)} />
+                <input name="phone" type="tel" value={form.phone} onChange={handleInput} placeholder="+91 98765 43210" style={inputStyle(errors.phone)} className="form-input" />
                 {errors.phone && <p style={{ fontSize: "12px", color: "var(--red)", marginTop: "4px" }}>{errors.phone}</p>}
               </div>
 
-              {/* Branch Dropdown */}
-              <div>
+              {/* Branch */}
+              <div className="form-group">
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <label style={{ fontSize: "14px", fontWeight: 600, color: "var(--accent)", textAlign: "left" }}>
+                  <label style={{ fontSize: "14px", fontWeight: 600, color: "var(--accent)" }} className="form-label">
                     Branch <span style={{ color: "var(--red)" }}>*</span>
                   </label>
                   {!newBranchMode && (
@@ -759,16 +920,16 @@ export default function RegisteredUsers() {
                   )}
                 </div>
                 {newBranchMode ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    <div style={{ display: "flex", gap: "8px" }}>
-                      <input autoFocus value={newBranchName} onChange={e => { setNewBranchName(e.target.value); setNewBranchError(""); }} onKeyDown={e => { if (e.key === "Enter") handleCreateBranch(); if (e.key === "Escape") setNewBranchMode(false); }} placeholder="Branch name e.g. SYSMAC" style={{ ...inputStyle(newBranchError), flex: 1 }} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }} className="branch-inline">
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <input autoFocus value={newBranchName} onChange={e => { setNewBranchName(e.target.value); setNewBranchError(""); }} onKeyDown={e => { if (e.key === "Enter") handleCreateBranch(); if (e.key === "Escape") setNewBranchMode(false); }} placeholder="Branch name e.g. SYSMAC" style={{ ...inputStyle(newBranchError), flex: 1 }} className="branch-input" />
                       <button type="button" onClick={handleCreateBranch} disabled={creatingBranch} style={{ padding: "8px 14px", borderRadius: "6px", border: "none", background: "var(--accent)", color: "#fff", fontSize: "12px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", opacity: creatingBranch ? 0.7 : 1 }}>{creatingBranch ? "Saving…" : "Save"}</button>
                       <button type="button" onClick={() => { setNewBranchMode(false); setNewBranchName(""); setNewBranchError(""); }} style={{ padding: "8px 10px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", fontSize: "12px", cursor: "pointer", color: "var(--muted)" }}>Cancel</button>
                     </div>
                     {newBranchError && <p style={{ fontSize: "11px", color: "var(--red)", margin: 0 }}>{newBranchError}</p>}
                   </div>
                 ) : (
-                  <select value={form.branch} onChange={e => handleSelect("branch")(e.target.value)} style={inputStyle(errors.branch)}>
+                  <select value={form.branch} onChange={e => handleSelect("branch")(e.target.value)} style={inputStyle(errors.branch)} className="form-select">
                     <option value="">{branches.length === 0 ? "No branches — create one above" : "Select Branch"}</option>
                     {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
@@ -777,11 +938,11 @@ export default function RegisteredUsers() {
               </div>
 
               {/* Role */}
-              <div>
-                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }}>
+              <div className="form-group">
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Role <span style={{ color: "var(--red)" }}>*</span>
                 </label>
-                <select value={form.role} onChange={e => handleSelect("role")(e.target.value)} style={inputStyle(errors.role)}>
+                <select value={form.role} onChange={e => handleSelect("role")(e.target.value)} style={inputStyle(errors.role)} className="form-select">
                   <option value="">Select role</option>
                   {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
@@ -789,11 +950,11 @@ export default function RegisteredUsers() {
               </div>
 
               {/* Status */}
-              <div>
-                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }}>
+              <div className="form-group">
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Status <span style={{ color: "var(--red)" }}>*</span>
                 </label>
-                <select value={form.status} onChange={e => handleSelect("status")(e.target.value)} style={inputStyle(errors.status)}>
+                <select value={form.status} onChange={e => handleSelect("status")(e.target.value)} style={inputStyle(errors.status)} className="form-select">
                   <option value="">Select status</option>
                   {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -801,27 +962,15 @@ export default function RegisteredUsers() {
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div style={{ padding: "16px 28px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "10px", position: "relative" }}>
+            {/* Footer */}
+            <div style={{ padding: "16px 28px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "10px", position: "relative" }} className="modal-actions">
               {success && (
-                <div style={{ position: "absolute", top: "-44px", left: "50%", transform: "translateX(-50%)", background: "var(--green)", color: "#fff", padding: "7px 16px", borderRadius: "8px", fontSize: "13px", whiteSpace: "nowrap" }}>
+                <div style={{ position: "absolute", top: "-44px", left: "50%", transform: "translateX(-50%)", background: "var(--green)", color: "#fff", padding: "7px 16px", borderRadius: "8px", fontSize: "13px", whiteSpace: "nowrap" }} className="success-toast">
                   ✓ User added successfully!
                 </div>
               )}
-              <button 
-                className="btn btn-g" 
-                onClick={handleClose} 
-                disabled={submitting}
-                style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer" }}
-              >
-                Cancel
-              </button>
-              <button 
-                className="btn btn-p" 
-                onClick={handleSubmit} 
-                disabled={success || submitting}
-                style={{ padding: "8px 20px", borderRadius: "6px", border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer", fontWeight: 500 }}
-              >
+              <button className="btn btn-g btn-cancel" onClick={handleClose} disabled={submitting} style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer" }}>Cancel</button>
+              <button className="btn btn-p btn-submit" onClick={handleSubmit} disabled={success || submitting} style={{ padding: "8px 20px", borderRadius: "6px", border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer", fontWeight: 500 }}>
                 {submitting ? "Creating..." : "Create User"}
               </button>
             </div>
@@ -831,48 +980,52 @@ export default function RegisteredUsers() {
 
       {/* ── Edit User Modal ── */}
       {editOpen && (
-        <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(2px)" }}
-          onClick={handleCloseEdit}
-        >
-          <div
-            style={{ background: "var(--surface)", borderRadius: "12px", width: "min(520px, 92vw)", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.25)", animation: "slideUp 0.2s ease" }}
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div style={{ padding: "22px 28px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(2px)" }} onClick={handleCloseEdit}>
+          <div style={{ background: "var(--surface)", borderRadius: "12px", width: "min(520px, 92vw)", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.25)", animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()} className="modal-content">
+
+            {/* Header */}
+            <div style={{ padding: "22px 28px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }} className="modal-header">
               <div>
-                <h2 style={{ fontSize: "20px", fontFamily: "var(--ffd)", color: "var(--accent)", marginBottom: "4px" }}>Edit User</h2>
-                <p style={{ fontSize: "13px", color: "var(--muted)" }}>Update the details for <strong>{editingUser?.username}</strong>.</p>
+                <h2 style={{ fontSize: "20px", fontFamily: "var(--ffd)", color: "var(--accent)", marginBottom: "4px" }} className="modal-title">Edit User</h2>
+                <p style={{ fontSize: "13px", color: "var(--muted)" }} className="modal-subtitle">Update the details for <strong>{editingUser?.username}</strong>.</p>
               </div>
               <button onClick={handleCloseEdit} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "24px", lineHeight: 1, padding: "2px 6px" }}>×</button>
             </div>
 
-            {/* Modal Form */}
-            <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: "16px" }}>
+            {/* Form */}
+            <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: "16px" }} className="modal-padding">
+
+              {/* ── Photo upload ── */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <PhotoUpload
+                  preview={editForm.photoPreview}
+                  existingUrl={editingUser?.photo_url || null}
+                  onChange={handleEditPhotoChange}
+                  onClear={handleEditPhotoClear}
+                />
+              </div>
 
               {/* Username */}
-              <div>
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>
+              <div className="form-group">
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Username <span style={{ color: "var(--red)" }}>*</span>
                 </label>
                 <input name="username" type="text" value={editForm.username}
                   onChange={e => { setEditForm(f => ({ ...f, username: e.target.value })); if (editErrors.username) setEditErrors(er => ({ ...er, username: "" })); }}
-                  placeholder="e.g. john_doe" style={inputStyle(editErrors.username)} />
+                  placeholder="e.g. john_doe" style={inputStyle(editErrors.username)} className="form-input" />
                 {editErrors.username && <p style={{ fontSize: "11px", color: "var(--red)", marginTop: "4px" }}>{editErrors.username}</p>}
               </div>
 
-              {/* Password (optional on edit) */}
-              <div>
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>
+              {/* Password */}
+              <div className="form-group">
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Password <span style={{ color: "var(--muted)", fontWeight: 400 }}>(leave blank to keep current)</span>
                 </label>
                 <div style={{ position: "relative" }}>
                   <input name="password" type={showEditPwd ? "text" : "password"} value={editForm.password}
                     onChange={e => { setEditForm(f => ({ ...f, password: e.target.value })); if (editErrors.password) setEditErrors(er => ({ ...er, password: "" })); }}
-                    placeholder="New password (optional)" style={{ ...inputStyle(editErrors.password), paddingRight: "40px" }} />
-                  <button type="button" onClick={() => setShowEditPwd(v => !v)}
-                    style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "flex", alignItems: "center" }}>
+                    placeholder="New password (optional)" style={{ ...inputStyle(editErrors.password), paddingRight: "40px" }} className="form-input" />
+                  <button type="button" onClick={() => setShowEditPwd(v => !v)} style={{ position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "var(--muted)", display: "flex", alignItems: "center" }}>
                     {showEditPwd ? <VisibilityOffOutlinedIcon style={{ fontSize: 18 }} /> : <VisibilityOutlinedIcon style={{ fontSize: 18 }} />}
                   </button>
                 </div>
@@ -880,35 +1033,35 @@ export default function RegisteredUsers() {
               </div>
 
               {/* Address */}
-              <div>
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>
+              <div className="form-group">
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Address <span style={{ color: "var(--red)" }}>*</span>
                 </label>
                 <input name="address" type="text" value={editForm.address}
                   onChange={e => { setEditForm(f => ({ ...f, address: e.target.value })); if (editErrors.address) setEditErrors(er => ({ ...er, address: "" })); }}
-                  placeholder="Full address" style={inputStyle(editErrors.address)} />
+                  placeholder="Full address" style={inputStyle(editErrors.address)} className="form-input" />
                 {editErrors.address && <p style={{ fontSize: "11px", color: "var(--red)", marginTop: "4px" }}>{editErrors.address}</p>}
               </div>
 
               {/* Phone */}
-              <div>
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>
+              <div className="form-group">
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Phone <span style={{ color: "var(--red)" }}>*</span>
                 </label>
                 <input name="phone" type="tel" value={editForm.phone}
                   onChange={e => { setEditForm(f => ({ ...f, phone: e.target.value })); if (editErrors.phone) setEditErrors(er => ({ ...er, phone: "" })); }}
-                  placeholder="+91 98765 43210" style={inputStyle(editErrors.phone)} />
+                  placeholder="+91 98765 43210" style={inputStyle(editErrors.phone)} className="form-input" />
                 {editErrors.phone && <p style={{ fontSize: "11px", color: "var(--red)", marginTop: "4px" }}>{editErrors.phone}</p>}
               </div>
 
               {/* Branch */}
-              <div>
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>
+              <div className="form-group">
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Branch <span style={{ color: "var(--red)" }}>*</span>
                 </label>
                 <select value={editForm.branch}
                   onChange={e => { setEditForm(f => ({ ...f, branch: e.target.value })); if (editErrors.branch) setEditErrors(er => ({ ...er, branch: "" })); }}
-                  style={inputStyle(editErrors.branch)}>
+                  style={inputStyle(editErrors.branch)} className="form-select">
                   <option value="">Select Branch</option>
                   {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                 </select>
@@ -916,13 +1069,13 @@ export default function RegisteredUsers() {
               </div>
 
               {/* Role */}
-              <div>
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>
+              <div className="form-group">
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Role <span style={{ color: "var(--red)" }}>*</span>
                 </label>
                 <select value={editForm.role}
                   onChange={e => { setEditForm(f => ({ ...f, role: e.target.value })); if (editErrors.role) setEditErrors(er => ({ ...er, role: "" })); }}
-                  style={inputStyle(editErrors.role)}>
+                  style={inputStyle(editErrors.role)} className="form-select">
                   <option value="">Select role</option>
                   {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                 </select>
@@ -930,13 +1083,13 @@ export default function RegisteredUsers() {
               </div>
 
               {/* Status */}
-              <div>
-                <label style={{ display: "block", fontSize: "13px", fontWeight: 500, color: "var(--text)", marginBottom: "6px" }}>
+              <div className="form-group">
+                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Status <span style={{ color: "var(--red)" }}>*</span>
                 </label>
                 <select value={editForm.status}
                   onChange={e => { setEditForm(f => ({ ...f, status: e.target.value })); if (editErrors.status) setEditErrors(er => ({ ...er, status: "" })); }}
-                  style={inputStyle(editErrors.status)}>
+                  style={inputStyle(editErrors.status)} className="form-select">
                   <option value="">Select status</option>
                   {STATUSES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
@@ -944,19 +1097,15 @@ export default function RegisteredUsers() {
               </div>
             </div>
 
-            {/* Modal Footer */}
-            <div style={{ padding: "16px 28px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "10px", position: "relative" }}>
+            {/* Footer */}
+            <div style={{ padding: "16px 28px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "10px", position: "relative" }} className="modal-actions">
               {editSuccess && (
-                <div style={{ position: "absolute", top: "-44px", left: "50%", transform: "translateX(-50%)", background: "var(--green)", color: "#fff", padding: "7px 16px", borderRadius: "8px", fontSize: "13px", whiteSpace: "nowrap" }}>
+                <div style={{ position: "absolute", top: "-44px", left: "50%", transform: "translateX(-50%)", background: "var(--green)", color: "#fff", padding: "7px 16px", borderRadius: "8px", fontSize: "13px", whiteSpace: "nowrap" }} className="success-toast">
                   ✓ User updated successfully!
                 </div>
               )}
-              <button onClick={handleCloseEdit} disabled={editSubmitting}
-                style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer" }}>
-                Cancel
-              </button>
-              <button onClick={handleEditSubmit} disabled={editSubmitting || editSuccess}
-                style={{ padding: "8px 20px", borderRadius: "6px", border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer", fontWeight: 500 }}>
+              <button onClick={handleCloseEdit} disabled={editSubmitting} className="btn-cancel" style={{ padding: "8px 16px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer" }}>Cancel</button>
+              <button onClick={handleEditSubmit} disabled={editSubmitting || editSuccess} className="btn-submit" style={{ padding: "8px 20px", borderRadius: "6px", border: "none", background: "var(--accent)", color: "#fff", cursor: "pointer", fontWeight: 500 }}>
                 {editSubmitting ? "Saving..." : "Save Changes"}
               </button>
             </div>
@@ -966,14 +1115,8 @@ export default function RegisteredUsers() {
 
       {/* ── Delete Confirmation Modal ── */}
       {deleteConfirm && (
-        <div
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: "blur(2px)" }}
-          onClick={() => !deleting && setDeleteConfirm(null)}
-        >
-          <div
-            style={{ background: "var(--surface)", borderRadius: "12px", width: "min(420px, 90vw)", boxShadow: "0 25px 50px rgba(0,0,0,0.3)", animation: "slideUp 0.18s ease", overflow: "hidden" }}
-            onClick={e => e.stopPropagation()}
-          >
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: "blur(2px)" }} onClick={() => !deleting && setDeleteConfirm(null)}>
+          <div style={{ background: "var(--surface)", borderRadius: "12px", width: "min(420px, 90vw)", boxShadow: "0 25px 50px rgba(0,0,0,0.3)", animation: "slideUp 0.18s ease", overflow: "hidden" }} onClick={e => e.stopPropagation()} className="delete-modal">
             <div style={{ padding: "28px 28px 20px", textAlign: "center" }}>
               <div style={{ fontSize: "40px", marginBottom: "12px" }}>🗑️</div>
               <h3 style={{ fontSize: "17px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>Delete User?</h3>
@@ -982,31 +1125,14 @@ export default function RegisteredUsers() {
               </p>
             </div>
             <div style={{ padding: "0 28px 24px", display: "flex", gap: "10px", justifyContent: "center" }}>
-              <button
-                onClick={() => setDeleteConfirm(null)}
-                disabled={deleting}
-                style={{ padding: "9px 22px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer", fontSize: "13px", fontWeight: 500, color: "var(--text)" }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                disabled={deleting}
-                style={{ padding: "9px 22px", borderRadius: "8px", border: "none", background: "var(--red)", color: "#fff", cursor: deleting ? "not-allowed" : "pointer", fontSize: "13px", fontWeight: 600, opacity: deleting ? 0.7 : 1 }}
-              >
+              <button onClick={() => setDeleteConfirm(null)} disabled={deleting} style={{ padding: "9px 22px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--surface)", cursor: "pointer", fontSize: "13px", fontWeight: 500, color: "var(--text)" }}>Cancel</button>
+              <button onClick={confirmDelete} disabled={deleting} style={{ padding: "9px 22px", borderRadius: "8px", border: "none", background: "var(--red)", color: "#fff", cursor: deleting ? "not-allowed" : "pointer", fontSize: "13px", fontWeight: 600, opacity: deleting ? 0.7 : 1 }}>
                 {deleting ? "Deleting…" : "Yes, Delete"}
               </button>
             </div>
           </div>
         </div>
       )}
-
-      <style>{`
-        @keyframes slideUp { 
-          from { opacity: 0; transform: translateY(16px); } 
-          to { opacity: 1; transform: translateY(0); } 
-        }
-      `}</style>
     </div>
   );
 }
