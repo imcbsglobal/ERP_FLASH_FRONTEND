@@ -19,6 +19,8 @@ import EvStationOutlinedIcon from '@mui/icons-material/EvStationOutlined';
 import PlaylistAddCheckOutlinedIcon from '@mui/icons-material/PlaylistAddCheckOutlined';
 import DriveEtaOutlinedIcon from '@mui/icons-material/DriveEtaOutlined';
 import TravelList from "../Components/Travel_Trip.jsx";
+import ChallanList from "../Components/challan_list.jsx";
+import ChallanAdd from "../Components/challan_add.jsx";
 const NAV = [
   {
     section: "Dashboard",
@@ -165,6 +167,7 @@ export default function Layout({ children }) {
   const [active, setActive] = useState("dashboard");
   const [open, setOpen] = useState({ usermgmt: false, collection: false, mastermenu: false, vehiclemgmt: false });
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [challanView, setChallanView] = useState("list"); // "list" | "add"
 
   const storedUser = localStorage.getItem("user");
   const user = storedUser ? JSON.parse(storedUser) : null;
@@ -225,6 +228,7 @@ export default function Layout({ children }) {
   const handleNav = (id, parentId) => {
     setActive(id);
     if (parentId) setOpen(p => ({ ...p, [parentId]: true }));
+    if (id !== "vm_service") setChallanView("list");
   };
 
   const meta = PAGE_META[active] || {};
@@ -1091,15 +1095,12 @@ export default function Layout({ children }) {
           )}
 
           {isVmServicePage && (
-            <div className="page">
-              <div className="page-head">
-                <div className="page-tag">Vehicle Management</div>
-                <h1 className="page-title">Service & Maintenance</h1>
-                <p className="page-desc">Schedule and track vehicle service and maintenance history.</p>
-              </div>
-              <div style={{ textAlign: "center", padding: "60px 20px", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, color: "#5f6368", fontSize: 14 }}>
-                🔧 Service & Maintenance module coming soon.
-              </div>
+            <div className="page-full">
+              {challanView === "list" ? (
+                <ChallanList onAdd={() => setChallanView("add")} />
+              ) : (
+                <ChallanAdd onBack={() => setChallanView("list")} />
+              )}
             </div>
           )}
 

@@ -85,7 +85,7 @@ const StartTrip = ({ onClose, onStart }) => {
       setVehicleLoading(true);
       setVehicleError('');
       try {
-        const data = await getVehicles({});
+        const data = await getVehicles({ status: "Active" });
         const list = Array.isArray(data) ? data : (data.results || []);
         setVehicles(list);
       } catch (err) {
@@ -217,7 +217,7 @@ const StartTrip = ({ onClose, onStart }) => {
       fontSize: 10, fontWeight: 700, letterSpacing: '1.6px',
       textTransform: 'uppercase', color: '#1a73e8', marginBottom: 2,
     },
-    title: { fontSize: 16, fontWeight: 600, color: '#202124', margin: 0, letterSpacing: '1.2px', lineHeight: 1.5 },
+    title: { fontSize: 18, fontWeight: 600, color: '#202124', margin: 0, letterSpacing: '1.2px', lineHeight: 1.5 },
 
     body:   { flex: 1, overflowY: 'auto', padding: '16px' },
     card:   {
@@ -227,9 +227,11 @@ const StartTrip = ({ onClose, onStart }) => {
     },
 
     sectionLabel: {
-      fontSize: 12, fontWeight: 600, letterSpacing: '1.4px',
-      textTransform: 'capitalize', color: '#1a73e8',
+      fontSize: '14px', fontWeight: 'bold', letterSpacing: '1.4px',
+      textTransform: 'capitalize', color: 'var(--accent)',
       marginBottom: 16, display: 'flex', alignItems: 'center', gap: 7,
+      borderBottom: '2px solid #e0e0e0', // Only bottom border
+      paddingBottom: '8px',               // Space between text and border
     },
     sectionDivider: { border: 'none', borderTop: '1.5px solid #f0f0f0', margin: '22px 0' },
 
@@ -238,20 +240,20 @@ const StartTrip = ({ onClose, onStart }) => {
 
     formGroup: { display: 'flex', flexDirection: 'column' },
     label: {
-      fontSize: 12, fontWeight: 600, color: '#000000',
+      fontSize: '12px',fontWeight: 'bold', color: '#000000',
       marginBottom: 6, letterSpacing: '0.5px', textTransform: 'capitalize', textAlign: 'left',
     },
     required: { color: '#e74c3c', marginLeft: 3 },
 
     input: {
-      padding: '10px 13px', border: '1px solid #e0e0e0', borderRadius: 8,
+      padding: '10px 13px', border: '1px solid #f0eeee', borderRadius: 8,
       fontSize: 13, fontFamily: "'Nohemi', 'Segoe UI', sans-serif",
       outline: 'none', width: '100%', boxSizing: 'border-box',
       background: '#fff', color: '#202124',
       transition: 'border-color 0.2s, box-shadow 0.2s',
     },
     inputReadonly: {
-      background: '#f8f9fa', color: '#5f6368', cursor: 'default',
+      background: '#f8f9fa', color: '#e1e4e6', cursor: 'default',
     },
     select: {
       padding: '10px 13px', border: '1px solid #e0e0e0', borderRadius: 8,
@@ -280,7 +282,7 @@ const StartTrip = ({ onClose, onStart }) => {
     odometerBox: {
       borderRadius: 10, padding: '20px',
       display: 'flex', flexDirection: 'column', alignItems: 'left',
-      gap: 10, cursor: 'pointer', background: '#fafafa',
+      gap: 10, cursor: 'pointer',
       transition: 'border-color 0.2s, background 0.2s',
     },
     odometerPreviewWrap: { position: 'relative', display: 'inline-block', marginTop: 4 },
@@ -387,7 +389,7 @@ const StartTrip = ({ onClose, onStart }) => {
                   ) : (
                     vehicles.map(v => (
                       <option key={v.id} value={v.id}>
-                        {v.vehicle_name}  {v.registration_number}
+                         {v.registration_number} {v.vehicle_name} 
                       </option>
                     ))
                   )}

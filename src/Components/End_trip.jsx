@@ -139,7 +139,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
     headerLeft: { display: 'flex', flexDirection: 'column', justifyContent: 'center' },
     tag: {
       fontSize: 10, fontWeight: 700, letterSpacing: '1.6px',
-      textTransform: 'uppercase', color: '#1a73e8', marginBottom: 2,
+      textTransform: 'uppercase', color: 'var(--accent)', marginBottom: 2,
     },
     title: { fontSize: 18, fontWeight: 600, color: '#0c0c0c', margin: 0, lineHeight: 1.2,letterSpacing: '1.2px' },
 
@@ -148,7 +148,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
       display: 'flex', alignItems: 'center', gap: 6,
       padding: '6px 14px', borderRadius: 20,
       background: '#ffffff', border: '1px solid #a8d5b5',
-      fontSize: 12, fontWeight: 700, color: '#1a73e8',
+      fontSize: 12, fontWeight: 700, color: 'var(--accent)',
     },
 
     body: { flex: 1, overflowY: 'auto', padding: '16px' },
@@ -159,11 +159,13 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
       padding: '20px 16px', maxWidth: 860, margin: '0 auto', width: '100%', boxSizing: 'border-box',
     },
 
-    // ── Section headers ──
+    // ── Section headers with bottom border only ──
     sectionHeader: (color) => ({
-      fontSize: 12, fontWeight: 600, letterSpacing: '1.4px',
-      textTransform: 'uppercase', color: '#1046e7',
+      fontSize: 14, fontWeight:'bold', letterSpacing: '1.4px',
+      textTransform: 'capitalize', color: 'var(--accent)',
       marginBottom: 16, display: 'flex', alignItems: 'center', gap: 7,
+      borderBottom: '2px solid #e0e0e0', // Only bottom border
+      paddingBottom: '8px',               // Space between text and border
     }),
     sectionDivider: {
       border: 'none', borderTop: '1.5px solid #f0f0f0', margin: '24px 0',
@@ -179,14 +181,14 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
     },  // overridden to 1-col on mobile via <style>
     infoItem: { display: 'flex', flexDirection: 'column', gap: 6 },
     infoItemLabel: {
-      fontSize: 10, fontWeight: 700, letterSpacing: '0.8px',
-      textTransform: 'uppercase', color: 'rgb(12, 12, 12)',
+      fontSize: 13, fontWeight: 700, letterSpacing: '0.8px',
+      textTransform: 'capitalize', color: 'rgb(12, 12, 12)',
       display: 'flex', alignItems: 'center', gap: 4,
     },
     infoItemValue: {
-      fontSize: 13, fontWeight: 600, color: '#202124',
+      fontSize: 12, fontWeight: 600, color: '#202124',
       padding: '9px 13px', background: 'transparent',
-      border: '1px solid #e8eaed', borderRadius: 8,
+      border: '1px solid #d5d6da', borderRadius: 8,
       width: '100%', boxSizing: 'border-box',
       minHeight: 38, display: 'flex', alignItems: 'center',
     },
@@ -196,7 +198,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
       display: 'inline-flex', alignItems: 'center', gap: 6,
       padding: '4px 12px', borderRadius: 20,
       background: '#e8f0fe', border: '1px solid #c5d8fc',
-      fontSize: 12, fontWeight: 700, color: '#1a73e8',
+      fontSize: 12, fontWeight: 700, color: 'var(--accent)',
     },
 
     // ── Editable form ──
@@ -205,14 +207,14 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
 
     formGroup: { display: 'flex', flexDirection: 'column', gap: 6 },
     label: {
-      fontSize: 11, fontWeight: 700, color: 'rgb(7, 7, 7)',
-      marginBottom: 0, letterSpacing: '0.5px', textTransform: 'uppercase',
+      fontSize: 13, fontWeight:'bold', color: 'rgb(7, 7, 7)',
+      marginBottom: 0, letterSpacing: '0.5px', textTransform: 'capitalize',
       display: 'flex', alignItems: 'center', gap: 5,
     },
     required: { color: '#e74c3c', marginLeft: 3 },
 
     input: {
-      padding: '10px 13px', border: '1px solid #e0e0e0', borderRadius: 8,
+      padding: '10px 13px', border: '1px solid #e2dfdf', borderRadius: 8,
       fontSize: 13, fontFamily: "'Nohemi', 'Segoe UI', sans-serif",
       outline: 'none', width: '100%', boxSizing: 'border-box',
       background: '#fff', color: '#202124',
@@ -259,7 +261,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
     completeBtn: {
       display: 'flex', alignItems: 'center', gap: 6,
       padding: '10px 28px', borderRadius: 8, border: 'none',
-      background: loading ? '#1a73e8' : '#1a73e8',
+      background: loading ? 'var(--accent)' : 'var(--accent)',
       color: '#fff', fontWeight: 700, fontSize: 13,
       cursor: loading ? 'not-allowed' : 'pointer',
       fontFamily: "'Nohemi', 'Segoe UI', sans-serif",
@@ -304,7 +306,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
           <div style={S.statusBadge}>
           <span style={{
             width: 8, height: 8, borderRadius: '50%',
-            background: '#1a73e8', display: 'inline-block',
+            background: 'var(--accent)', display: 'inline-block',
             boxShadow: '0 0 0 3px rgba(24,128,56,0.2)',
             animation: 'pulse 1.6s infinite',
           }} />
@@ -318,7 +320,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
           }
         `}</style>
           {/* ══ Section 1: Trip Start Info (read-only) ══ */}
-          <div style={S.sectionHeader('#1a73e8')}>
+          <div style={S.sectionHeader('var(--accent)')}>
             <DirectionsCarOutlinedIcon style={{ fontSize: 16 }} />
             Trip Start Info
           </div>

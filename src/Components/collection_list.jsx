@@ -351,10 +351,10 @@ const PaymentTable = () => {
         .pt-empty { text-align: center; padding: 32px; color: var(--muted); font-size: 13px; }
 
         .pill { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
-        .pill-green { background: #d1fae5; color: #065f46; }
-        .pill-amber { background: #fef3c7; color: #92400e; }
-        .pill-red   { background: #fee2e2; color: #991b1b; }
-        .pill-muted { background: #f1f5f9; color: #64748b; }
+        .pill-green {color: #13df46; }
+        .pill-amber {color: #bfd30e; }
+        .pill-red  {color: #991b1b; }
+        .pill-muted {color: #64748b; }
 
         .btn-view { padding: 3px 10px; border-radius: 5px; border: 1px solid var(--border);
           background: var(--surface); color: var(--accent); font-size: 12px; cursor: pointer; }
@@ -401,10 +401,10 @@ const PaymentTable = () => {
         .status-select { padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 600;
           border: none; cursor: pointer; appearance: none; text-align: center; outline: none; }
         .status-select:disabled { cursor: not-allowed; opacity: 0.6; }
-        .status-select.pill-green { background: #d1fae5; color: #065f46; }
-        .status-select.pill-amber { background: #fef3c7; color: #92400e; }
-        .status-select.pill-red   { background: #fee2e2; color: #991b1b; }
-        .status-select.pill-muted { background: #f1f5f9; color: #64748b; }
+        .status-select.pill-green {color: #38ce13; }
+        .status-select.pill-amber {color: #f7ab08; }
+        .status-select.pill-red {color: #d40b0b; }
+        .status-select.pill-muted {color: #64748b; }
       `}</style>
 
       <div className="payment-table-container">

@@ -240,17 +240,17 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
     pageHeaderTag: { fontSize: 10, fontWeight: 700, letterSpacing: '1.6px', textTransform: 'uppercase', color: '#1a73e8', marginBottom: 2, fontFamily: "'Calibri','Segoe UI',sans-serif" },
     pageHeaderTitle: { fontSize: 18, fontWeight: 600, color: '#202124', margin: 0,letterSpacing:"0.08px", lineHeight: 1.2 },
     pageHeaderActions: { display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 },
-    backBtn: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 8, border: '1px solid #e8eaed', background: '#fff', color: '#5f6368', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: "'Calibri','Segoe UI',sans-serif", transition: 'all 0.2s' },
+    backBtn: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 8, border: '1px solid #e8eaed', background: 'var(--accent)', color: '#f4f4f5', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: "'Calibri','Segoe UI',sans-serif", transition: 'all 0.2s' },
     scrollBody: { flex: 1, overflowY: 'auto', padding: '12px 16px' },
     form: { backgroundColor: '#fff', borderRadius: '14px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', padding: '20px 16px', maxWidth: '900px', margin: '0 auto', width: '100%', boxSizing: 'border-box' },
     apiError: { background: '#fce8e6', border: '1px solid #f5c2be', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#d93025', fontSize: 13, fontFamily: "'Calibri','Segoe UI',sans-serif" },
     section: { marginBottom: '0', padding: '14px 0', borderBottom: '1px solid #f0f0f0' },
     sectionHeader: { display: 'flex', alignItems: 'center', marginBottom: '14px', paddingBottom: '8px', borderBottom: '2px solid #e6e6e9' },
-    sectionTitle: { fontSize: '22px', color: '#0d0d0e', margin: 0, fontWeight: 'bold' },
+    sectionTitle: { fontSize: '22px', color: 'var(--accent)', margin: 0, fontWeight: 'bold' },
     grid3cols: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '0' },  // mobile: 1col
     grid2cols: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '14px', marginBottom: '0' },  // mobile: 1col
     formGroup: { display: 'flex', flexDirection: 'column' },
-    label: { textAlign: 'left', fontSize: '14px', fontWeight: '600', marginBottom: '6px', color: 'var(--accent)', textTransform: 'proper', letterSpacing: '0.8px' },
+    label: { textAlign: 'left', fontSize: '14px', fontWeight: '600', marginBottom: '6px', color: 'black', textTransform: 'proper', letterSpacing: '0.8px' },
     required: { color: '#e74c3c', marginLeft: '4px' },
     input: { padding: '9px 12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '13px', fontFamily: "'Nohemi', 'Segoe UI', sans-serif", transition: 'border-color 0.2s', outline: 'none', width: '100%', boxSizing: 'border-box' },
     inputError: { borderColor: '#d93025' },
@@ -287,22 +287,8 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
         }
       `}</style>
 
-      {/* ── Sticky Page Header ── */}
-      <div style={styles.pageHeader}>
-        <div style={styles.pageHeaderLeft}>
-         
-          <h1 style={styles.pageHeaderTitle}>{editData ? 'Edit Vehicle' : 'Add New Vehicle'}</h1>
-        </div>
-        <div style={styles.pageHeaderActions}>
-          <button
-            type="button" style={styles.backBtn} onClick={onClose}
-            onMouseEnter={e => { e.currentTarget.style.background = '#f8f9fa'; e.currentTarget.style.color = '#202124'; }}
-            onMouseLeave={e => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#5f6368'; }}
-          >
-            Back
-          </button>
-        </div>
-      </div>
+      
+      
 
       {/* ── Scrollable Form Body ── */}
       <div style={styles.scrollBody}>
@@ -310,6 +296,15 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
 
           {/* Top-level API error banner */}
           {apiError && <div style={styles.apiError}>⚠️ {apiError}</div>}
+
+
+          <div style={styles.pageHeader}>
+        <div style={styles.pageHeaderLeft}>
+         
+          <h1 style={styles.pageHeaderTitle}>{editData ? 'Edit Vehicle' : 'Add New Vehicle'}</h1>
+        </div>
+        
+      </div>
 
           {/* ── Section 1: Basic Information ── */}
           <div style={styles.section}>
@@ -529,6 +524,16 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
 
           {/* ── Form Actions ── */}
           <div style={styles.actions}>
+            <div style={styles.pageHeaderActions}>
+          <button
+            type="button" style={styles.backBtn} onClick={onClose}
+            onMouseEnter={e => { e.currentTarget.style.background = '#137ce6'; e.currentTarget.style.color = '#fbfbfc'; }}
+            onMouseLeave={e => { e.currentTarget.style.background = '#1c67d8'; e.currentTarget.style.color = '#f9fbfd'; }}
+          >
+            Back
+          </button>
+        </div>
+            
             <button type="button" style={styles.resetBtn} onClick={handleReset} disabled={loading}>
               Reset
             </button>
