@@ -135,7 +135,7 @@ export async function fetchPaymentById(id) {
  * Automatically switches to multipart/form-data when a file is attached.
  *
  * Matches collection.jsx formData shape:
- *   { clientName, branch, collectionType, amount, paidFor, notes, paymentProof }
+ *   { clientName, place, phoneNumber, department, branch, collectionType, amount, paidFor, notes, paymentProof }
  *
  * @param {Object} formData - React state formData from collection.jsx
  */
@@ -143,6 +143,9 @@ export async function createPayment(formData) {
   // Map camelCase (React) → snake_case (Django)
   const payload = new FormData();
   payload.append('client_name',     formData.clientName);
+  payload.append('place',           formData.place || '');
+  payload.append('phone_number',    formData.phoneNumber || '');
+  payload.append('department',      formData.department || '');
   payload.append('branch',          formData.branch);
   payload.append('collection_type', formData.collectionType);
   payload.append('amount',          formData.amount);
@@ -168,6 +171,9 @@ export async function createPayment(formData) {
 export async function updatePayment(id, formData) {
   const payload = new FormData();
   payload.append('client_name',     formData.clientName);
+  payload.append('place',           formData.place || '');
+  payload.append('phone_number',    formData.phoneNumber || '');
+  payload.append('department',      formData.department || '');
   payload.append('branch',          formData.branch);
   payload.append('collection_type', formData.collectionType);
   payload.append('amount',          formData.amount);
@@ -238,17 +244,20 @@ export async function fetchPaymentSummary() {
  */
 export function normalizePayment(p) {
   return {
-    id:             p.id,
-    clientName:     p.client_name,
-    branch:         p.branch,
-    collectionType: p.collection_type,
-    amount:         parseFloat(p.amount),
-    paidFor:        p.paid_for,
-    notes:          p.notes,
-    paymentProof:   p.payment_proof      || null,   // relative path stored in DB
+    id:              p.id,
+    clientName:      p.client_name,
+    place:           p.place || '',
+    phoneNumber:     p.phone_number || '',
+    department:      p.department || '',
+    branch:          p.branch,
+    collectionType:  p.collection_type,
+    amount:          parseFloat(p.amount),
+    paidFor:         p.paid_for,
+    notes:           p.notes,
+    paymentProof:    p.payment_proof      || null,   // relative path stored in DB
     paymentProofUrl: p.payment_proof_url || null,   // absolute URL for "View" button
-    status:         p.status,
-    date:           p.date,
+    status:          p.status,
+    date:            p.date,
   };
 }
 

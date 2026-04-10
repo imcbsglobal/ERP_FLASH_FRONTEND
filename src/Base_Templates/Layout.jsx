@@ -107,7 +107,7 @@ const PAGE_META = {
   vm_trips:    { title: "Trip Management",    tag: "Vehicle Management",  desc: "Track and manage all vehicle trips and assignments." },
   vm_fuel:     { title: "Fuel Logs",          tag: "Vehicle Management",  desc: "Record and monitor fuel consumption across the fleet." },
   vm_service:  { title: "Service & Maintenance", tag: "Vehicle Management", desc: "Schedule and track vehicle service and maintenance history." },
-  col_reports: { title: "Payment Reports", tag: "",      desc: "" },
+  col_reports: { title: "", tag: "",      desc: "" },
 };
 
 function pillClass(val) {
@@ -246,13 +246,13 @@ export default function Layout({ children }) {
   return (
     <>
       <style>{`
-        @import url('https://fonts.cdnfonts.com/css/nohemi');
+        @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
         
         *, *::before, *::after { 
           box-sizing: border-box; 
           margin: 0; 
           padding: 0; 
-          font-family: 'Nohemi', sans-serif !important;
+          font-family: 'Google Sans', sans-serif !important;
         }
 
         :root {
@@ -269,13 +269,13 @@ export default function Layout({ children }) {
           --muted:    #5f6368;
           --sw:       256px;
           --r:        8px;
-          --ff:       'Nohemi', sans-serif;
-          --ffd:      'Nohemi', sans-serif;
+          --ff:       'Google Sans', sans-serif;
+          --ffd:      'Google Sans', sans-serif;
           --ease:     0.2s cubic-bezier(0.4,0,0.2,1);
         }
 
         html, body, #root { height: 100%; margin: 0; padding: 0; }
-        body { font-family: 'Nohemi', sans-serif; background:#e1ebf8; color: var(--text); -webkit-font-smoothing: antialiased; }
+        body { font-family: 'Google Sans', sans-serif; background:#e1ebf8; color: var(--text); -webkit-font-smoothing: antialiased; }
 
         .shell { display: flex; width: 100vw; height: 100vh; overflow: hidden; }
 
@@ -343,7 +343,7 @@ export default function Layout({ children }) {
           text-transform: uppercase; 
           color: #5f6368;
           white-space: nowrap;
-          font-family: 'Google Sans', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
         }
 
         .collapse-btn-header {
@@ -399,7 +399,7 @@ export default function Layout({ children }) {
           border: none; 
           cursor: pointer; 
           color: #5f6368;
-          font-family: 'Google Sans', 'Roboto', sans-serif; 
+          font-family: 'Google Sans', sans-serif; 
           font-size:14px; 
           font-weight: 600; 
           text-align: left; 
@@ -471,7 +471,7 @@ export default function Layout({ children }) {
           border: none; 
           cursor: pointer; 
           color: #5f6368;
-          font-family: 'Google Sans', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
           font-size: 13px;
           font-weight: 500; 
           text-align: left; 
@@ -536,7 +536,7 @@ export default function Layout({ children }) {
           font-weight: 700;
           color: #ffffff;
           flex-shrink: 0;
-          font-family: 'Google Sans', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
         }
         .sb-user-info { 
           transition: opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -546,8 +546,8 @@ export default function Layout({ children }) {
           display: none;
         }
         
-        .sb-uname { font-size:13px; font-weight:600; color:#202124; white-space: nowrap; font-family: 'Google Sans', 'Roboto', sans-serif; }
-        .sb-urole { font-size:10px; color:#5f6368; margin-top:1px; white-space: nowrap; font-family: 'Google Sans', 'Roboto', sans-serif; }
+        .sb-uname { font-size:13px; font-weight:600; color:#202124; white-space: nowrap; font-family: 'Google Sans', sans-serif; }
+        .sb-urole { font-size:10px; color:#5f6368; margin-top:1px; white-space: nowrap; font-family: 'Google Sans', sans-serif; }
 
         .logout-btn {
           display: flex;
@@ -562,7 +562,7 @@ export default function Layout({ children }) {
           transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           width: 100%;
           margin-top: 4px;
-          font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
         }
         
         .sidebar.collapsed .logout-btn {
@@ -600,38 +600,38 @@ export default function Layout({ children }) {
         .page-full-scroll { flex:1; display:flex; flex-direction:column; overflow-y:auto; }
 
         .page-head  { margin-bottom:26px; }
-        .page-tag   { font-size:10px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--accent); margin-bottom:4px; font-family: 'Google Sans', 'Roboto', sans-serif; }
+        .page-tag   { font-size:10px; font-weight:600; letter-spacing:2px; text-transform:uppercase; color:var(--accent); margin-bottom:4px; font-family: 'Google Sans', sans-serif; }
         .page-title { font-family:var(--ffd); font-size:27px; font-weight:700; color:black; letter-spacing:-0.4px; }
-        .page-desc  { font-size:13.5px; color:var(--muted); margin-top:5px; max-width:500px; line-height:1.6; font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif; }
+        .page-desc  { font-size:13.5px; color:var(--muted); margin-top:5px; max-width:500px; line-height:1.6; font-family: 'Google Sans', sans-serif; }
 
         .stats { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-bottom:22px; }
         .stat-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); padding:18px 20px; transition:box-shadow var(--ease),transform var(--ease); }
         .stat-card:hover { box-shadow:0 4px 22px rgba(0,0,0,0.07); transform:translateY(-2px); }
-        .s-label { font-size:10px; font-weight:600; letter-spacing:1.3px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif; }
+        .s-label { font-size:10px; font-weight:600; letter-spacing:1.3px; text-transform:uppercase; color:var(--muted); margin-bottom:8px; font-family: 'Google Sans', sans-serif; }
         .s-value { font-family:var(--ffd); font-size:24px; font-weight:700; color:var(--accent); line-height:1; }
-        .s-delta { margin-top:6px; font-size:11.5px; font-weight:600; font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif; }
+        .s-delta { margin-top:6px; font-size:11.5px; font-weight:600; font-family: 'Google Sans', sans-serif; }
         .s-delta.pos { color:var(--green); }
         .s-delta.neg { color:var(--red); }
 
         .card      { background:var(--surface); border:1px solid var(--border); border-radius:var(--r); overflow:hidden; }
         .card-head { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; border-bottom:1px solid var(--border); }
-        .card-title { font-size:14px; font-weight:700; color:var(--accent); font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif; }
+        .card-title { font-size:14px; font-weight:700; color:var(--accent); font-family: 'Google Sans', sans-serif; }
         .card-acts  { display:flex; gap:8px; }
 
-        .btn   { font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif; font-size:12px; font-weight:600; padding:6px 14px; border-radius:7px; border:none; cursor:pointer; transition:all var(--ease); }
+        .btn   { font-family: 'Google Sans', sans-serif; font-size:12px; font-weight:600; padding:6px 14px; border-radius:7px; border:none; cursor:pointer; transition:all var(--ease); }
         .btn-p { background:var(--accent); color:#fff; }
         .btn-p:hover { background:#0f2418; }
         .btn-g { background:var(--surface2); color:var(--muted); border:1px solid var(--border); }
         .btn-g:hover { color:var(--accent); border-color:var(--accent); }
 
         table { width:100%; border-collapse:collapse; }
-        thead th { font-size:10px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); text-align:left; padding:10px 20px; background:var(--surface2); border-bottom:1px solid var(--border); font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif; }
+        thead th { font-size:10px; font-weight:600; letter-spacing:1.2px; text-transform:uppercase; color:var(--muted); text-align:left; padding:10px 20px; background:var(--surface2); border-bottom:1px solid var(--border); font-family: 'Google Sans', sans-serif; }
         tbody tr { transition:background var(--ease); }
         tbody tr:not(:last-child) td { border-bottom:1px solid var(--border); }
         tbody tr:hover td { background:#fafaf7; }
-        tbody td { padding:12px 20px; font-size:13px; font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif; }
+        tbody td { padding:12px 20px; font-size:13px; font-family: 'Google Sans', sans-serif; }
 
-        .pill       { display:inline-block; padding:3px 10px; border-radius:20px; font-size:10.5px; font-weight:600; font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif; }
+        .pill       { display:inline-block; padding:3px 10px; border-radius:20px; font-size:10.5px; font-weight:600; font-family: 'Google Sans', sans-serif; }
         .pill-green { background:var(--green-lt); color:var(--green); }
         .pill-red   { background:var(--red-lt);   color:var(--red);   }
         .pill-amber { background:var(--amber-lt); color:var(--amber); }
@@ -644,8 +644,8 @@ export default function Layout({ children }) {
         .tx-row:last-child { border-bottom:none; }
         .tx-row:hover { background:#fafaf7; }
         .tx-dot  { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-        .tx-name { font-size:13px; font-weight:600; flex:1; font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif; }
-        .tx-date { font-size:11px; color:var(--muted); font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif; }
+        .tx-name { font-size:13px; font-weight:600; flex:1; font-family: 'Google Sans', sans-serif; }
+        .tx-date { font-size:11px; color:var(--muted); font-family: 'Google Sans', sans-serif; }
         .tx-amt  { font-family:var(--ffd); font-size:13px; font-weight:700; }
         .tx-amt.cr { color:var(--green); }
         .tx-amt.dr { color:var(--red); }
@@ -678,7 +678,7 @@ export default function Layout({ children }) {
           font-weight: bold;
           margin-bottom: 6px;
           color: var(--accent);
-          font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
         }
 
         .payment-form input,
@@ -688,7 +688,7 @@ export default function Layout({ children }) {
           padding: 8px 12px;
           border: 1px solid var(--border);
           border-radius: 6px;
-          font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
           font-size: 13px;
           transition: all var(--ease);
         }
@@ -710,7 +710,7 @@ export default function Layout({ children }) {
           font-size: 11px;
           margin-top: 4px;
           display: block;
-          font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
         }
 
         .amount-input {
@@ -724,7 +724,7 @@ export default function Layout({ children }) {
           left: 12px;
           font-weight: 600;
           color: var(--muted);
-          font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
         }
 
         .amount-input input {
@@ -744,14 +744,14 @@ export default function Layout({ children }) {
           background: var(--accent);
           color: white;
           min-width: 120px;
-          font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
         }
 
         .btn-secondary {
           background: var(--surface2);
           color: var(--muted);
           border: 1px solid var(--border);
-          font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
         }
 
         .btn-primary:hover:not(:disabled) {
@@ -776,7 +776,7 @@ export default function Layout({ children }) {
           margin-bottom: 20px;
           font-size: 13px;
           font-weight: 500;
-          font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
         }
 
         .alert-success {
@@ -798,7 +798,7 @@ export default function Layout({ children }) {
           border-radius: 6px;
           font-size: 11px;
           overflow-x: auto;
-          font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
         }
 
         /* Chart styles */
@@ -923,7 +923,7 @@ export default function Layout({ children }) {
           letter-spacing: 1.3px;
           text-transform: uppercase;
           color: var(--muted);
-          font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
         }
         
         .kpi-icon {
@@ -951,7 +951,7 @@ export default function Layout({ children }) {
           font-weight: 700;
           padding: 2px 7px;
           border-radius: 10px;
-          font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
         }
         
         .kpi-delta.pos {
@@ -967,7 +967,7 @@ export default function Layout({ children }) {
         .kpi-sub {
           font-size: 11px;
           color: var(--muted);
-          font-family: 'Calibri', 'Segoe UI', 'Roboto', sans-serif;
+          font-family: 'Google Sans', sans-serif;
         }
       `}</style>
 

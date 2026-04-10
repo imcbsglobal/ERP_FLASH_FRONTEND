@@ -173,12 +173,13 @@ export default function RoleAccess() {
     return init;
   });
 
-  // ── Fetch all users ──────────────────────────────────────────────────────────
+  // ── Fetch all users (only those created in user_list.jsx) ──────────────────────────────────────────────────────────
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
     try {
       const token = localStorage.getItem("access_token");
-      const res = await fetch(`${API_BASE}/users/login-users/`, {
+      // Fetch from /users/ endpoint instead of /users/login-users/
+      const res = await fetch(`${API_BASE}/users/`, {
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -187,16 +188,29 @@ export default function RoleAccess() {
       if (!res.ok) throw new Error("Failed to fetch users");
       const data = await res.json();
       const list = data.results || data || [];
-      setUsers(list);
+      
+      // Filter to show only users that were created via user_list.jsx
+      // Get created users from localStorage
+      const createdUserIds = JSON.parse(localStorage.getItem("created_users") || "[]");
+      
+      // If there are created users in localStorage, filter them
+      // Otherwise, show all users from the /users/ endpoint
+      let filteredList = list;
+      if (createdUserIds.length > 0) {
+        filteredList = list.filter(user => createdUserIds.includes(user.id));
+      }
+      
+      console.log("Filtered users (only created in user_list):", filteredList);
+      setUsers(filteredList);
 
       const initialPerms = {};
-      list.forEach(u => {
+      filteredList.forEach(u => {
         console.log(`User ${u.id} (${u.username}) has permissions:`, u.menu_permissions);
         initialPerms[u.id] = normalizePerms(u.menu_permissions ?? null);
       });
       setPerms(initialPerms);
 
-      if (list.length > 0) setSelectedUser(list[0]);
+      if (filteredList.length > 0) setSelectedUser(filteredList[0]);
     } catch (e) {
       console.error("Failed to load users", e);
     } finally {
@@ -356,13 +370,14 @@ export default function RoleAccess() {
   return (
     <div style={{
       display: "flex", width: "100%", height: "100%",
-      background: "#f8f9fa", fontFamily: "Inter, system-ui, sans-serif",
+      background: "#f8f9fa", fontFamily: "'Google Sans', sans-serif",
       overflow: "hidden", textAlign: "left",
     }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
         @keyframes pulse { 0%,100%{opacity:0.6} 50%{opacity:0.2} }
         @keyframes spin   { to { transform: rotate(360deg); } }
-        * { font-family: Inter, system-ui, sans-serif !important; box-sizing: border-box; }
+        * { font-family: 'Google Sans', sans-serif !important; box-sizing: border-box; }
         .ua-user-row:hover  { background: #f1f3f4 !important; }
         .ua-user-row.active { background: #e8f0fe !important; border-left: 3px solid #1a73e8 !important; }
         .ua-menu-row:hover  { background: #f1f3f4; }
@@ -455,18 +470,16 @@ export default function RoleAccess() {
                           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                       </div>
                     )}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontSize: "13px", fontWeight: 600, color: "#202124" }}>{name}</span>
-                        {hasDirty && <span className="ua-dirty-dot" title="Unsaved changes" />}
+                    <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+                        <span style={{ fontSize: "13px", fontWeight: 600, color: "#202124", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+                        {hasDirty && <span className="ua-dirty-dot" title="Unsaved changes" style={{ flexShrink: 0 }} />}
                       </div>
-                      <div style={{ marginTop: "3px" }}>
-                        <span style={{
-                          fontSize: "10px", fontWeight: 700, padding: "1px 7px",
-                          borderRadius: "10px", background: badge.bg, color: badge.color,
-                          textTransform: "uppercase", letterSpacing: "0.3px",
-                        }}>{role}</span>
-                      </div>
+                      <span style={{
+                        fontSize: "10px", fontWeight: 700, padding: "1px 7px",
+                        borderRadius: "10px", background: badge.bg, color: badge.color,
+                        textTransform: "uppercase", letterSpacing: "0.3px", flexShrink: 0,
+                      }}>{role}</span>
                     </div>
                   </div>
                 );

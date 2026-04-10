@@ -4,7 +4,7 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const ROLES    = ["Admin", "Manager", "Operator", "Viewer", "Support", "Auditor"];
+const ROLES    = ["Admin", "Manager", "Operator", "User", "Support", "Auditor"];
 const STATUSES = ["Active", "Inactive"];
 const EMPTY_FORM = {
   username: "", address: "", phone: "", branch: "",
@@ -621,6 +621,12 @@ export default function RegisteredUsers() {
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", background: "var(--surface)" }}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
+        :root {
+          --ff:  'Google Sans', sans-serif;
+          --ffd: 'Google Sans', sans-serif;
+        }
+        *, *::before, *::after { font-family: 'Google Sans', sans-serif !important; box-sizing: border-box; }
         @keyframes slideUp {
           from { opacity: 0; transform: translateY(16px); }
           to   { opacity: 1; transform: translateY(0); }
@@ -783,7 +789,7 @@ export default function RegisteredUsers() {
                     {/* Password */}
                     <td style={tdStyle(COLS[2])}>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontFamily: "monospace", fontSize: "13px", color: revealedPwds.has(u.id) ? "var(--text)" : "var(--muted)", letterSpacing: revealedPwds.has(u.id) ? "0.5px" : "2px", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <span style={{ fontFamily: "'Google Sans', sans-serif", fontSize: "13px", color: revealedPwds.has(u.id) ? "var(--text)" : "var(--muted)", letterSpacing: revealedPwds.has(u.id) ? "0.5px" : "2px", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                           {revealedPwds.has(u.id) ? (displayPassword || "••••••••") : "••••••••"}
                         </span>
                         <button onClick={() => togglePasswordVisibility(u.id)}

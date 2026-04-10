@@ -72,7 +72,7 @@ function ImageCard({ src, label, onExpand }) {
           background: "#fafafa",
           color: "#bdbdbd",
           fontSize: 11,
-          fontFamily: "'Nohemi', sans-serif",
+          fontFamily: "'Google Sans', sans-serif",
           gap: 3,
         }}>
           <span style={{ fontSize: 18 }}>📷</span>
@@ -84,7 +84,7 @@ function ImageCard({ src, label, onExpand }) {
         color: accentColor,
         borderRadius: 20,
         padding: "2px 8px",
-        fontFamily: "'Nohemi', sans-serif",
+        fontFamily: "'Google Sans', sans-serif",
         display: "flex", alignItems: "center", gap: 3,
       }}>
         <Icon style={{ fontSize: 11 }} /> {label}
@@ -135,7 +135,7 @@ function ImageLightbox({ src, label, onClose }) {
         >×</button>
       </div>
       <span style={{
-        color: "#fff", fontSize: 13, fontFamily: "'Nohemi', sans-serif",
+        color: "#fff", fontSize: 13, fontFamily: "'Google Sans', sans-serif",
         background: "rgba(255,255,255,0.15)", borderRadius: 20, padding: "4px 14px",
       }}>
         {label === "Start" ? "🟢" : "🔴"} {label} Odometer Photo
@@ -145,6 +145,26 @@ function ImageLightbox({ src, label, onClose }) {
 }
 
 export default function TravelList() {
+  // ── Get logged-in user name ────────────────────────────────────
+  const getLoggedInUserName = () => {
+    try {
+      const userJson = localStorage.getItem('user');
+      if (userJson) {
+        const user = JSON.parse(userJson);
+        return user.name || user.full_name || user.username || user.email || '—';
+      }
+      return (
+        localStorage.getItem('user_name') ||
+        localStorage.getItem('full_name') ||
+        localStorage.getItem('username') ||
+        localStorage.getItem('name') ||
+        '—'
+      );
+    } catch {
+      return '—';
+    }
+  };
+  const loggedInUser = getLoggedInUserName();
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -193,6 +213,8 @@ export default function TravelList() {
         vehicle_name:        newTrip.vehicle_name        || tripData.vehicle_name,
         vehicleReg:          newTrip.vehicleReg          || newTrip.registration_number  || tripData.registration_number,
         registration_number: newTrip.registration_number || tripData.registration_number,
+        traveledBy:          newTrip.traveled_by         || newTrip.traveledBy           || loggedInUser,
+        odoStart:            newTrip.odometer_start      || newTrip.odoStart             || null,
         ...newTrip,
       };
       setData((prev) => [merged, ...prev]);
@@ -242,7 +264,7 @@ export default function TravelList() {
     <span style={{
       background: "transparent", color: "#000000",
       fontSize: 13, fontWeight: 500,
-      fontFamily: "'Nohemi', sans-serif", whiteSpace: "nowrap",
+      fontFamily: "'Google Sans', sans-serif", whiteSpace: "nowrap",
     }}>
       {p || "—"}
     </span>
@@ -255,7 +277,7 @@ export default function TravelList() {
     fontWeight: 700,
     letterSpacing: "0.6px",
     color: "#000000",
-    fontFamily: "'Nohemi', sans-serif",
+    fontFamily: "'Google Sans', sans-serif",
     textTransform: "capitalize",
     borderBottom: "1.5px solid #e8eaed",
     whiteSpace: "nowrap",
@@ -267,17 +289,20 @@ export default function TravelList() {
     textAlign: "left",
     fontSize: 13,
     color: "#000000",
-    fontFamily: "'Nohemi', sans-serif",
+    fontFamily: "'Google Sans', sans-serif",
     borderBottom: "1px solid #f0f0f0",
     verticalAlign: "middle",
     whiteSpace: "nowrap",
   };
 
+  // Get the current trip for end trip modal
+  const currentTrip = showEndTripModal ? data.find((t) => t.id === showEndTripModal) : null;
+
   return (
     <>
       <style>{`
-        @import url('https://fonts.cdnfonts.com/css/nohemi');
-        *, *::before, *::after { box-sizing: border-box; font-family: 'Nohemi', sans-serif !important; }
+        @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
+        *, *::before, *::after { box-sizing: border-box; font-family: 'Google Sans', sans-serif !important; }
         ::-webkit-scrollbar { height: 6px; width: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #0790f8; border-radius: 4px; }
@@ -291,288 +316,324 @@ export default function TravelList() {
         .img-card-wrap:hover .img-overlay { opacity: 1 !important; }
       `}</style>
 
-      {/* ── Full-page StartTrip view ── */}
+      {/* ── StartTrip Component - Rendered inline ── */}
       {showStartTrip && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#f8f9fa" }}>
-          <StartTrip
-            onClose={() => setShowStartTrip(false)}
-            onStart={handleStart}
-          />
-        </div>
+        <StartTrip
+          onClose={() => setShowStartTrip(false)}
+          onStart={handleStart}
+        />
       )}
 
-      <div style={{ minHeight: "100vh", background: "transparent", padding: "16px", fontFamily: "'Nohemi', sans-serif" }}>
+      {/* ── EndTrip Component - Rendered inline when showEndTripModal is true ── */}
+      {showEndTripModal && currentTrip && (
+        <EndTrip
+          onClose={() => setShowEndTripModal(null)}
+          onComplete={(endData) => handleEndTrip(currentTrip.id, endData)}
+          tripData={{
+            vehicle_name:    currentTrip?.vehicle    ?? '',
+            date:            currentTrip?.date        ?? '',
+            time:            currentTrip?.startTime   ?? '',
+            purpose_of_trip: currentTrip?.purpose     ?? '',
+            odometer_start:  currentTrip?.odoStart    ?? null,
+          }}
+        />
+      )}
 
-        {/* Global error banner */}
-        {error && (
-          <div style={{
-            maxWidth: 1400, margin: "0 auto 14px",
-            background: "#fff0f0", border: "1.5px solid #f5c2c7",
-            borderRadius: 10, padding: "10px 18px",
-            color: "#b02a37", fontSize: 13, fontFamily: "'Nohemi', sans-serif",
-            display: "flex", justifyContent: "space-between", alignItems: "center",
-          }}>
-            <span>⚠️ {error}</span>
-            <button
-              onClick={() => setError("")}
-              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#b02a37" }}
-            >×</button>
-          </div>
-        )}
+      {/* Only show the trip list when StartTrip AND EndTrip are NOT visible */}
+      {!showStartTrip && !showEndTripModal && (
+        <div style={{ minHeight: "100vh", background: "transparent", padding: "16px", fontFamily: "'Google Sans', sans-serif" }}>
 
-        {/* Header */}
-        <div style={{ maxWidth: 1400, margin: "0 auto 22px" }}>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
-            <div>
-              <h1 className="tt-title" style={{ margin: 0, fontSize: 28, fontWeight: 800, color: "#000000", letterSpacing: -0.5 }}>
-                Travel Log
-              </h1>
-            </div>
-            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search vehicle, driver, purpose…"
-                style={{
-                  padding: "9px 16px", borderRadius: 10, border: "1.5px solid #c8d8e8",
-                  fontSize: 13, fontFamily: "'Nohemi', sans-serif", width: 260,
-                  background: "#fff", color: "#000000", outline: "none",
-                  boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-                }}
-              />
+          {/* Global error banner */}
+          {error && (
+            <div style={{
+              maxWidth: 1400, margin: "0 auto 14px",
+              background: "#fff0f0", border: "1.5px solid #f5c2c7",
+              borderRadius: 10, padding: "10px 18px",
+              color: "#b02a37", fontSize: 13, fontFamily: "'Google Sans', sans-serif",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+            }}>
+              <span>⚠️ {error}</span>
               <button
-                onClick={() => setShowStartTrip(true)}
-                disabled={actionLoading}
-                style={{
-                  padding: "9px 22px", borderRadius: 10, border: "none",
-                  background: "linear-gradient(135deg, #1a6fdb, #0d4fa8)",
-                  color: "#fff", fontWeight: 700, cursor: "pointer",
-                  fontSize: 13, fontFamily: "'Nohemi', sans-serif",
-                  boxShadow: "0 4px 14px rgba(26,111,219,0.3)",
-                  display: "flex", alignItems: "center", gap: 7,
-                  opacity: actionLoading ? 0.7 : 1,
-                }}
-              >
-                Start Trip
-              </button>
+                onClick={() => setError("")}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#b02a37" }}
+              >×</button>
+            </div>
+          )}
+
+          {/* Header */}
+          <div style={{ maxWidth: 1400, margin: "0 auto 22px" }}>
+            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
+              <div>
+                <h1 className="tt-title" style={{ margin: 0, fontSize: 28, fontWeight: 800, color: "#000000", letterSpacing: -0.5 }}>
+                  Travel Log
+                </h1>
+              </div>
+              <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search vehicle, driver, purpose…"
+                  style={{
+                    padding: "9px 16px", borderRadius: 10, border: "1.5px solid #c8d8e8",
+                    fontSize: 13, fontFamily: "'Google Sans', sans-serif", width: 260,
+                    background: "#fff", color: "#000000", outline: "none",
+                    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
+                  }}
+                />
+                <button
+                  onClick={() => setShowStartTrip(true)}
+                  disabled={actionLoading}
+                  style={{
+                    padding: "9px 22px", borderRadius: 10, border: "none",
+                    background: "linear-gradient(135deg, #1a6fdb, #0d4fa8)",
+                    color: "#fff", fontWeight: 700, cursor: "pointer",
+                    fontSize: 13, fontFamily: "'Google Sans', sans-serif",
+                    boxShadow: "0 4px 14px rgba(26,111,219,0.3)",
+                    display: "flex", alignItems: "center", gap: 7,
+                    opacity: actionLoading ? 0.7 : 1,
+                  }}
+                >
+                  Start Trip
+                </button>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div style={{ display: "flex", gap: 14, marginTop: 18, flexWrap: "wrap" }}>
+              {[
+              ].map(({ label, value, icon }) => (
+                <div key={label} style={{
+                  background: "#fff", borderRadius: 12, padding: "12px 20px",
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.06)", display: "flex",
+                  alignItems: "center", gap: 12, flex: "1 1 160px",
+                }}>
+                  <span style={{ fontSize: 22 }}>{icon}</span>
+                  <div>
+                    <div style={{ fontSize: 10, color: "#000000", fontFamily: "'Google Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.6 }}>{label}</div>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: "#000000" }}>{value}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* Stats */}
-          <div style={{ display: "flex", gap: 14, marginTop: 18, flexWrap: "wrap" }}>
-            {[
-            ].map(({ label, value, icon }) => (
-              <div key={label} style={{
-                background: "#fff", borderRadius: 12, padding: "12px 20px",
-                boxShadow: "0 2px 10px rgba(0,0,0,0.06)", display: "flex",
-                alignItems: "center", gap: 12, flex: "1 1 160px",
-              }}>
-                <span style={{ fontSize: 22 }}>{icon}</span>
-                <div>
-                  <div style={{ fontSize: 10, color: "#000000", fontFamily: "'Nohemi', sans-serif", textTransform: "uppercase", letterSpacing: 0.6 }}>{label}</div>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: "#000000" }}>{value}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Table */}
-        <div style={{ maxWidth: 1400, margin: "0 auto", background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}>
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1200 }}>
-              <thead>
-                <tr>
-                  {["Sl.No.", "Vehicle", "Traveled By", "Purpose", "Date & Time", "Odometer", "Distance", "Fuel & Cost", "Photos", "Action"].map((h) => (
-                    <th key={h} style={thStyle}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {/* Loading state */}
-                {loading ? (
+          {/* Table */}
+          <div style={{ maxWidth: 1400, margin: "0 auto", background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1200 }}>
+                <thead>
                   <tr>
-                    <td colSpan={10} style={{ ...tdStyle, textAlign: "center", padding: "48px", color: "#000000" }}>
-                      <div style={{ fontSize: 28, marginBottom: 10 }}>⏳</div>
-                      <div style={{ fontWeight: 600, fontSize: 15 }}>Loading trips…</div>
-                    </td>
+                    {["Sl.No.", "Vehicle", "Traveled By", "Purpose", "Date & Time", "Odometer", "Distance", "Fuel & Cost", "Photos", "Action"].map((h) => (
+                      <th key={h} style={thStyle}>{h}</th>
+                    ))}
                   </tr>
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={10} style={{ ...tdStyle, textAlign: "center", padding: "48px", color: "#000000" }}>
-                      <div style={{ fontSize: 36, marginBottom: 10 }}>🚗</div>
-                      <div style={{ fontWeight: 600, fontSize: 15 }}>No travel records found</div>
-                      <div style={{ fontSize: 13, marginTop: 4 }}>Add your first entry to get started</div>
-                    </td>
-                  </tr>
-                ) : (
-                  filtered.map((row, i) => (
-                    <tr key={row.id} style={{ transition: "background 0.15s" }}>
-                      <td style={tdStyle}>{i + 1}</td>
-                      <td style={tdStyle}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                          <span style={{
-                            color: "#050505", fontSize: 13, fontWeight: 700,
-                            fontFamily: "'Nohemi', sans-serif", letterSpacing: 0.4,
-                          }}>
-                            {row.vehicle || row.vehicle_name || "—"}
-                          </span>
-                          {(row.vehicleReg || row.registration_number) && (
-                            <span style={{
-                              color: "#1a6fdb", fontSize: 11, fontWeight: 600,
-                              fontFamily: "'Nohemi', sans-serif", letterSpacing: 0.6,
-                            }}>
-                              {row.vehicleReg || row.registration_number}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td style={{ ...tdStyle, fontWeight: 600 }}>{row.traveledBy}</td>
-                      <td style={tdStyle}>{purposeTag(row.purpose)}</td>
-
-                      {/* Combined Date & Time column */}
-                      <td style={tdStyle}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          <div style={{ fontSize: 12, fontWeight: 500 }}>
-                            {new Date(row.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                          </div>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                            <span style={{ color: "#2e7d32", display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
-                              <AccessTimeIcon style={{ fontSize: 13 }} /> {row.startTime}
-                            </span>
-                            <span style={{ color: "#b71c1c", display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
-                              <HistoryIcon style={{ fontSize: 13 }} /> {row.endTime || "—"}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Combined ODO Start & End column */}
-                      <td style={tdStyle}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                          <div style={{ fontSize: 12 }}>Start: {row.odoStart.toLocaleString()} km</div>
-                          <div style={{ fontSize: 12 }}>End: {row.odoEnd.toLocaleString()} km</div>
-                        </div>
-                      </td>
-
-                      <td style={tdStyle}>
-                        <span style={{ fontWeight: 700, fontFamily: "'Nohemi', sans-serif", fontSize: 13, color: "#030303" }}>
-                          {row.distance} km
-                        </span>
-                      </td>
-
-                      {/* Combined Fuel & Cost column */}
-                      <td style={tdStyle}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                          <div style={{ fontSize: 12 }}>{row.fuel.toFixed(1)} L</div>
-                          <div style={{ fontSize: 12, fontWeight: 700, color: "#080808" }}>₹{row.cost.toLocaleString()}</div>
-                        </div>
-                      </td>
-
-                      <td style={{ ...tdStyle, padding: "10px 16px" }}>
-                        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                          <div className="img-card-wrap" style={{ position: "relative" }}>
-                            <ImageCard src={row.startImg} label="Start" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} />
-                          </div>
-                          <div style={{ width: 1, height: 50, background: "#e8eaed", flexShrink: 0 }} />
-                          <div className="img-card-wrap" style={{ position: "relative" }}>
-                            <ImageCard src={row.endImg} label="End" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} />
-                          </div>
-                        </div>
-                      </td>
-                      <td style={tdStyle}>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                          {/* End Trip Button */}
-                          <button
-                            onClick={() => setShowEndTripModal(row.id)}
-                            disabled={actionLoading || row.status === "completed"}
-                            style={{
-                              padding: "5px 12px",
-                              borderRadius: 6,
-                              border: "none",
-                              background: row.status === "completed" ? "#06771f" : "#f4b400",
-                              color: "#fdfbfb",
-                              fontSize: 12,
-                              fontWeight: 600,
-                              cursor: row.status === "completed" ? "not-allowed" : "pointer",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              gap: 6,
-                              fontFamily: "'Nohemi', sans-serif",
-                              width: "100%",
-                            }}
-                          >
-                            <StopCircleIcon style={{ fontSize: 14 }} />
-                            {row.status === "completed" ? "Completed" : "End Trip"}
-                          </button>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <button
-                              disabled={actionLoading}
-                              style={{
-                                padding: "5px 12px",
-                                borderRadius: 6,
-                                border: "none",
-                                background: "#1a73e8",
-                                color: "#fff",
-                                fontSize: 12,
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                                fontFamily: "'Nohemi', sans-serif",
-                                flex: 1,
-                              }}
-                            >
-                              <EditOutlinedIcon style={{ fontSize: 13 }} /> Edit
-                            </button>
-                            <button
-                              onClick={() => setDeleteId(row.id)}
-                              disabled={actionLoading}
-                              style={{
-                                padding: "5px 12px",
-                                borderRadius: 6,
-                                border: "none",
-                                background: "#d93025",
-                                color: "#fff",
-                                fontSize: 12,
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 4,
-                                fontFamily: "'Nohemi', sans-serif",
-                                flex: 1,
-                              }}
-                            >
-                              <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
-                            </button>
-                          </div>
-                        </div>
+                </thead>
+                <tbody>
+                  {/* Loading state */}
+                  {loading ? (
+                    <tr>
+                      <td colSpan={10} style={{ ...tdStyle, textAlign: "center", padding: "48px", color: "#000000" }}>
+                        <div style={{ fontSize: 28, marginBottom: 10 }}>⏳</div>
+                        <div style={{ fontWeight: 600, fontSize: 15 }}>Loading trips…</div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  ) : filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} style={{ ...tdStyle, textAlign: "center", padding: "48px", color: "#000000" }}>
+                        <div style={{ fontSize: 36, marginBottom: 10 }}>🚗</div>
+                        <div style={{ fontWeight: 600, fontSize: 15 }}>No travel records found</div>
+                        <div style={{ fontSize: 13, marginTop: 4 }}>Add your first entry to get started</div>
+                      </td>
+                    </tr>
+                  ) : (
+                    filtered.map((row, i) => (
+                      <tr key={row.id} style={{ transition: "background 0.15s" }}>
+                        <td style={tdStyle}>{i + 1}</td>
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            <span style={{
+                              color: "#050505", fontSize: 13, fontWeight: 700,
+                              fontFamily: "'Google Sans', sans-serif", letterSpacing: 0.4,
+                            }}>
+                              {row.vehicle || row.vehicle_name || "—"}
+                            </span>
+                            {(row.vehicleReg || row.registration_number) && (
+                              <span style={{
+                                color: "#1a6fdb", fontSize: 11, fontWeight: 600,
+                                fontFamily: "'Google Sans', sans-serif", letterSpacing: 0.6,
+                              }}>
+                                {row.vehicleReg || row.registration_number}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td style={{ ...tdStyle, fontWeight: 600 }}>
+                          {row.traveledBy || loggedInUser}
+                        </td>
+                        <td style={tdStyle}>{purposeTag(row.purpose)}</td>
 
-          {/* Footer */}
-          <div style={{
-            padding: "12px 20px",
-            background: "white",
-            borderTop: "1px solid white",
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            fontSize: 12,
-            color: "#000000",
-            fontFamily: "'Nohemi', sans-serif",
-          }}>
+                        {/* Combined Date & Time column */}
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <div style={{ fontSize: 12, fontWeight: 500 }}>
+                              {new Date(row.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
+                            </div>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                              <span style={{ color: "#2e7d32", display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
+                                <AccessTimeIcon style={{ fontSize: 13 }} /> {row.startTime}
+                              </span>
+                              <span style={{ color: "#b71c1c", display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
+                                <HistoryIcon style={{ fontSize: 13 }} /> {row.endTime || "—"}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Combined ODO Start & End column */}
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                              <span style={{ fontSize: 10, color: "#2e7d32", fontWeight: 700,   borderRadius: 4, padding: "1px 5px", whiteSpace: "nowrap" }}>
+                                Start
+                              </span>
+                              <span style={{ fontSize: 12, fontWeight: 600, color: "#202124" }}>
+                                {row.odoStart != null && row.odoStart !== 0
+                                  ? `${Number(row.odoStart).toLocaleString('en-IN')} km`
+                                  : <span style={{ color: "#bdbdbd", fontStyle: "italic" }}>—</span>}
+                              </span>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                              <span style={{ fontSize: 10, color: "#b71c1c", fontWeight: 700, borderRadius: 4, padding: "1px 5px", whiteSpace: "nowrap" }}>
+                                End
+                              </span>
+                              <span style={{ fontSize: 12, color: "#202124" }}>
+                                {row.odoEnd != null && row.odoEnd !== 0
+                                  ? `${Number(row.odoEnd).toLocaleString('en-IN')} km`
+                                  : <span style={{ color: "#bdbdbd", fontStyle: "italic" }}>—</span>}
+                              </span>
+                            </div>
+                          </div>
+                        </td>
+
+                        <td style={tdStyle}>
+                          <span style={{ fontWeight: 700, fontFamily: "'Google Sans', sans-serif", fontSize: 13, color: "#030303" }}>
+                            {row.distance} km
+                          </span>
+                        </td>
+
+                        {/* Combined Fuel & Cost column */}
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            <div style={{ fontSize: 12 }}>{row.fuel.toFixed(1)} L</div>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "#080808" }}>₹{row.cost.toLocaleString()}</div>
+                          </div>
+                        </td>
+
+                        <td style={{ ...tdStyle, padding: "10px 16px" }}>
+                          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                            <div className="img-card-wrap" style={{ position: "relative" }}>
+                              <ImageCard src={row.startImg} label="Start" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} />
+                            </div>
+                            <div style={{ width: 1, height: 50, background: "#e8eaed", flexShrink: 0 }} />
+                            <div className="img-card-wrap" style={{ position: "relative" }}>
+                              <ImageCard src={row.endImg} label="End" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} />
+                            </div>
+                          </div>
+                        </td>
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                            {/* End Trip Button */}
+                            <button
+                              onClick={() => setShowEndTripModal(row.id)}
+                              disabled={actionLoading || row.status === "completed"}
+                              style={{
+                                padding: "5px 12px",
+                                borderRadius: 6,
+                                border: "none",
+                                background: row.status === "completed" ? "#06771f" : "#f4b400",
+                                color: "#fdfbfb",
+                                fontSize: 12,
+                                fontWeight: 600,
+                                cursor: row.status === "completed" ? "not-allowed" : "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 6,
+                                fontFamily: "'Google Sans', sans-serif",
+                                width: "100%",
+                              }}
+                            >
+                              <StopCircleIcon style={{ fontSize: 14 }} />
+                              {row.status === "completed" ? "Completed" : "End Trip"}
+                            </button>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <button
+                                disabled={actionLoading}
+                                style={{
+                                  padding: "5px 12px",
+                                  borderRadius: 6,
+                                  border: "none",
+                                  background: "#1a73e8",
+                                  color: "#fff",
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  fontFamily: "'Google Sans', sans-serif",
+                                  flex: 1,
+                                }}
+                              >
+                                <EditOutlinedIcon style={{ fontSize: 13 }} /> Edit
+                              </button>
+                              <button
+                                onClick={() => setDeleteId(row.id)}
+                                disabled={actionLoading}
+                                style={{
+                                  padding: "5px 12px",
+                                  borderRadius: 6,
+                                  border: "none",
+                                  background: "#d93025",
+                                  color: "#fff",
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  fontFamily: "'Google Sans', sans-serif",
+                                  flex: 1,
+                                }}
+                              >
+                                <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
+                              </button>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: "12px 20px",
+              background: "white",
+              borderTop: "1px solid white",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              fontSize: 12,
+              color: "#000000",
+              fontFamily: "'Google Sans', sans-serif",
+            }}>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Delete Confirm */}
       {deleteId && (
@@ -591,14 +652,14 @@ export default function TravelList() {
               <button
                 onClick={() => setDeleteId(null)}
                 disabled={actionLoading}
-                style={{ padding: "9px 22px", borderRadius: 9, border: "1.5px solid #c8d8e8", background: "#fff", color: "#000000", fontWeight: 600, cursor: "pointer", fontFamily: "'Nohemi', sans-serif", fontSize: 14 }}
+                style={{ padding: "9px 22px", borderRadius: 9, border: "1.5px solid #c8d8e8", background: "#fff", color: "#000000", fontWeight: 600, cursor: "pointer", fontFamily: "'Google Sans', sans-serif", fontSize: 14 }}
               >
                 Cancel
               </button>
               <button
                 onClick={() => handleDelete(deleteId)}
                 disabled={actionLoading}
-                style={{ padding: "9px 22px", borderRadius: 9, border: "none", background: "#d32f2f", color: "#fff", fontWeight: 700, cursor: "pointer", fontFamily: "'Nohemi', sans-serif", fontSize: 14, opacity: actionLoading ? 0.7 : 1 }}
+                style={{ padding: "9px 22px", borderRadius: 9, border: "none", background: "#d32f2f", color: "#fff", fontWeight: 700, cursor: "pointer", fontFamily: "'Google Sans', sans-serif", fontSize: 14, opacity: actionLoading ? 0.7 : 1 }}
               >
                 {actionLoading ? "Deleting…" : "Delete"}
               </button>
@@ -606,26 +667,7 @@ export default function TravelList() {
           </div>
         </div>
       )}
-
-      {/* End Trip – Full Page Overlay */}
-      {showEndTripModal && (() => {
-        const trip = data.find((t) => t.id === showEndTripModal);
-        return (
-          <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "#f8f9fa" }}>
-            <EndTrip
-              onClose={() => setShowEndTripModal(null)}
-              onComplete={(endData) => handleEndTrip(trip.id, endData)}
-              tripData={{
-                vehicle_name:    trip?.vehicle    ?? '',
-                date:            trip?.date        ?? '',
-                time:            trip?.startTime   ?? '',
-                purpose_of_trip: trip?.purpose     ?? '',
-                odometer_start:  trip?.odoStart    ?? null,
-              }}
-            />
-          </div>
-        );
-      })()}
+      
       {/* Image Lightbox */}
       {lightbox && (
         <ImageLightbox

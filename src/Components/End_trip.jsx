@@ -129,7 +129,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
     page: {
       height: '100%', display: 'flex', flexDirection: 'column',
       overflow: 'hidden', background: '#f8f9fa',
-      fontFamily: "'Nohemi', 'Segoe UI', sans-serif",
+      fontFamily: "'Google Sans', sans-serif",
     },
     header: {
       flexShrink: 0, display: 'flex', alignItems: 'center',
@@ -161,7 +161,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
 
     // ── Section headers with bottom border only ──
     sectionHeader: (color) => ({
-      fontSize: 14, fontWeight:'bold', letterSpacing: '1.4px',
+      fontSize: 15, fontWeight:'bold', letterSpacing: '1.4px',
       textTransform: 'capitalize', color: 'var(--accent)',
       marginBottom: 16, display: 'flex', alignItems: 'center', gap: 7,
       borderBottom: '2px solid #e0e0e0', // Only bottom border
@@ -181,7 +181,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
     },  // overridden to 1-col on mobile via <style>
     infoItem: { display: 'flex', flexDirection: 'column', gap: 6 },
     infoItemLabel: {
-      fontSize: 13, fontWeight: 700, letterSpacing: '0.8px',
+      fontSize: 12, fontWeight: 700, letterSpacing: '0.8px',
       textTransform: 'capitalize', color: 'rgb(12, 12, 12)',
       display: 'flex', alignItems: 'center', gap: 4,
     },
@@ -207,7 +207,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
 
     formGroup: { display: 'flex', flexDirection: 'column', gap: 6 },
     label: {
-      fontSize: 13, fontWeight:'bold', color: 'rgb(7, 7, 7)',
+      fontSize: 12, fontWeight:600, color: 'rgb(7, 7, 7)',
       marginBottom: 0, letterSpacing: '0.5px', textTransform: 'capitalize',
       display: 'flex', alignItems: 'center', gap: 5,
     },
@@ -215,7 +215,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
 
     input: {
       padding: '10px 13px', border: '1px solid #e2dfdf', borderRadius: 8,
-      fontSize: 13, fontFamily: "'Nohemi', 'Segoe UI', sans-serif",
+      fontSize: 13, fontFamily: "'Google Sans', sans-serif",
       outline: 'none', width: '100%', boxSizing: 'border-box',
       background: '#fff', color: '#202124',
       transition: 'border-color 0.2s, box-shadow 0.2s',
@@ -256,7 +256,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
       padding: '10px 24px', borderRadius: 8,
       border: '1px solid #e8eaed', background: '#fff',
       color: '#5f6368', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-      fontFamily: "'Nohemi', 'Segoe UI', sans-serif", transition: 'all 0.18s',
+      fontFamily: "'Google Sans', sans-serif", transition: 'all 0.18s',
     },
     completeBtn: {
       display: 'flex', alignItems: 'center', gap: 6,
@@ -264,7 +264,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
       background: loading ? 'var(--accent)' : 'var(--accent)',
       color: '#fff', fontWeight: 700, fontSize: 13,
       cursor: loading ? 'not-allowed' : 'pointer',
-      fontFamily: "'Nohemi', 'Segoe UI', sans-serif",
+      fontFamily: "'Google Sans', sans-serif",
       boxShadow: '0 2px 8px rgba(24,128,56,0.28)',
       transition: 'all 0.18s', minWidth: 150,
     },
@@ -278,7 +278,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
   return (
     <div style={S.page}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Nohemi:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
         .et-input:focus  { border-color: #188038 !important; box-shadow: 0 0 0 2px rgba(24,128,56,0.12) !important; }
         .et-input::placeholder { color: #bdc1c6; font-size: 12px; }
         .et-cancel:hover  { background: #f8f9fa !important; color: #202124 !important; }
@@ -533,7 +533,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
                 style={{
                   padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e0e0',
                   background: '#fff', color: '#5f6368', fontSize: 12, fontWeight: 600,
-                  cursor: 'pointer', fontFamily: "'Nohemi', 'Segoe UI', sans-serif",
+                  cursor: 'pointer', fontFamily: "'Google Sans', sans-serif",
                   display: 'flex', alignItems: 'center', gap: 5,
                 }}
               >

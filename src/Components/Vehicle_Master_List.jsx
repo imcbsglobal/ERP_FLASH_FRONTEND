@@ -58,7 +58,7 @@ function VehicleIcon({ type }) {
       borderBottom: "1px solid #e8eaed", gap: 10,
     }}>
       <Icon style={{ fontSize: 64, color: "#c5cad3" }} />
-      <span style={{ fontSize: 11, color: "#9aa0a6", fontFamily: "'Nohemi', sans-serif", fontWeight: 600, letterSpacing: 0.5 }}>
+      <span style={{ fontSize: 11, color: "#9aa0a6", fontFamily: "'Google Sans', sans-serif", fontWeight: 600, letterSpacing: 0.5 }}>
         No Photo
       </span>
     </div>
@@ -105,7 +105,7 @@ function ImageLightbox({ src, alt, onClose }) {
       </div>
       <span style={{
         color: "rgba(255,255,255,0.75)", fontSize: 12,
-        fontFamily: "'Nohemi', sans-serif", letterSpacing: 0.4,
+        fontFamily: "'Google Sans', sans-serif", letterSpacing: 0.4,
       }}>
         {alt} · Click anywhere to close
       </span>
@@ -171,7 +171,7 @@ function StatusPill({ status }) {
       padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
       background: isActive ? "#e6f4ea" : "#fce8e6",
       color:      isActive ? "#188038" : "#d93025",
-      fontFamily: "'Nohemi', sans-serif",
+      fontFamily: "'Google Sans', sans-serif",
       border: `1px solid ${isActive ? "#a8d5b5" : "#f5c2be"}`,
     }}>
       {status}
@@ -196,7 +196,7 @@ function DaysLeftBadge({ days }) {
   else if (days <= 30){ bg = "#fef7e0"; color = "#b06000"; }
   else                { bg = "#e6f4ea"; color = "#188038"; }
   return (
-    <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: bg, color, fontFamily: "'Nohemi', sans-serif", whiteSpace: "nowrap" }}>
+    <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: bg, color, fontFamily: "'Google Sans', sans-serif", whiteSpace: "nowrap" }}>
       {days < 0 ? `Expired ${Math.abs(days)}d ago` : `${days}d left`}
     </span>
   );
@@ -204,8 +204,8 @@ function DaysLeftBadge({ days }) {
 
 /* ─── Table View ──────────────────────────────────────────── */
 function TableView({ vehicles, onEdit, onDelete }) {
- const thStyle = { fontSize: 14, fontWeight: 600, letterSpacing: "0.4px", color: "#0a0a0a", textAlign: "left", padding: "11px 14px", background: "#f8f9fa", borderBottom: "1px solid #e8eaed", fontFamily: "'Nohemi', sans-serif", whiteSpace: "nowrap", textTransform: "capitalize" };
-  const tdStyle = { padding: "12px 14px", fontSize: 13, borderBottom: "1px solid #e8eaed", fontFamily: "'Nohemi', sans-serif", color: "#202124", textAlign: "left", verticalAlign: "middle" };
+ const thStyle = { fontSize: 14, fontWeight: 600, letterSpacing: "0.4px", color: "#0a0a0a", textAlign: "left", padding: "11px 14px", background: "#f8f9fa", borderBottom: "1px solid #e8eaed", fontFamily: "'Google Sans', sans-serif", whiteSpace: "nowrap", textTransform: "capitalize" };
+  const tdStyle = { padding: "12px 14px", fontSize: 13, borderBottom: "1px solid #e8eaed", fontFamily: "'Google Sans', sans-serif", color: "#202124", textAlign: "left", verticalAlign: "middle" };
 
   const headers = ["Sl. no.", "Photo", "Reg. no.", "Vehicle", "Ownership", "Type", "Insurance Expiry", "Days Left", "Pollution Expiry", "Status", "Action"];
 
@@ -274,7 +274,7 @@ function TableView({ vehicles, onEdit, onDelete }) {
                       padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
                       background: v.status === "Active" ? "#e6f4ea" : "#fce8e6",
                       color:      v.status === "Active" ? "#188038" : "#d93025",
-                      fontFamily: "'Nohemi', sans-serif",
+                      fontFamily: "'Google Sans', sans-serif",
                     }}>
                       {v.status}
                     </span>
@@ -282,10 +282,10 @@ function TableView({ vehicles, onEdit, onDelete }) {
                   {/* Action */}
                   <td style={tdStyle}>
                     <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => onEdit(v)} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Nohemi', sans-serif" }}>
+                      <button onClick={() => onEdit(v)} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}>
                         <EditOutlinedIcon style={{ fontSize: 13 }} /> Edit
                       </button>
-                      <button onClick={() => onDelete(v.id)} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#d93025", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Nohemi', sans-serif" }}>
+                      <button onClick={() => onDelete(v.id)} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#d93025", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}>
                         <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
                       </button>
                     </div>
@@ -324,7 +324,7 @@ function CardView({ vehicles, onEdit, onDelete }) {
             <div style={{ padding: "14px 16px" }}>
               <div style={{ marginBottom: 10 }}>
                 <div style={{ fontSize: 17, fontWeight: 700, color: "#202124" }}>{v.name}</div>
-                <div style={{ fontSize: 12, color: "#5f6368", fontFamily: "'Nohemi', sans-serif", fontWeight: 600, letterSpacing: 0.4 }}>{v.reg}</div>
+                <div style={{ fontSize: 12, color: "#5f6368", fontFamily: "'Google Sans', sans-serif", fontWeight: 600, letterSpacing: 0.4 }}>{v.reg}</div>
               </div>
               {[
                 ["Company",          v.company],
@@ -337,18 +337,18 @@ function CardView({ vehicles, onEdit, onDelete }) {
                 ["Total Trips",      v.total_trips],
               ].map(([label, val]) => (
                 <div key={label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 0", borderBottom: "1px solid #f1f3f4" }}>
-                  <span style={{ fontSize: 12, color: "#5f6368", fontFamily: "'Nohemi', sans-serif" }}>{label}:</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#202124", fontFamily: "'Nohemi', sans-serif" }}>{val}</span>
+                  <span style={{ fontSize: 12, color: "#5f6368", fontFamily: "'Google Sans', sans-serif" }}>{label}:</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#202124", fontFamily: "'Google Sans', sans-serif" }}>{val}</span>
                 </div>
               ))}
             </div>
 
             {/* Actions */}
             <div style={{ display: "flex", gap: 8, padding: "12px 16px", borderTop: "1px solid #e8eaed" }}>
-              <button onClick={() => onEdit(v)} style={{ flex: 1, padding: "8px 0", borderRadius: 7, border: "none", background: "#1a73e8", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: "'Nohemi', sans-serif" }}>
+              <button onClick={() => onEdit(v)} style={{ flex: 1, padding: "8px 0", borderRadius: 7, border: "none", background: "#1a73e8", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: "'Google Sans', sans-serif" }}>
                 <EditOutlinedIcon style={{ fontSize: 15 }} /> Edit
               </button>
-              <button onClick={() => onDelete(v.id)} style={{ flex: 1, padding: "8px 0", borderRadius: 7, border: "none", background: "#d93025", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: "'Nohemi', sans-serif" }}>
+              <button onClick={() => onDelete(v.id)} style={{ flex: 1, padding: "8px 0", borderRadius: 7, border: "none", background: "#d93025", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 5, fontFamily: "'Google Sans', sans-serif" }}>
                 <DeleteOutlineOutlinedIcon style={{ fontSize: 15 }} /> Delete
               </button>
             </div>
@@ -455,13 +455,13 @@ export default function VehicleMasterList({ onVehicleSaved }) {
     );
   }
 
-  const selectStyle = { padding: "9px 12px", border: "1px solid #e8eaed", borderRadius: 7, fontSize: 13, background: "#fff", color: "#202124", cursor: "pointer", fontFamily: "'Nohemi', sans-serif", outline: "none", minWidth: 160 };
+  const selectStyle = { padding: "9px 12px", border: "1px solid #e8eaed", borderRadius: 7, fontSize: 13, background: "#fff", color: "#202124", cursor: "pointer", fontFamily: "'Google Sans', sans-serif", outline: "none", minWidth: 160 };
 
   return (
     <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Nohemi:wght@400;500;600;700;800&display=swap');
-        * { font-family: 'Nohemi', sans-serif; }
+        @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
+        * { font-family: 'Google Sans', sans-serif; }
         .vm-search-input::placeholder { color: #9aa0a6; }
         .vm-search-input:focus { border-color: #1a73e8 !important; box-shadow: 0 0 0 2px rgba(26,115,232,0.12); }
         .vm-view-btn { transition: all 0.15s; }
@@ -490,14 +490,14 @@ export default function VehicleMasterList({ onVehicleSaved }) {
               { mode: "card",  Icon: GridViewOutlinedIcon,   label: "Card View"  },
               { mode: "table", Icon: TableRowsOutlinedIcon,  label: "Table View" },
             ].map(({ mode, Icon, label }) => (
-              <button key={mode} className="vm-view-btn" onClick={() => setViewMode(mode)} style={{ padding: "7px 13px", border: "none", cursor: "pointer", background: viewMode === mode ? "#fff" : "transparent", color: viewMode === mode ? "#1a73e8" : "#5f6368", fontWeight: viewMode === mode ? 700 : 500, fontSize: 13, display: "flex", alignItems: "center", gap: 5, fontFamily: "'Nohemi', sans-serif", boxShadow: viewMode === mode ? "0 1px 4px rgba(0,0,0,0.1)" : "none", borderRadius: 6, margin: 2 }}>
+              <button key={mode} className="vm-view-btn" onClick={() => setViewMode(mode)} style={{ padding: "7px 13px", border: "none", cursor: "pointer", background: viewMode === mode ? "#fff" : "transparent", color: viewMode === mode ? "#1a73e8" : "#5f6368", fontWeight: viewMode === mode ? 700 : 500, fontSize: 13, display: "flex", alignItems: "center", gap: 5, fontFamily: "'Google Sans', sans-serif", boxShadow: viewMode === mode ? "0 1px 4px rgba(0,0,0,0.1)" : "none", borderRadius: 6, margin: 2 }}>
                 <Icon style={{ fontSize: 16 }} /><span className="vml-view-label">{label}</span>
               </button>
             ))}
           </div>
 
           {/* Add Button */}
-          <button onClick={() => { setEditVehicle(null); setShowAddForm(true); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 8, border: "none", background: "#1a73e8", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nohemi', sans-serif", boxShadow: "0 2px 8px rgba(26,115,232,0.3)", transition: "all 0.2s", whiteSpace: "nowrap" }}
+          <button onClick={() => { setEditVehicle(null); setShowAddForm(true); }} style={{ display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", borderRadius: 8, border: "none", background: "#1a73e8", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Google Sans', sans-serif", boxShadow: "0 2px 8px rgba(26,115,232,0.3)", transition: "all 0.2s", whiteSpace: "nowrap" }}
             onMouseEnter={e => { e.currentTarget.style.background = "#1557b0"; e.currentTarget.style.transform = "translateY(-1px)"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "#1a73e8"; e.currentTarget.style.transform = "translateY(0)"; }}>
             <AddOutlinedIcon style={{ fontSize: 17 }} /> Add New
@@ -510,7 +510,7 @@ export default function VehicleMasterList({ onVehicleSaved }) {
 
         {/* ── Fetch error banner ── */}
         {fetchError && (
-          <div style={{ background: "#fce8e6", border: "1px solid #f5c2be", borderRadius: 8, padding: "10px 14px", marginBottom: 16, color: "#d93025", fontSize: 13, fontFamily: "'Nohemi', sans-serif" }}>
+          <div style={{ background: "#fce8e6", border: "1px solid #f5c2be", borderRadius: 8, padding: "10px 14px", marginBottom: 16, color: "#d93025", fontSize: 13, fontFamily: "'Google Sans', sans-serif" }}>
             ⚠️ {fetchError}
           </div>
         )}
@@ -520,19 +520,19 @@ export default function VehicleMasterList({ onVehicleSaved }) {
           <div className="vml-filters" style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
             {/* Search */}
             <div style={{ flex: 1, minWidth: 200 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Nohemi', sans-serif" }}>Search</label>
+              <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>Search</label>
               <div style={{ position: "relative" }}>
                 <SearchOutlinedIcon style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "#9aa0a6" }} />
                 <input className="vm-search-input" type="text" value={search} placeholder="Registration, name, company..."
                   onChange={e => setSearch(e.target.value)}
                   onKeyDown={e => e.key === "Enter" && handleApply()}
-                  style={{ width: "100%", padding: "9px 12px 9px 32px", border: "1px solid #e8eaed", borderRadius: 7, fontSize: 13, fontFamily: "'Nohemi', sans-serif", outline: "none", transition: "border 0.2s, box-shadow 0.2s", boxSizing: "border-box" }} />
+                  style={{ width: "100%", padding: "9px 12px 9px 32px", border: "1px solid #e8eaed", borderRadius: 7, fontSize: 13, fontFamily: "'Google Sans', sans-serif", outline: "none", transition: "border 0.2s, box-shadow 0.2s", boxSizing: "border-box" }} />
               </div>
             </div>
 
             {/* Vehicle Type */}
             <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Nohemi', sans-serif" }}>Vehicle Type</label>
+              <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>Vehicle Type</label>
               <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={selectStyle}>
                 {VEHICLE_TYPES.map(t => <option key={t}>{t}</option>)}
               </select>
@@ -540,7 +540,7 @@ export default function VehicleMasterList({ onVehicleSaved }) {
 
             {/* Status */}
             <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Nohemi', sans-serif" }}>Status</label>
+              <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>Status</label>
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={selectStyle}>
                 {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
               </select>
@@ -548,10 +548,10 @@ export default function VehicleMasterList({ onVehicleSaved }) {
 
             {/* Buttons */}
             <div style={{ display: "flex", gap: 10, alignItems: "flex-end" }}>
-              <button onClick={handleApply} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 22px", borderRadius: 7, border: "none", background: "#1a73e8", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Nohemi', sans-serif" }}>
+              <button onClick={handleApply} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 22px", borderRadius: 7, border: "none", background: "#1a73e8", color: "#fff", fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Google Sans', sans-serif" }}>
                 <FilterListOutlinedIcon style={{ fontSize: 16 }} /> Apply Filters
               </button>
-              <button onClick={handleReset} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 22px", borderRadius: 7, border: "1px solid #e8eaed", background: "#fff", color: "#5f6368", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "'Nohemi', sans-serif" }}>
+              <button onClick={handleReset} style={{ display: "flex", alignItems: "center", gap: 6, padding: "9px 22px", borderRadius: 7, border: "1px solid #e8eaed", background: "#fff", color: "#5f6368", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "'Google Sans', sans-serif" }}>
                 <RestartAltOutlinedIcon style={{ fontSize: 16 }} /> Reset
               </button>
             </div>
@@ -559,20 +559,20 @@ export default function VehicleMasterList({ onVehicleSaved }) {
         </div>
 
         {/* ── Count ── */}
-        <div style={{ marginBottom: 16, fontSize: 13, color: "#5f6368", fontFamily: "'Nohemi', sans-serif", fontWeight: 600 }}>
+        <div style={{ marginBottom: 16, fontSize: 13, color: "#5f6368", fontFamily: "'Google Sans', sans-serif", fontWeight: 600 }}>
           {loading ? "Loading…" : `${vehicles.length} vehicle${vehicles.length !== 1 ? "s" : ""} found`}
         </div>
 
         {/* ── Loading skeleton ── */}
         {loading && (
-          <div style={{ textAlign: "center", padding: "60px 20px", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, color: "#5f6368", fontSize: 14, fontFamily: "'Nohemi', sans-serif" }}>
+          <div style={{ textAlign: "center", padding: "60px 20px", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, color: "#5f6368", fontSize: 14, fontFamily: "'Google Sans', sans-serif" }}>
             <div style={{ fontWeight: 700, fontSize: 16, color: "#202124", marginBottom: 6 }}>Loading vehicles…</div>
           </div>
         )}
 
         {/* ── Content ── */}
         {!loading && vehicles.length === 0 && (
-          <div style={{ textAlign: "center", padding: "60px 20px", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, color: "#5f6368", fontSize: 14, fontFamily: "'Nohemi', sans-serif" }}>
+          <div style={{ textAlign: "center", padding: "60px 20px", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, color: "#5f6368", fontSize: 14, fontFamily: "'Google Sans', sans-serif" }}>
             <DirectionsCarOutlinedIcon style={{ fontSize: 48, color: "#dadce0", marginBottom: 12 }} />
             <div style={{ fontWeight: 700, fontSize: 16, color: "#202124", marginBottom: 6 }}>No vehicles found</div>
             <div>Try adjusting your filters or add a new vehicle.</div>

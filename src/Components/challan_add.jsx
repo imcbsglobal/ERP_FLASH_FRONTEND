@@ -151,9 +151,9 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
   return (
     <>
       <style>{`
-        @import url('https://api.fontshare.com/v2/css?f[]=nohemi@300,400,500,600,700,800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
         *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
-        body { background:#f0f4f8; }
+        body { background:#f0f4f8; font-family: 'Google Sans', sans-serif; }
         
         input[type=date]::-webkit-calendar-picker-indicator { cursor:pointer; }
         input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; }
@@ -164,7 +164,7 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
           border:1px solid #e6e1e1;
           border-radius:8px;
           color:black;
-          font-family:'Nohemi',sans-serif;
+          font-family:'Google Sans', sans-serif;
           font-size:14px;
           padding:9px 13px;
           outline:none;
@@ -197,7 +197,7 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
           border-radius:8px;
           padding:9px 14px;
           color:#94a3b8;
-          font-family:'Nohemi',sans-serif;
+          font-family:'Google Sans', sans-serif;
           font-size:14px;
           cursor:pointer;
           transition:all .18s;
@@ -212,7 +212,7 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
           border:none;
           border-radius:9px;
           color:#fff;
-          font-family:'Nohemi',sans-serif;
+          font-family:'Google Sans', sans-serif;
           font-weight:700;
           font-size:.88rem;
           letter-spacing:.04em;
@@ -237,7 +237,7 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
           border:1px solid #d1d9e0;
           border-radius:9px;
           color:#64748b;
-          font-family:'Nohemi',sans-serif;
+          font-family:'Google Sans', sans-serif;
           font-size:.86rem;
           cursor:pointer;
           transition:all .18s;
@@ -288,7 +288,7 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
       <div style={s.root}>
         <div style={s.container}>
           <div style={s.card}>
-            <h4 style={{ textAlign:"left", fontSize:"20px", fontWeight:"bold" }}>
+            <h4 style={{ textAlign:"left", fontSize:"20px", fontWeight:"bold", fontFamily:"'Google Sans', sans-serif" }}>
               {isEdit ? "Edit Challan" : "Add New Challan"}
             </h4>
             <Section title="Basic Info" />
@@ -452,7 +452,7 @@ const s = {
     minHeight:"100vh",
     overflowY:"auto",
     background:"#f0f4f8",
-    fontFamily:"'Nohemi',sans-serif",
+    fontFamily:"'Google Sans', sans-serif",
     color:"#1e293b",
     padding:"28px 28px 40px",
     width:"100%",
@@ -472,7 +472,7 @@ const s = {
     boxShadow:"0 2px 12px rgba(0,0,0,.06)",
   },
   section: {
-    fontFamily:"'Nohemi',sans-serif",
+    fontFamily:"'Google Sans', sans-serif",
     fontWeight:600,
     fontSize:"15px",
     letterSpacing:"0.18em",
@@ -509,7 +509,7 @@ const s = {
     fontSize:"12px",
     color:"#0a0a0a",
     fontWeight:600,
-    fontFamily:"'Nohemi',sans-serif",
+    fontFamily:"'Google Sans', sans-serif",
     textAlign:"left",
   },
   sep: { border:"none", borderTop:"1px solid #e2e8f0", margin:"16px 0" },

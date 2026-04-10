@@ -306,8 +306,11 @@ const EyeOffIcon = () => (
 const DEFAULT_PERMS = {
   dashboard:   false,
   col_reports: false,
+  vm_trips:    false,
+  vm_service:  false,
   um_users:    false,
   um_roles:    false,
+  mm_vehicle:  false,
 };
 
 export default function LoginPage() {
@@ -341,9 +344,16 @@ export default function LoginPage() {
       );
       if (res.ok) {
         const perms = await res.json();
-        // Store only the four permission keys (drop updated_at etc.)
-        const { dashboard, col_reports, um_users, um_roles } = perms;
-        const permissionsToStore = { dashboard, col_reports, um_users, um_roles };
+        // Store all 7 permission keys (drop updated_at etc.)
+        const permissionsToStore = {
+          dashboard:   !!perms.dashboard,
+          col_reports: !!perms.col_reports,
+          vm_trips:    !!perms.vm_trips,
+          vm_service:  !!perms.vm_service,
+          um_users:    !!perms.um_users,
+          um_roles:    !!perms.um_roles,
+          mm_vehicle:  !!perms.mm_vehicle,
+        };
         localStorage.setItem(
           "menu_permissions",
           JSON.stringify(permissionsToStore)

@@ -234,16 +234,16 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
 
   // ── Styles ────────────────────────────────────────────────────
   const styles = {
-    container: { height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'Nohemi', 'Segoe UI', sans-serif", background: '#f8f9fa' },
+    container: { height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: "'Google Sans', sans-serif", background: '#f8f9fa' },
     pageHeader: { flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', height: 56, background: '#fff', borderBottom: '1px solid #e8eaed', gap: 8, flexWrap: 'wrap' },
     pageHeaderLeft: { display: 'flex', flexDirection: 'column', justifyContent: 'center' },
-    pageHeaderTag: { fontSize: 10, fontWeight: 700, letterSpacing: '1.6px', textTransform: 'uppercase', color: '#1a73e8', marginBottom: 2, fontFamily: "'Calibri','Segoe UI',sans-serif" },
+    pageHeaderTag: { fontSize: 10, fontWeight: 700, letterSpacing: '1.6px', textTransform: 'uppercase', color: '#1a73e8', marginBottom: 2, fontFamily: "'Google Sans', sans-serif" },
     pageHeaderTitle: { fontSize: 18, fontWeight: 600, color: '#202124', margin: 0,letterSpacing:"0.08px", lineHeight: 1.2 },
     pageHeaderActions: { display: 'flex', gap: 10, alignItems: 'center', flexShrink: 0 },
-    backBtn: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 8, border: '1px solid #e8eaed', background: 'var(--accent)', color: '#f4f4f5', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: "'Calibri','Segoe UI',sans-serif", transition: 'all 0.2s' },
+    backBtn: { display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px', borderRadius: 8, border: '1px solid #e8eaed', background: 'var(--accent)', color: '#f4f4f5', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: "'Google Sans', sans-serif", transition: 'all 0.2s' },
     scrollBody: { flex: 1, overflowY: 'auto', padding: '12px 16px' },
     form: { backgroundColor: '#fff', borderRadius: '14px', boxShadow: '0 4px 6px rgba(0,0,0,0.1)', padding: '20px 16px', maxWidth: '900px', margin: '0 auto', width: '100%', boxSizing: 'border-box' },
-    apiError: { background: '#fce8e6', border: '1px solid #f5c2be', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#d93025', fontSize: 13, fontFamily: "'Calibri','Segoe UI',sans-serif" },
+    apiError: { background: '#fce8e6', border: '1px solid #f5c2be', borderRadius: 8, padding: '10px 14px', marginBottom: 16, color: '#d93025', fontSize: 13, fontFamily: "'Google Sans', sans-serif" },
     section: { marginBottom: '0', padding: '14px 0', borderBottom: '1px solid #f0f0f0' },
     sectionHeader: { display: 'flex', alignItems: 'center', marginBottom: '14px', paddingBottom: '8px', borderBottom: '2px solid #e6e6e9' },
     sectionTitle: { fontSize: '22px', color: 'var(--accent)', margin: 0, fontWeight: 'bold' },
@@ -252,19 +252,19 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
     formGroup: { display: 'flex', flexDirection: 'column' },
     label: { textAlign: 'left', fontSize: '14px', fontWeight: '600', marginBottom: '6px', color: 'black', textTransform: 'proper', letterSpacing: '0.8px' },
     required: { color: '#e74c3c', marginLeft: '4px' },
-    input: { padding: '9px 12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '13px', fontFamily: "'Nohemi', 'Segoe UI', sans-serif", transition: 'border-color 0.2s', outline: 'none', width: '100%', boxSizing: 'border-box' },
+    input: { padding: '9px 12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '13px', fontFamily: "'Google Sans', sans-serif", transition: 'border-color 0.2s', outline: 'none', width: '100%', boxSizing: 'border-box' },
     inputError: { borderColor: '#d93025' },
-    errorMsg: { color: '#d93025', fontSize: 11, marginTop: 3, fontFamily: "'Calibri','Segoe UI',sans-serif" },
-    select: { padding: '9px 12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '13px', fontFamily: "'Nohemi', 'Segoe UI', sans-serif", backgroundColor: '#fff', outline: 'none', width: '100%' },
-    textarea: { padding: '9px 12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '13px', fontFamily: "'Nohemi', 'Segoe UI', sans-serif", resize: 'vertical', width: '100%', outline: 'none', boxSizing: 'border-box' },
+    errorMsg: { color: '#d93025', fontSize: 11, marginTop: 3, fontFamily: "'Google Sans', sans-serif" },
+    select: { padding: '9px 12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '13px', fontFamily: "'Google Sans', sans-serif", backgroundColor: '#fff', outline: 'none', width: '100%' },
+    textarea: { padding: '9px 12px', border: '1px solid #ddd', borderRadius: '8px', fontSize: '13px', fontFamily: "'Google Sans', sans-serif", resize: 'vertical', width: '100%', outline: 'none', boxSizing: 'border-box' },
     photoArea: { display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-start' },
-    photoBtn: { padding: '9px 20px', color: '#5f6368', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontFamily: "'Nohemi', 'Segoe UI', sans-serif", fontWeight: '600', background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+    photoBtn: { padding: '9px 20px', color: '#5f6368', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontFamily: "'Google Sans', sans-serif", fontWeight: '600', background: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center' },
     photoPreview: { marginTop: '10px', position: 'relative', display: 'inline-block' },
     previewImage: { maxWidth: '240px', maxHeight: '180px', borderRadius: '10px', border: '2px solid #ddd', display: 'block' },
     removePhoto: { position: 'absolute', top: '-10px', right: '-10px', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center' },
     actions: { display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: '16px', paddingTop: '14px', borderTop: '1px solid #e0e0e0' },
-    resetBtn: { padding: '9px 24px', backgroundColor: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontFamily: "'Nohemi', 'Segoe UI', sans-serif", fontWeight: '600' },
-    submitBtn: { padding: '9px 24px', backgroundColor: loading ? '#93b8f4' : 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '13px', fontFamily: "'Nohemi', 'Segoe UI', sans-serif", fontWeight: '600', minWidth: 100 },
+    resetBtn: { padding: '9px 24px', backgroundColor: 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontFamily: "'Google Sans', sans-serif", fontWeight: '600' },
+    submitBtn: { padding: '9px 24px', backgroundColor: loading ? '#93b8f4' : 'var(--accent)', color: 'white', border: 'none', borderRadius: '8px', cursor: loading ? 'not-allowed' : 'pointer', fontSize: '13px', fontFamily: "'Google Sans', sans-serif", fontWeight: '600', minWidth: 100 },
   };
 
   const fieldInput = (name, hasError) => ({
@@ -275,10 +275,11 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
   return (
     <div style={styles.container}>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
         .vm-add-input::placeholder,
         .vm-add-textarea::placeholder {
           font-size: 11px;
-          font-family: 'Nohemi', 'Segoe UI', sans-serif;
+          font-family: 'Google Sans', sans-serif;
           color: #aaa;
         }
         @media (max-width: 600px) {
@@ -514,7 +515,7 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
               <span style={{
                 borderRadius: 20, fontSize: 11, fontWeight: 700,
                 color: additionalDetails.isActive ? '#188038' : '#d93025',
-                fontFamily: "'Nohemi', sans-serif",
+                fontFamily: "'Google Sans', sans-serif",
               }}>
                 {/* ✅ FIX: label reads from status string for consistency */}
                 {additionalDetails.status}

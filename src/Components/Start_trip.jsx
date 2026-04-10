@@ -10,28 +10,14 @@ import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
 import { getVehicles } from '../service/vehiclemaster';
 
-/**
- * StartTrip
- * Props:
- *  - onClose()        : called on Cancel
- *  - onStart(data)    : called with trip data on Start
- *
- * Vehicles are fetched directly from the API on mount.
- * traveled_by is auto-populated from the logged-in user's name in localStorage.
- */
 const StartTrip = ({ onClose, onStart }) => {
-
-  // ── Resolve logged-in user name ────────────────────────────────
-  // Tries common keys written by most JWT auth setups.
   const getLoggedInUserName = () => {
     try {
-      // 1. Try a dedicated "user" object stored as JSON
       const userJson = localStorage.getItem('user');
       if (userJson) {
         const user = JSON.parse(userJson);
         return user.name || user.full_name || user.username || user.email || '';
       }
-      // 2. Try individual flat keys
       return (
         localStorage.getItem('user_name') ||
         localStorage.getItem('full_name') ||
@@ -44,10 +30,9 @@ const StartTrip = ({ onClose, onStart }) => {
     }
   };
 
-  // ── State ─────────────────────────────────────────────────────
   const _now   = new Date();
-  const _today = _now.toISOString().slice(0, 10);   // "YYYY-MM-DD"
-  const _time  = _now.toTimeString().slice(0, 5);   // "HH:MM"
+  const _today = _now.toISOString().slice(0, 10);
+  const _time  = _now.toTimeString().slice(0, 5);
 
   const [form, setForm] = useState({
     vehicleId:          '',
@@ -57,9 +42,6 @@ const StartTrip = ({ onClose, onStart }) => {
     time:               _time,
     purposeOfTrip:      '',
     maintenanceCost:    '',
-    // FIX 1: auto-fill traveled_by from logged-in user
-    traveledBy:         getLoggedInUserName(),
-    // FIX 2: capture odometer start reading so backend can compute distance
     odometerStart:      '',
     services: {
       washing:     false,
@@ -79,7 +61,6 @@ const StartTrip = ({ onClose, onStart }) => {
 
   const fileInputRef = useRef(null);
 
-  // ── Fetch all vehicles from API on mount ──────────────────────
   useEffect(() => {
     const fetchVehicles = async () => {
       setVehicleLoading(true);
@@ -97,14 +78,12 @@ const StartTrip = ({ onClose, onStart }) => {
     fetchVehicles();
   }, []);
 
-  // ── Handlers ──────────────────────────────────────────────────
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm(prev => ({ ...prev, [name]: value }));
     setErrors(prev => { const n = { ...prev }; delete n[name]; return n; });
   };
 
-  // Selecting a vehicle stores id + name + registration separately
   const handleVehicleSelect = (e) => {
     const selectedId = e.target.value;
     const selected = vehicles.find(v => String(v.id) === String(selectedId));
@@ -145,7 +124,6 @@ const StartTrip = ({ onClose, onStart }) => {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  // ── Validation ────────────────────────────────────────────────
   const validate = () => {
     const errs = {};
     if (!form.vehicleId)            errs.vehicleId     = 'Please select a vehicle.';
@@ -155,7 +133,6 @@ const StartTrip = ({ onClose, onStart }) => {
     return errs;
   };
 
-  // ── Submit ─────────────────────────────────────────────────────
   const handleStart = async () => {
     const errs = validate();
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
@@ -176,9 +153,7 @@ const StartTrip = ({ onClose, onStart }) => {
         maintenance_cost:    form.maintenanceCost ? parseFloat(form.maintenanceCost) : null,
         services:            selectedServices,
         odometer_image:      form.odometerImage || null,
-        // FIX 1: send traveled_by (logged-in user name)
-        traveled_by:         form.traveledBy,
-        // FIX 2: send odometer start so backend can compute distance on end
+        traveled_by:         getLoggedInUserName(),
         odometer_start:      form.odometerStart ? parseFloat(form.odometerStart) : null,
       };
 
@@ -192,7 +167,6 @@ const StartTrip = ({ onClose, onStart }) => {
     onClose && onClose();
   };
 
-  // ── Service options config ────────────────────────────────────
   const serviceOptions = [
     { key: 'washing',     label: 'Washing',      Icon: LocalCarWashOutlinedIcon },
     { key: 'alignment',   label: 'Alignment',    Icon: TuneOutlinedIcon         },
@@ -200,12 +174,11 @@ const StartTrip = ({ onClose, onStart }) => {
     { key: 'greaseOil',   label: 'Grease / Oil', Icon: OilBarrelOutlinedIcon    },
   ];
 
-  // ── Styles ─────────────────────────────────────────────────────
   const S = {
     page: {
       height: '100%', display: 'flex', flexDirection: 'column',
       overflow: 'hidden', background: '#f8f9fa',
-      fontFamily: "'Nohemi', 'Segoe UI', sans-serif",
+      fontFamily: "'Google Sans', sans-serif",
     },
     header: {
       flexShrink: 0, display: 'flex', alignItems: 'center',
@@ -218,36 +191,31 @@ const StartTrip = ({ onClose, onStart }) => {
       textTransform: 'uppercase', color: '#1a73e8', marginBottom: 2,
     },
     title: { fontSize: 18, fontWeight: 600, color: '#202124', margin: 0, letterSpacing: '1.2px', lineHeight: 1.5 },
-
     body:   { flex: 1, overflowY: 'auto', padding: '16px' },
     card:   {
       background: '#fff', borderRadius: 14,
       boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
       padding: '20px 16px', maxWidth: 860, margin: '0 auto', width: '100%', boxSizing: 'border-box',
     },
-
     sectionLabel: {
-      fontSize: '14px', fontWeight: 'bold', letterSpacing: '1.4px',
+      fontSize: '15px', fontWeight:600, letterSpacing: '1.4px',
       textTransform: 'capitalize', color: 'var(--accent)',
       marginBottom: 16, display: 'flex', alignItems: 'center', gap: 7,
-      borderBottom: '2px solid #e0e0e0', // Only bottom border
-      paddingBottom: '8px',               // Space between text and border
+      borderBottom: '2px solid #e0e0e0',
+      paddingBottom: '8px',
     },
     sectionDivider: { border: 'none', borderTop: '1.5px solid #f0f0f0', margin: '22px 0' },
-
     grid2: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 },
     grid3: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 },
-
     formGroup: { display: 'flex', flexDirection: 'column' },
     label: {
-      fontSize: '12px',fontWeight: 'bold', color: '#000000',
-      marginBottom: 6, letterSpacing: '0.5px', textTransform: 'capitalize', textAlign: 'left',
+      fontSize: '12px',fontWeight:600, color: '#000000',
+      marginBottom: 6, letterSpacing: '0.8px', textTransform: 'capitalize', textAlign: 'left',
     },
     required: { color: '#e74c3c', marginLeft: 3 },
-
     input: {
       padding: '10px 13px', border: '1px solid #f0eeee', borderRadius: 8,
-      fontSize: 13, fontFamily: "'Nohemi', 'Segoe UI', sans-serif",
+      fontSize: 13, fontFamily: "'Google Sans', sans-serif",
       outline: 'none', width: '100%', boxSizing: 'border-box',
       background: '#fff', color: '#202124',
       transition: 'border-color 0.2s, box-shadow 0.2s',
@@ -257,14 +225,13 @@ const StartTrip = ({ onClose, onStart }) => {
     },
     select: {
       padding: '10px 13px', border: '1px solid #e0e0e0', borderRadius: 8,
-      fontSize: 13, fontFamily: "'Nohemi', 'Segoe UI', sans-serif",
+      fontSize: 13, fontFamily: "'Google Sans', sans-serif",
       background: '#fff', color: '#202124', outline: 'none',
       width: '100%', cursor: 'pointer', boxSizing: 'border-box',
       transition: 'border-color 0.2s, box-shadow 0.2s', appearance: 'auto',
     },
     inputError: { borderColor: '#d93025', boxShadow: '0 0 0 2px rgba(217,48,37,0.08)' },
     errorMsg:   { color: '#d93025', fontSize: 11, marginTop: 4 },
-
     serviceGrid:  { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 },
     serviceCard:  (checked) => ({
       display: 'flex', flexDirection: 'column', alignItems: 'center',
@@ -278,7 +245,6 @@ const StartTrip = ({ onClose, onStart }) => {
       fontSize: 11, fontWeight: 700, letterSpacing: '0.5px',
       color: checked ? '#1a73e8' : '#5f6368', textAlign: 'center',
     }),
-
     odometerBox: {
       borderRadius: 10, padding: '20px',
       display: 'flex', flexDirection: 'column', alignItems: 'left',
@@ -297,7 +263,6 @@ const StartTrip = ({ onClose, onStart }) => {
       display: 'flex', alignItems: 'center', justifyContent: 'center',
       cursor: 'pointer', fontSize: 13,
     },
-
     actions: {
       display: 'flex', gap: 12, justifyContent: 'flex-end', flexWrap: 'wrap',
       marginTop: 24, paddingTop: 20, borderTop: '1px solid #e8eaed',
@@ -307,7 +272,7 @@ const StartTrip = ({ onClose, onStart }) => {
       padding: '10px 24px', borderRadius: 8,
       border: '1px solid #e8eaed', background: '#fff',
       color: '#5f6368', fontWeight: 700, fontSize: 13, cursor: 'pointer',
-      fontFamily: "'Nohemi', 'Segoe UI', sans-serif", transition: 'all 0.18s',
+      fontFamily: "'Google Sans', sans-serif", transition: 'all 0.18s',
     },
     startBtn: {
       display: 'flex', alignItems: 'center', gap: 6,
@@ -315,7 +280,7 @@ const StartTrip = ({ onClose, onStart }) => {
       background: loading ? '#93b8f4' : '#1a73e8',
       color: '#fff', fontWeight: 700, fontSize: 13,
       cursor: loading ? 'not-allowed' : 'pointer',
-      fontFamily: "'Nohemi', 'Segoe UI', sans-serif",
+      fontFamily: "'Google Sans', sans-serif",
       boxShadow: '0 2px 8px rgba(26,115,232,0.28)',
       transition: 'all 0.18s', minWidth: 130,
     },
@@ -327,7 +292,7 @@ const StartTrip = ({ onClose, onStart }) => {
   return (
     <div style={S.page}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Nohemi:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
         .st-input:focus  { border-color: #1a73e8 !important; box-shadow: 0 0 0 2px rgba(26,115,232,0.12) !important; }
         .st-select:focus { border-color: #1a73e8 !important; box-shadow: 0 0 0 2px rgba(26,115,232,0.12) !important; }
         .st-input::placeholder { color: #bdc1c6; font-size: 12px; }
@@ -341,8 +306,6 @@ const StartTrip = ({ onClose, onStart }) => {
           .st-cancel, .st-start { flex: 1; justify-content: center; }
         }
       `}</style>
-
-      {/* ── Body ── */}
       <div style={S.body}>
         <div style={S.card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -350,17 +313,11 @@ const StartTrip = ({ onClose, onStart }) => {
               <h1 style={S.title}>Start New Trip</h1>
             </div>
           </div>
-
-          {/* ══ Section 1: Basic Information ══ */}
           <div style={S.sectionLabel}>
             <DirectionsCarOutlinedIcon style={{ fontSize: 16 }} />
             Basic Information
           </div>
-
-          {/* Row 1: Vehicle + Date + Time */}
           <div className="st-grid3" style={S.grid3}>
-
-            {/* ── Vehicle Dropdown ── */}
             <div style={S.formGroup}>
               <label style={S.label}>
                 Vehicle <span style={S.required}>*</span>
@@ -389,7 +346,7 @@ const StartTrip = ({ onClose, onStart }) => {
                   ) : (
                     vehicles.map(v => (
                       <option key={v.id} value={v.id}>
-                         {v.registration_number} {v.vehicle_name} 
+                         {v.registration_number} {v.vehicle_name}
                       </option>
                     ))
                   )}
@@ -399,8 +356,6 @@ const StartTrip = ({ onClose, onStart }) => {
                 <span style={S.errorMsg}>{errors.vehicleId}</span>
               )}
             </div>
-
-            {/* Date */}
             <div style={S.formGroup}>
               <label style={S.label}>
                 Date <span style={S.required}>*</span>
@@ -415,8 +370,6 @@ const StartTrip = ({ onClose, onStart }) => {
               />
               {errors.date && <span style={S.errorMsg}>{errors.date}</span>}
             </div>
-
-            {/* Time */}
             <div style={S.formGroup}>
               <label style={S.label}>
                 Time <span style={S.required}>*</span>
@@ -432,9 +385,7 @@ const StartTrip = ({ onClose, onStart }) => {
               {errors.time && <span style={S.errorMsg}>{errors.time}</span>}
             </div>
           </div>
-
-          {/* Row 2: Purpose + Maintenance Cost */}
-          <div className="st-grid2" style={{ ...S.grid2, marginTop: 16 }}>
+          <div className="st-grid3" style={{ ...S.grid3, marginTop: 16 }}>
             <div style={S.formGroup}>
               <label style={S.label}>
                 Purpose of Trip <span style={S.required}>*</span>
@@ -444,13 +395,12 @@ const StartTrip = ({ onClose, onStart }) => {
                 name="purposeOfTrip"
                 value={form.purposeOfTrip}
                 onChange={handleChange}
-                placeholder="e.g., Client visit, Delivery, Office commute"
+                placeholder="e.g., Client visit, Delivery"
                 className="st-input"
                 style={fieldStyle('purposeOfTrip')}
               />
               {errors.purposeOfTrip && <span style={S.errorMsg}>{errors.purposeOfTrip}</span>}
             </div>
-
             <div style={S.formGroup}>
               <label style={S.label}>Maintenance Cost (₹)</label>
               <input
@@ -466,29 +416,8 @@ const StartTrip = ({ onClose, onStart }) => {
               />
               {errors.maintenanceCost && <span style={S.errorMsg}>{errors.maintenanceCost}</span>}
             </div>
-          </div>
-
-          {/* Row 3: Traveled By (auto-filled, editable) + Odometer Start */}
-          <div className="st-grid2" style={{ ...S.grid2, marginTop: 16 }}>
-            {/* FIX 1 — Traveled By: auto-filled from logged-in user, still editable */}
             <div style={S.formGroup}>
-              <label style={S.label}>Traveled By</label>
-              <input
-                type="text"
-                name="traveledBy"
-                value={form.traveledBy}
-                onChange={handleChange}
-                placeholder="Driver / employee name"
-                className="st-input"
-                style={fieldStyle('traveledBy')}
-              />
-            </div>
-
-            {/* FIX 2 — Odometer Start: required to compute distance later */}
-            <div style={S.formGroup}>
-              <label style={S.label}>
-                Odometer Start (km)
-              </label>
+              <label style={S.label}>Odometer Start (km)</label>
               <input
                 type="number"
                 name="odometerStart"
@@ -503,15 +432,11 @@ const StartTrip = ({ onClose, onStart }) => {
               {errors.odometerStart && <span style={S.errorMsg}>{errors.odometerStart}</span>}
             </div>
           </div>
-
           <hr style={S.sectionDivider} />
-
-          {/* ══ Section 2: Select Services ══ */}
           <div style={S.sectionLabel}>
             <TuneOutlinedIcon style={{ fontSize: 16 }} />
             Select Services
           </div>
-
           <div className="st-service-grid" style={S.serviceGrid}>
             {serviceOptions.map(({ key, label, Icon }) => {
               const checked = form.services[key];
@@ -542,15 +467,11 @@ const StartTrip = ({ onClose, onStart }) => {
               );
             })}
           </div>
-
           <hr style={S.sectionDivider} />
-
-          {/* ══ Section 3: Odometer Image ══ */}
           <div style={S.sectionLabel}>
             <SpeedOutlinedIcon style={{ fontSize: 16 }} />
             Odometer Reading Image
           </div>
-
           <input
             type="file"
             accept="image/*"
@@ -558,7 +479,6 @@ const StartTrip = ({ onClose, onStart }) => {
             onChange={handleOdometerImage}
             style={{ display: 'none' }}
           />
-
           {!form.odometerImagePreview ? (
             <div
               className="st-odometer-box"
@@ -595,7 +515,7 @@ const StartTrip = ({ onClose, onStart }) => {
                 style={{
                   padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e0e0',
                   background: '#fff', color: '#5f6368', fontSize: 12, fontWeight: 600,
-                  cursor: 'pointer', fontFamily: "'Nohemi', 'Segoe UI', sans-serif",
+                  cursor: 'pointer', fontFamily: "'Google Sans', sans-serif",
                   display: 'flex', alignItems: 'center', gap: 5,
                 }}
               >
@@ -604,14 +524,11 @@ const StartTrip = ({ onClose, onStart }) => {
               </button>
             </div>
           )}
-
           {errors.odometerImage && (
             <span style={{ ...S.errorMsg, display: 'block', marginTop: 6 }}>
               {errors.odometerImage}
             </span>
           )}
-
-          {/* ══ Actions ══ */}
           <div style={S.actions}>
             <button
               type="button"
@@ -634,7 +551,6 @@ const StartTrip = ({ onClose, onStart }) => {
               {loading ? 'Starting…' : 'Start Trip'}
             </button>
           </div>
-
         </div>
       </div>
     </div>

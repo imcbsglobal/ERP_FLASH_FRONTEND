@@ -1,6 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import PaymentForm from './collection';
 import { fetchPayments, fetchPaymentById, deletePayment, updatePaymentStatus, updatePayment, normalizePayment } from '../service/payment';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
@@ -33,9 +36,6 @@ async function refreshAccessToken() {
       return data.access;
     }
 
-    // Only clear auth state for 401/403 (invalid token).
-    // A 500 is a server-side error — keep tokens so the user isn't
-    // unexpectedly logged out when the backend is temporarily broken.
     if (response.status === 401 || response.status === 403) {
       console.warn(`Token refresh rejected (${response.status}). Clearing auth state.`);
       localStorage.removeItem('access_token');
@@ -43,14 +43,12 @@ async function refreshAccessToken() {
       return null;
     }
 
-    // 5xx — throw so the caller can show a "server error" message instead of "please log in"
     throw new Error(`Token refresh server error (${response.status}). Try again shortly.`);
 
   } catch (error) {
-    // Re-throw server errors so the caller distinguishes them from auth failures
     if (error.message.startsWith('Token refresh server error')) throw error;
     console.error('Token refresh network error:', error);
-    return null;   // network failure — don't clear tokens, just fail gracefully
+    return null;
   }
 }
 
@@ -69,8 +67,6 @@ async function apiFetch(url, options = {}) {
     try {
       newToken = await refreshAccessToken();
     } catch (refreshErr) {
-      // Server error during refresh — propagate as a plain Error, NOT AuthError,
-      // so the UI shows "server error" rather than "please log in".
       throw new Error(refreshErr.message);
     }
 
@@ -170,7 +166,6 @@ const PaymentTable = () => {
       const fresh = await fetchPaymentById(payment.id);
       setEditingPayment(normalizePayment(fresh));
     } catch (err) {
-      // Fall back to cached data if fetch fails
       setEditingPayment(payment);
     } finally {
       setEditLoading(null);
@@ -183,8 +178,13 @@ const PaymentTable = () => {
   };
 
   // ── Delete ─────────────────────────────────────────────────────
+  const confirmDelete = (id) => {
+    if (window.confirm('Are you sure you want to delete this payment?')) {
+      handleDelete(id);
+    }
+  };
+
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this payment?')) return;
     setDeletingId(id);
     try {
       await apiFetch(`${BASE_URL}/payments/${id}/`, {
@@ -236,7 +236,10 @@ const PaymentTable = () => {
     const matchesSearch =
       payment.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payment.branch.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.paidFor.toLowerCase().includes(searchTerm.toLowerCase());
+      payment.paidFor.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (payment.department && payment.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (payment.place && payment.place.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (payment.phoneNumber && payment.phoneNumber.includes(searchTerm));
     const matchesType   = filterType === 'all' || payment.collectionType === filterType;
     const matchesStatus = filterStatus === 'all' || (payment.status || '').toLowerCase() === filterStatus.toLowerCase();
     const payDate = payment.date ? new Date(payment.date) : null;
@@ -265,23 +268,16 @@ const PaymentTable = () => {
 
   const collectionTypes = ['all', 'Cash', 'Cheque', 'Bank Transfer', 'Credit Card', 'Debit Card', 'Online Payment'];
 
-  const cols = [
-    { key: 'id',     label: 'ID',           width: '60px',  align: 'left'   },
-    { key: 'client', label: 'Client Name',  width: '160px', align: 'left'   },
-    { key: 'branch', label: 'Branch',       width: '100px', align: 'left'   },
-    { key: 'type',   label: 'Payment Type', width: '130px', align: 'left'   },
-    { key: 'amount', label: 'Amount',       width: '120px', align: 'right'  },
-    { key: 'for',    label: 'Paid For',     width: '150px', align: 'left'   },
-    { key: 'date',   label: 'Date',         width: '105px', align: 'center' },
-    { key: 'status', label: 'Status',       width: '100px', align: 'center' },
-    { key: 'proof',  label: 'Proof',        width: '75px',  align: 'center' },
-    { key: 'acts',   label: 'Actions',      width: '130px', align: 'center' },
+  // Table headers - Updated order: Sl. no., Date, Client Name, Branch, Department, Payment Type, Amount, Paid For, Status, Proof, Action
+  const headers = [
+    "Sl. no.", "Date", "Client Name", "Branch", "Department", "Payment Type", 
+    "Amount", "Paid For", "Status", "Proof", "Action"
   ];
 
   // ── Loading / Error states ─────────────────────────────────────
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: '60px', color: 'var(--muted)', fontSize: '14px' }}>
+      <div style={{ textAlign: 'left', padding: '60px', color: '#5f6368', fontSize: '14px', fontFamily: "'Google Sans', sans-serif" }}>
         Loading payments...
       </div>
     );
@@ -289,11 +285,11 @@ const PaymentTable = () => {
 
   if (error) {
     return (
-      <div style={{ textAlign: 'center', padding: '40px' }}>
-        <p style={{ color: 'var(--red)', marginBottom: '12px' }}>{error}</p>
+      <div style={{ textAlign: 'left', padding: '40px' }}>
+        <p style={{ color: '#d93025', marginBottom: '12px' }}>{error}</p>
         {isAuthError ? (
           <button
-            className="btn-p"
+            style={{ padding: '8px 20px', borderRadius: '6px', border: 'none', background: '#1a73e8', color: '#fff', cursor: 'pointer', fontWeight: 500, fontFamily: "'Google Sans', sans-serif" }}
             onClick={() => {
               localStorage.removeItem('access_token');
               localStorage.removeItem('refresh_token');
@@ -303,235 +299,420 @@ const PaymentTable = () => {
             Go to Login
           </button>
         ) : (
-          <button className="btn-p" onClick={loadPayments}>Retry</button>
+          <button style={{ padding: '8px 20px', borderRadius: '6px', border: 'none', background: '#1a73e8', color: '#fff', cursor: 'pointer', fontWeight: 500, fontFamily: "'Google Sans', sans-serif" }} onClick={loadPayments}>Retry</button>
         )}
       </div>
     );
   }
 
+  // Table styles matching Vehicle Master
+  const thStyle = { 
+    fontSize: 14, 
+    fontWeight: 600, 
+    letterSpacing: "0.4px", 
+    color: "#0a0a0a", 
+    textAlign: "left", 
+    padding: "11px 14px", 
+    background: "#f8f9fa", 
+    borderBottom: "1px solid #e8eaed", 
+    fontFamily: "'Google Sans', sans-serif", 
+    whiteSpace: "nowrap", 
+    textTransform: "capitalize" 
+  };
+  
+  const tdStyle = { 
+    padding: "12px 14px", 
+    fontSize: 13, 
+    borderBottom: "1px solid #e8eaed", 
+    fontFamily: "'Google Sans', sans-serif", 
+    color: "#202124", 
+    textAlign: "left", 
+    verticalAlign: "middle" 
+  };
+
   // ── Render ─────────────────────────────────────────────────────
   return (
     <>
       <style>{`
-        * { font-family: 'Nohemi', sans-serif !important; }
-
-        .pt-toolbar { display: flex; justify-content: space-between; align-items: center;
-          flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
-        .pt-filters { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-
-        .pt-search { padding: 8px 12px; border: 1px solid var(--border); border-radius: 7px;
-          font-size: 13px; width: 260px; background: var(--surface); color: var(--text); transition: border-color 0.2s; }
-        .pt-search:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 2px rgba(201,168,76,0.12); }
-
-        .pt-select { padding: 8px 12px; border: 1px solid var(--border); border-radius: 7px;
-          font-size: 13px; background: var(--surface); color: var(--text); cursor: pointer; }
-        .pt-select:focus { outline: none; border-color: var(--gold); }
-
-        .pt-date { padding: 8px 10px; border: 1px solid var(--border); border-radius: 7px;
-          font-size: 13px; background: var(--surface); color: var(--text); cursor: pointer; font-family: 'Nohemi', sans-serif; }
-        .pt-date:focus { outline: none; border-color: var(--gold); }
-
-        .pt-clear-btn { padding: 7px 12px; border: 1px solid var(--border); border-radius: 7px;
-          font-size: 12px; background: var(--surface); color: var(--muted); cursor: pointer; font-family: 'Nohemi', sans-serif; }
-        .pt-clear-btn:hover { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
-
-        .pt-card { background: var(--surface); border: 1px solid var(--border);
-          border-radius: var(--r); overflow: hidden; margin-bottom: 18px; }
-        .pt-scroll { overflow-x: auto; }
-
-        .pt-table { width: 100%; border-collapse: collapse; min-width: 900px; table-layout: fixed; }
-        .pt-table thead th { font-size: 14px; font-weight: 700; letter-spacing: 1.2px;
-          text-transform:capitalize; color:black; padding: 11px 14px; background:white;
-          border-bottom: 1px solid var(--border); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .pt-table tbody tr { transition: background 0.15s; }
-        .pt-table tbody tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
-        .pt-table tbody tr:hover td { background: #fafaf7; }
-        .pt-table tbody td { padding: 11px 14px; font-size: 13px; color: var(--text);
-          vertical-align: middle; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .pt-empty { text-align: center; padding: 32px; color: var(--muted); font-size: 13px; }
-
-        .pill { display: inline-block; padding: 3px 10px; border-radius: 99px; font-size: 11px; font-weight: 600; }
-        .pill-green {color: #13df46; }
-        .pill-amber {color: #bfd30e; }
-        .pill-red  {color: #991b1b; }
-        .pill-muted {color: #64748b; }
-
-        .btn-view { padding: 3px 10px; border-radius: 5px; border: 1px solid var(--border);
-          background: var(--surface); color: var(--accent); font-size: 12px; cursor: pointer; }
-        .btn-view:hover { background: var(--surface2); }
-        .no-proof { font-size: 11px; color: var(--muted); }
-
-        .act-group { display: flex; gap: 5px; justify-content: center; }
-        .btn-edit { padding: 3px 10px; border-radius: 5px; border: 1px solid var(--border);
-          background: var(--surface); color: var(--accent); font-size: 12px; cursor: pointer; }
-        .btn-edit:hover { background: var(--surface2); }
-        .btn-del { padding: 3px 10px; border-radius: 5px; border: none;
-          background: #fee2e2; color: #991b1b; font-size: 12px; cursor: pointer; }
-        .btn-del:hover { background: #fecaca; }
-        .btn-del:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .pt-stat { background: var(--surface); border: 1px solid var(--border);
-          border-radius: var(--r); padding: 12px 22px; min-width: 130px; text-align: center; }
-        .pt-stat .s-label { font-size: 10px; font-weight: 600; letter-spacing: 1.2px;
-          text-transform:capitalize; color: var(--muted); margin-bottom: 6px; }
-        .pt-stat .s-value { font-size: 20px; font-weight: 700; color: var(--accent); line-height: 1; }
-        .pt-stat .s-value.green { color: var(--green); }
-        .pt-stat .s-value.amber { color: var(--amber); }
-
-        .pt-modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.48);
-          display: flex; justify-content: center; align-items: center; z-index: 1000;
-          padding: 20px; overflow-y: auto; }
-        .pt-modal { background: #fff; border-radius: 12px; max-width: 800px; width: 100%;
-          max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
-        .pt-modal-header { position: sticky; top: 0; background: #fff; padding: 16px 24px;
-          border-bottom: 1px solid var(--border); display: flex; justify-content: space-between;
-          align-items: center; z-index: 1; }
-        .pt-modal-close { background: none; border: none; font-size: 22px; cursor: pointer;
-          color: var(--muted); padding: 2px 6px; border-radius: 4px; transition: background 0.15s; }
-        .pt-modal-close:hover { background: var(--surface2); color: var(--text); }
-        .pt-modal-body { padding: 24px; }
-
-        .btn-p { font-family: 'Nohemi', sans-serif; padding: 8px 20px;
-          border-radius: 6px; border: none; background: var(--accent); color: #fff;
-          cursor: pointer; font-weight: 500; }
-
-        .pill-status-btn { cursor: pointer; border: none; background: none; padding: 0; }
-        .pill-status-btn:disabled { cursor: not-allowed; opacity: 0.6; }
-
-        .status-select { padding: 3px 8px; border-radius: 99px; font-size: 11px; font-weight: 600;
-          border: none; cursor: pointer; appearance: none; text-align: center; outline: none; }
+        @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
+        * { font-family: 'Google Sans', sans-serif; }
+        
+        .pt-search-input::placeholder { color: #9aa0a6; }
+        .pt-search-input:focus { border-color: #1a73e8 !important; box-shadow: 0 0 0 2px rgba(26,115,232,0.12); }
+        
+        .status-select {
+          padding: 4px 10px;
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight:bold;
+          border: none;
+          cursor: pointer;
+          text-align: left;
+          outline: none;
+          font-family: 'Google Sans', sans-serif;
+        }
         .status-select:disabled { cursor: not-allowed; opacity: 0.6; }
-        .status-select.pill-green {color: #38ce13; }
-        .status-select.pill-amber {color: #f7ab08; }
-        .status-select.pill-red {color: #d40b0b; }
-        .status-select.pill-muted {color: #64748b; }
+        .status-select.pill-green { background:#188038 ; color: #f6faf7; }
+        .status-select.pill-amber { background: rgb(26, 115, 232); color: #faf9fc; }
+        .status-select.pill-red { background: #fc5032f5; color: #f5f1f1; }
+        .status-select.pill-muted { background:#5f6368; colorrgb(249, 250, 252)68; }
+        
+        .file-link {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: #1a73e8;
+          text-decoration: none;
+          transition: color 0.2s;
+        }
+        .file-link:hover { color: #1557b0; }
+        
+        .no-proof {
+          color: #cbd5e1;
+          font-size: 0.78rem;
+        }
+        
+        .pt-modal-backdrop { 
+          position: fixed; inset: 0; background: rgba(0,0,0,0.48);
+          display: flex; justify-content: center; align-items: center; z-index: 1000;
+          padding: 20px; overflow-y: auto; 
+        }
+        .pt-modal { 
+          background: #fff; border-radius: 12px; max-width: 800px; width: 100%;
+          max-height: 90vh; overflow-y: auto; position: relative; box-shadow: 0 20px 60px rgba(0,0,0,0.2); 
+        }
+        .pt-modal-header { 
+          position: sticky; top: 0; background: #fff; padding: 16px 24px;
+          border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between;
+          align-items: center; z-index: 1; 
+        }
+        .pt-modal-close { 
+          background: none; border: none; font-size: 24px; cursor: pointer;
+          color: #6b7280; padding: 2px 6px; border-radius: 4px; transition: background 0.15s; 
+        }
+        .pt-modal-close:hover { background: #f3f4f6; color: #111827; }
+        .pt-modal-body { padding: 24px; }
+        
+        .client-info { display: flex; flex-direction: column; gap: 4px; }
+        .client-name { font-weight: 600; color: #111827; font-size: 13px; }
+        .client-place { font-size: 11px; color: #0c0c0c; display: flex; align-items: center; gap: 4px; }
+        .client-phone { font-size: 11px; color: #0a0a0a; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+        .client-place svg, .client-phone svg { width: 11px; height: 11px; opacity: 0.7; flex-shrink: 0; }
+        
+        .department-badge {
+          display: inline-block;
+         
+          border-radius: 6px;
+          font-size: 12px;
+          font-weight: 500;
+          
+          color: #202124;
+          word-wrap: break-word;
+          white-space: normal;
+          line-height: 1.3;
+        }
+        
+        .branch-cell, .paidfor-cell {
+          white-space: normal;
+          word-wrap: break-word;
+          max-width: 160px;
+        }
       `}</style>
 
-      <div className="payment-table-container">
+      <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
-        {/* ── Toolbar ── */}
-        <div className="pt-toolbar">
-          <div className="pt-filters">
-            <input
-              className="pt-search" type="text"
-              placeholder="Search by client, branch or service..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-            <select className="pt-select" value={filterType}
-              onChange={(e) => setFilterType(e.target.value)}>
-              {collectionTypes.map(type => (
-                <option key={type} value={type}>{type === 'all' ? 'All Types' : type}</option>
-              ))}
-            </select>
-            <select className="pt-select" value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}>
-              <option value="all">All Status</option>
-              <option value="Pending">Pending</option>
-              <option value="Completed">Completed</option>
-              <option value="Failed">Failed</option>
-            </select>
-            <input
-              className="pt-date" type="date"
-              title="From date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
-            <input
-              className="pt-date" type="date"
-              title="To date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-            {(dateFrom || dateTo || filterStatus !== 'all') && (
-              <button className="pt-clear-btn" onClick={() => { setDateFrom(''); setDateTo(''); setFilterStatus('all'); }}>
-                Clear
-              </button>
-            )}
+        {/* ── Sticky Page Header Bar ── */}
+        <div style={{ 
+          flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", 
+          padding: "0 16px", height: 56, borderBottom: "1px solid #e8eaed", 
+          gap: 8, flexWrap: "wrap" 
+        }}>
+          <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+            <h1 style={{ fontSize: 18, fontWeight: 600, color: "#202124", margin: 5, letterSpacing: "0.10px", lineHeight: 1.2 }}>
+              Collections
+            </h1>
           </div>
-          <button className="btn-p" onClick={() => setShowPaymentForm(true)}>
-            + New Payment
-          </button>
+
+          <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
+            <button 
+              onClick={() => setShowPaymentForm(true)} 
+              style={{ 
+                display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", 
+                borderRadius: 8, border: "none", background: "#1a73e8", color: "#fff", 
+                fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Google Sans', sans-serif", 
+                boxShadow: "0 2px 8px rgba(26,115,232,0.3)", transition: "all 0.2s", whiteSpace: "nowrap" 
+              }}
+              onMouseEnter={e => { e.currentTarget.style.background = "#1557b0"; e.currentTarget.style.transform = "translateY(-1px)"; }}
+              onMouseLeave={e => { e.currentTarget.style.background = "#1a73e8"; e.currentTarget.style.transform = "translateY(0)"; }}
+            >
+              + New Payment
+            </button>
+          </div>
         </div>
 
-        {/* ── Table ── */}
-        <div className="pt-card">
-          <div className="pt-scroll">
-            <table className="pt-table">
-              <colgroup>
-                {cols.map(c => <col key={c.key} style={{ width: c.width }} />)}
-              </colgroup>
-              <thead>
-                <tr>
-                  {cols.map(c => (
-                    <th key={c.key} style={{ textAlign: c.align }}>{c.label}</th>
+        {/* ── Scrollable Body ── */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+
+          {/* ── Filters Section ── */}
+          <div style={{ background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "18px 20px", marginBottom: 20 }}>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+              {/* Search */}
+              <div style={{ flex: 1, minWidth: 200 }}>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
+                  Search
+                </label>
+                <input 
+                  className="pt-search-input"
+                  type="text" 
+                  placeholder="Search by client, place, phone, branch, department or service..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ 
+                    width: "100%", padding: "9px 12px", border: "1px solid #e8eaed", 
+                    borderRadius: 7, fontSize: 13, fontFamily: "'Google Sans', sans-serif", 
+                    outline: "none", transition: "border 0.2s, box-shadow 0.2s", 
+                    boxSizing: "border-box" 
+                  }}
+                />
+              </div>
+
+              {/* Payment Type */}
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
+                  Payment Type
+                </label>
+                <select 
+                  className="pt-select" 
+                  value={filterType}
+                  onChange={(e) => setFilterType(e.target.value)}
+                  style={{ 
+                    padding: "9px 12px", border: "1px solid #e8eaed", borderRadius: 7, 
+                    fontSize: 13, background: "#fff", color: "#202124", cursor: "pointer", 
+                    fontFamily: "'Google Sans', sans-serif", outline: "none", minWidth: 160 
+                  }}
+                >
+                  {collectionTypes.map(type => (
+                    <option key={type} value={type}>{type === 'all' ? 'All Types' : type}</option>
                   ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filteredPayments.length > 0 ? filteredPayments.map((payment, index) => (
-                  <tr key={payment.id}>
-                    <td style={{ textAlign: 'left' }}>{index + 1}</td>
-                    <td style={{ textAlign: 'left' }}>{payment.clientName}</td>
-                    <td style={{ textAlign: 'left' }}>{payment.branch}</td>
-                    <td style={{ textAlign: 'left' }}>{payment.collectionType}</td>
-                    <td style={{ textAlign: 'right' }}>{formatCurrency(payment.amount)}</td>
-                    <td style={{ textAlign: 'left' }}>{payment.paidFor}</td>
-                    <td style={{ textAlign: 'center' }}>{formatDate(payment.date)}</td>
+                </select>
+              </div>
 
-                    <td style={{ textAlign: 'center' }}>
-                      <select
-                        className={`status-select ${getStatusClass(payment.status)}`}
-                        value={payment.status}
-                        disabled={updatingId === payment.id}
-                        onChange={(e) => handleStatusUpdate(payment, e.target.value)}
-                      >
-                        {STATUS_OPTIONS.map(s => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                    </td>
+              {/* Status */}
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
+                  Status
+                </label>
+                <select 
+                  className="pt-select" 
+                  value={filterStatus}
+                  onChange={(e) => setFilterStatus(e.target.value)}
+                  style={{ 
+                    padding: "9px 12px", border: "1px solid #e8eaed", borderRadius: 7, 
+                    fontSize: 13, background: "#fff", color: "#202124", cursor: "pointer", 
+                    fontFamily: "'Google Sans', sans-serif", outline: "none", minWidth: 140 
+                  }}
+                >
+                  <option value="all">All Status</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Failed">Failed</option>
+                </select>
+              </div>
 
-                    <td style={{ textAlign: 'center' }}>
-                      {payment.paymentProofUrl ? (
-                        <button className="btn-view"
-                          onClick={() => window.open(payment.paymentProofUrl, '_blank')}>
-                          View
-                        </button>
-                      ) : (
-                        <span className="no-proof">None</span>
-                      )}
-                    </td>
+              {/* Date From */}
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
+                  From Date
+                </label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  style={{ 
+                    padding: "9px 12px", border: "1px solid #e8eaed", borderRadius: 7, 
+                    fontSize: 13, background: "#fff", color: "#202124", cursor: "pointer", 
+                    fontFamily: "'Google Sans', sans-serif", outline: "none", minWidth: 140 
+                  }}
+                />
+              </div>
 
-                    <td style={{ textAlign: 'center' }}>
-                      <div className="act-group">
-                        <button
-                          className="btn-edit"
-                          disabled={editLoading === payment.id}
-                          onClick={() => handleEditClick(payment)}
-                        >
-                          {editLoading === payment.id ? '...' : 'Edit'}
-                        </button>
-                        <button
-                          className="btn-del"
-                          disabled={deletingId === payment.id}
-                          onClick={() => handleDelete(payment.id)}
-                        >
-                          {deletingId === payment.id ? '...' : 'Delete'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                )) : (
-                  <tr>
-                    <td colSpan={cols.length} className="pt-empty">No payments found</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+              {/* Date To */}
+              <div>
+                <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
+                  To Date
+                </label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  style={{ 
+                    padding: "9px 12px", border: "1px solid #e8eaed", borderRadius: 7, 
+                    fontSize: 13, background: "#fff", color: "#202124", cursor: "pointer", 
+                    fontFamily: "'Google Sans', sans-serif", outline: "none", minWidth: 140 
+                  }}
+                />
+              </div>
+
+              {/* Clear Filters Button */}
+              {(dateFrom || dateTo || filterStatus !== 'all') && (
+                <div style={{ display: "flex", alignItems: "flex-end" }}>
+                  <button 
+                    onClick={() => { setDateFrom(''); setDateTo(''); setFilterStatus('all'); }}
+                    style={{ 
+                      display: "flex", alignItems: "center", gap: 6, padding: "9px 22px", 
+                      borderRadius: 7, border: "1px solid #e8eaed", background: "#fff", 
+                      color: "#5f6368", fontWeight: 600, fontSize: 13, cursor: "pointer", 
+                      fontFamily: "'Google Sans', sans-serif" 
+                    }}
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
 
+          {/* ── Count ── */}
+          <div style={{ marginBottom: 16, fontSize: 13, color: "#5f6368", fontFamily: "'Google Sans', sans-serif", fontWeight: 600 }}>
+            {filteredPayments.length} payment{filteredPayments.length !== 1 ? "s" : ""} found
+          </div>
+
+          {/* ── Table ── */}
+          {filteredPayments.length > 0 ? (
+            <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e8eaed", overflow: "hidden" }}>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr>
+                      {headers.map(h => (
+                        <th key={h} style={thStyle}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPayments.map((payment, index) => (
+                      <tr key={payment.id}
+                        onMouseEnter={e => e.currentTarget.style.background = "#f8f9fa"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                      >
+                        {/* Sl. no. */}
+                        <td style={{ ...tdStyle, color: "#9aa0a6", fontWeight: 600, width: 56 }}>{index + 1}</td>
+                        
+                        {/* Date */}
+                        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{formatDate(payment.date)}</td>
+                        
+                        {/* Client Name with details */}
+                        <td style={{ ...tdStyle, textAlign: 'left' }}>
+                          <div className="client-info">
+                            <div className="client-name">{payment.clientName}</div>
+                            {payment.place && (
+                              <div className="client-place">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
+                                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                                  <circle cx="12" cy="9" r="2.5" />
+                                </svg>
+                                {payment.place}
+                              </div>
+                            )}
+                            {payment.phoneNumber && (
+                              <div className="client-phone">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
+                                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+                                </svg>
+                                {payment.phoneNumber}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        
+                        {/* Branch */}
+                        <td className="branch-cell" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 120 }}>{payment.branch}</td>
+                        
+                        {/* Department */}
+                        <td style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 180 }}>
+                          {payment.department ? (
+                            <span className="department-badge">
+                              {payment.department}
+                            </span>
+                          ) : (
+                            <span style={{ color: '#9ca3af', fontSize: '12px' }}>—</span>
+                          )}
+                        </td>
+                        
+                        {/* Payment Type */}
+                        <td style={tdStyle}>{payment.collectionType}</td>
+                        
+                        {/* Amount */}
+                        <td style={{ ...tdStyle, textAlign: "left", fontWeight: "600" }}>{formatCurrency(payment.amount)}</td>
+                        
+                        {/* Paid For */}
+                        <td className="paidfor-cell" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 160 }}>{payment.paidFor}</td>
+                        
+                        {/* Status */}
+                        <td style={tdStyle}>
+                          <select
+                            className={`status-select ${getStatusClass(payment.status)}`}
+                            value={payment.status || 'Pending'}
+                            disabled={updatingId === payment.id}
+                            onChange={(e) => handleStatusUpdate(payment, e.target.value)}
+                          >
+                            {STATUS_OPTIONS.map(s => (
+                              <option key={s} value={s}>{s}</option>
+                            ))}
+                          </select>
+                        </td>
+                        
+                        {/* Proof */}
+                        <td style={{ ...tdStyle, textAlign: "left" }}>
+                          {payment.paymentProofUrl ? (
+                            <a className="file-link" href={payment.paymentProofUrl} target="_blank" rel="noopener noreferrer">
+                              <VisibilityOutlinedIcon style={{ fontSize: 18 }} />
+                            </a>
+                          ) : (
+                            <span className="no-proof">—</span>
+                          )}
+                        </td>
+
+                        {/* Actions */}
+                        <td style={{ ...tdStyle, textAlign: "left" }}>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            <button 
+                              onClick={() => handleEditClick(payment)} 
+                              style={{ 
+                                padding: "5px 12px", borderRadius: 6, border: "none", 
+                                background: "#1a73e8", color: "#fff", fontSize: 12, 
+                                fontWeight: 600, cursor: "pointer", display: "flex", 
+                                alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" 
+                              }}
+                            >
+                              <EditOutlinedIcon style={{ fontSize: 13 }} />
+                            </button>
+                            <button 
+                              onClick={() => confirmDelete(payment.id)} 
+                              style={{ 
+                                padding: "5px 12px", borderRadius: 6, border: "none", 
+                                background: "#d93025", color: "#fff", fontSize: 12, 
+                                fontWeight: 600, cursor: "pointer", display: "flex", 
+                                alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" 
+                              }}
+                            >
+                              <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div style={{ textAlign: "left", padding: "60px 20px", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, color: "#5f6368", fontSize: 14, fontFamily: "'Google Sans', sans-serif" }}>
+              <div style={{ fontWeight: 700, fontSize: 16, color: "#202124", marginBottom: 6 }}>No payments found</div>
+              <div>Try adjusting your filters or add a new payment.</div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── New Payment Modal ── */}
@@ -540,6 +721,7 @@ const PaymentTable = () => {
           onClick={(e) => { if (e.target === e.currentTarget) setShowPaymentForm(false); }}>
           <div className="pt-modal">
             <div className="pt-modal-header">
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>New Payment</h3>
               <button className="pt-modal-close" onClick={() => setShowPaymentForm(false)}>×</button>
             </div>
             <div className="pt-modal-body">
@@ -558,7 +740,7 @@ const PaymentTable = () => {
           onClick={(e) => { if (e.target === e.currentTarget) setEditingPayment(null); }}>
           <div className="pt-modal">
             <div className="pt-modal-header">
-              <span style={{ fontWeight: 600, fontSize: 15 }}>Edit Payment #{editingPayment.id}</span>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>Edit Payment #{editingPayment.id}</h3>
               <button className="pt-modal-close" onClick={() => setEditingPayment(null)}>×</button>
             </div>
             <div className="pt-modal-body">
