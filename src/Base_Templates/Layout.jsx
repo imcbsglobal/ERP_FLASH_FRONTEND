@@ -210,7 +210,7 @@ export default function Layout({ children }) {
   const handleLogout = async () => {
     const refresh = localStorage.getItem("refresh_token");
     try {
-      if (refresh) await fetch("http://127.0.0.1:8000/api/auth/logout/", {
+      if (refresh) await fetch("https://erp.flashinnovations.in/", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${localStorage.getItem("access_token")}` },
         body: JSON.stringify({ refresh }),

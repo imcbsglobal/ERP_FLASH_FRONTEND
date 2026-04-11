@@ -3,7 +3,7 @@
 // PATCH /api/users/<userId>/permissions/
 // Payload: { dashboard, col_reports, vm_trips, vm_service, um_users, um_roles, mm_vehicle }
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "https://erp.flashinnovations.in/api";
 
 /**
  * Save menu permissions for a single user.

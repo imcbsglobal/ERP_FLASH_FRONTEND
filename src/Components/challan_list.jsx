@@ -5,6 +5,9 @@ import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
 import ChallanAdd from "./challan_add";
 
+// API base is handled in the service files, no changes needed here
+// The service files should already use the correct BASE_URL
+
 const STATUS_STYLES = {
   Paid:    { background: "#188038", color: "#fbfcfb" },
   Pending: { background: "rgb(241 147 33)", color: "#fbfcfb" },

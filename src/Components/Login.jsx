@@ -3,8 +3,8 @@ import axios from "axios";
 import loginBg from "./6909.jpg";
 import brandLogo from "../assets/logo.png";
 
-// ── API base (matches your Django dev server) ─────────────────
-const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+// ── API base (updated to erp.flashinnovations.in) ─────────────────
+const API_BASE = "https://erp.flashinnovations.in/api";
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');

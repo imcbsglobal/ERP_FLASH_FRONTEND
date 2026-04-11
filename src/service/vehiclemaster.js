@@ -1,7 +1,7 @@
 // src/service/vehiclemaster.js
 
 // ── Base URL ──────────────────────────────────────────────────────────────────
-const BASE_URL = "http://127.0.0.1:8000/api";
+const BASE_URL = "https://erp.flashinnovations.in/api";
 
 // ── Media URL helper ──────────────────────────────────────────────────────────
 export const resolveMediaUrl = (url) => {

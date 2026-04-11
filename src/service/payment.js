@@ -1,7 +1,7 @@
 // payment.js
 // API service layer for Payment Collection — connects collection.jsx & collection_list.jsx to the Django backend.
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://erp.flashinnovations.in/api';
 
 // ─── Helper: get auth headers ─────────────────────────────────────────────────
 function getAuthHeaders() {
