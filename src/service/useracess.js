@@ -3,7 +3,7 @@
 // PATCH /api/users/<userId>/permissions/
 // Payload: { dashboard, col_reports, vm_trips, vm_service, um_users, um_roles, mm_vehicle }
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://erp.flashinnovations.in/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
 
 /**
  * Save menu permissions for a single user.
@@ -57,6 +57,28 @@ export async function saveUserPermissions(userId, perms) {
   const responseData = await res.json();
   console.log(`Successfully saved permissions for user ${userId}:`, responseData);
   return responseData;
+}
+
+export async function getUserPermissions(userId) {
+  const token = localStorage.getItem("access_token");
+  const res = await fetch(`${API_BASE}/users/${userId}/permissions/`, {
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+
+  if (!res.ok) {
+    let errBody;
+    try { errBody = await res.json(); } catch { errBody = { error: res.statusText }; }
+    const message = errBody?.error || errBody?.detail || JSON.stringify(errBody) || "Failed to load permissions.";
+    const err = new Error(message);
+    err.detail = errBody;
+    err.status = res.status;
+    throw err;
+  }
+
+  return res.json();
 }
 
 /**

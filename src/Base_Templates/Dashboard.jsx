@@ -5,7 +5,8 @@ import { useState, useEffect } from "react";
 // ── Base URL ─────────────────────────────────────────────────────
 // All Django REST routes live under /api/ on the backend.
 // Set VITE_API_BASE_URL in your .env to override (e.g. for local dev).
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://erp.flashinnovations.in').replace(/\/$/, '');
+// BASE_URL = the Django host only (no trailing slash, no /api suffix)
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/$/, '');
 const API = `${BASE_URL}/api`;
 
 // ── Auth helpers ─────────────────────────────────────────────────
@@ -108,16 +109,20 @@ function normalizePayment(p) {
 }
 
 // ── Normalize a raw trip record ───────────────────────────────────
+// Field names mirror Travel_Trip.jsx (traveledBy, startTime, endTime, etc.)
 function normalizeTrip(t) {
   return {
     id:                  t.id,
     date:                t.date || t.trip_date || t.created_at || null,
-    status:              t.status || '',
+    // Treat blank / missing status as "started" (i.e. active)
+    status:              (t.status || '').toLowerCase(),
     vehicle:             t.vehicle_name || t.vehicle || t.vehicle_number || '—',
     registration_number: t.registration_number || t.vehicle_reg || t.reg_no || '',
-    traveled_by:         t.traveled_by || t.driver || t.created_by_name || '—',
-    start_time:          t.start_time || t.startTime || '',
-    end_time:            t.end_time   || t.endTime   || '',
+    traveled_by:         t.traveled_by || t.traveledBy || t.driver || t.created_by_name || '—',
+    // Accept both snake_case (API) and camelCase (already-normalised objects)
+    start_time:          t.start_time  || t.startTime  || '',
+    end_time:            t.end_time    || t.endTime    || '',
+    purpose:             t.purpose     || t.purpose_of_trip || '',
   };
 }
 
@@ -221,7 +226,7 @@ function LineChart({ data }) {
   const chartH = H - padT - padB;
   const max    = Math.max(...data.map(d => d.value), 1);
 
-  const xPos = (i) => padL + (i / (data.length - 1)) * chartW;
+  const xPos = (i) => padL + (data.length > 1 ? (i / (data.length - 1)) * chartW : chartW / 2);
   const yPos = (v) => padT + chartH - (v / max) * chartH;
   const showLabel = (label) => { const n = parseInt(label); return n === 1 || n % 5 === 0; };
 
@@ -294,7 +299,7 @@ function Sparkline({ data, color = '#4a90d9' }) {
   const w = 220, h = 50;
   const max = Math.max(...data.map(d => d.value), 1);
   const pts = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * w;
+    const x = data.length > 1 ? (i / (data.length - 1)) * w : w / 2;
     const y = h - (d.value / max) * (h - 8) - 4;
     return `${x},${y}`;
   });
@@ -315,8 +320,10 @@ function Sparkline({ data, color = '#4a90d9' }) {
 }
 
 // ── Recent Trips Section ──────────────────────────────────────────
-// NOTE: If your trips endpoint uses a different path, update the URL below.
-// Common Django REST paths: /api/trips/, /api/vehicle-management/trips/
+// NOTE: Update TRIPS_PATH below to match your Django router exactly.
+// Common patterns: '/vehicle-management/trips/', '/trips/', '/vehicles/trips/'
+const TRIPS_PATH = '/vehicle-management/trips/';
+
 function RecentTripsSection() {
   const [trips, setTrips]     = useState([]);
   const [loading, setLoading] = useState(true);
@@ -325,13 +332,18 @@ function RecentTripsSection() {
   useEffect(() => {
     (async () => {
       try {
-        const data = await apiFetch(`${API}/vehicle-management/trips/`, {
+        const data = await apiFetch(`${API}${TRIPS_PATH}`, {
           headers: authHeaders(),
         });
         const raw = Array.isArray(data) ? data : (data?.results ?? []);
         setTrips(raw.map(normalizeTrip));
       } catch (err) {
-        setError(err.message || 'Failed to load trips.');
+        // Treat 404 as "endpoint not configured yet" — show empty state, not red error
+        if (err.message && err.message.includes('404')) {
+          setTrips([]);
+        } else {
+          setError(err.message || 'Failed to load trips.');
+        }
       } finally {
         setLoading(false);
       }
@@ -373,12 +385,29 @@ function RecentTripsSection() {
         )}
 
         {!loading && !error && trips.length > 0 && (() => {
+          // Active = anything that is NOT explicitly "completed"
           const ongoing = trips.filter(t => t.status !== 'completed');
           if (ongoing.length === 0) return (
             <div style={{ textAlign: 'center', padding: '36px 0', color: '#9ca3af', fontSize: 13 }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>No ongoing trips right now.
             </div>
           );
+
+          const statusBadge = (status) => {
+            const isActive  = !status || status === 'started' || status === 'active' || status === 'in_progress';
+            return (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                background: isActive ? '#e8f5e9' : '#fff3e0',
+                color:      isActive ? '#2e7d32' : '#e65100',
+                borderRadius: 20, padding: '2px 10px', fontSize: 11, fontWeight: 700,
+              }}>
+                <span style={{ width: 7, height: 7, borderRadius: '50%', background: isActive ? '#2e7d32' : '#e65100', display: 'inline-block' }} />
+                {isActive ? 'Active' : (status.charAt(0).toUpperCase() + status.slice(1))}
+              </span>
+            );
+          };
+
           return (
             <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #eaecef' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
@@ -387,9 +416,11 @@ function RecentTripsSection() {
                     <th style={thStyle}>Sl.No</th>
                     <th style={thStyle}>Date</th>
                     <th style={thStyle}>Vehicle</th>
-                    <th style={thStyle}>Created By</th>
+                    <th style={thStyle}>Traveled By</th>
+                    <th style={thStyle}>Purpose</th>
                     <th style={thStyle}>Start Time</th>
                     <th style={thStyle}>End Time</th>
+                    <th style={thStyle}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -425,6 +456,9 @@ function RecentTripsSection() {
                           </div>
                         </td>
                         <td style={tdStyle}>
+                          <span style={{ color: '#374151', fontSize: 13 }}>{row.purpose || '—'}</span>
+                        </td>
+                        <td style={tdStyle}>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#2e7d32', fontWeight: 600 }}>
                             <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#2e7d32', flexShrink: 0, display: 'inline-block' }} />
                             {row.start_time || '—'}
@@ -439,6 +473,7 @@ function RecentTripsSection() {
                             {hasEnd ? row.end_time : 'Ongoing'}
                           </span>
                         </td>
+                        <td style={tdStyle}>{statusBadge(row.status)}</td>
                       </tr>
                     );
                   })}

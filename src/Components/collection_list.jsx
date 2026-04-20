@@ -4,8 +4,9 @@ import { fetchPayments, fetchPaymentById, deletePayment, updatePaymentStatus, up
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
+import { Bold } from 'lucide-react';
 
-const BASE_URL = 'https://erp.flashinnovations.in/api';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 // ── Auth helpers ───────────────────────────────────────────────
 function authHeaders(extra = {}) {
@@ -112,6 +113,10 @@ const PaymentTable = () => {
   const [updatingId, setUpdatingId]           = useState(null);
   const [editingPayment, setEditingPayment]   = useState(null);
   const [editLoading, setEditLoading]         = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // ── Fetch all payments ─────────────────────────────────────────
   const loadPayments = useCallback(async () => {
@@ -139,6 +144,7 @@ const PaymentTable = () => {
 
       const list = Array.isArray(data) ? data : (data.results ?? []);
       setPayments(list.map(normalizePayment));
+      setCurrentPage(1); // Reset to first page when filters change
     } catch (err) {
       if (err.name === 'AuthError') {
         setIsAuthError(true);
@@ -205,7 +211,7 @@ const PaymentTable = () => {
   };
 
   // ── Status dropdown ────────────────────────────────────────────
-  const STATUS_OPTIONS = ['Pending', 'Completed', 'Failed'];
+  const STATUS_OPTIONS = ['Pending', 'Completed', 'Rejected'];
 
   const handleStatusUpdate = async (payment, nextStatus) => {
     if (nextStatus === payment.status) return;
@@ -248,6 +254,46 @@ const PaymentTable = () => {
     return matchesSearch && matchesType && matchesStatus && matchesFrom && matchesTo;
   });
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredPayments.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPayments = filteredPayments.slice(startIndex, endIndex);
+
+  // Pagination handlers
+  const goToPage = (page) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Get visible page numbers for pagination
+  const getVisiblePages = () => {
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    
+    if (endPage - startPage + 1 < maxVisible) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+    
+    const pages = [];
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
   // ── Formatters ─────────────────────────────────────────────────
   const formatCurrency = (amount) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR',
@@ -261,18 +307,47 @@ const PaymentTable = () => {
     switch ((status || '').toLowerCase()) {
       case 'completed': return 'pill-green';
       case 'pending':   return 'pill-amber';
-      case 'failed':    return 'pill-red';
+      case 'rejected':    return 'pill-red';
+      case 'failed':      return 'pill-red';
       default:          return 'pill-muted';
     }
   };
 
   const collectionTypes = ['all', 'Cash', 'Cheque', 'Bank Transfer', 'Credit Card', 'Debit Card', 'Online Payment'];
 
-  // Table headers - Updated order: Sl. no., Date, Client Name, Branch, Department, Payment Type, Amount, Paid For, Status, Proof, Action
+  // Table headers
   const headers = [
     "Sl. no.", "Date", "Client Name", "Branch", "Department", "Payment Type", 
     "Amount", "Paid For", "Status", "Proof", "Action"
   ];
+
+  // Table styles - th font size set to 20
+  const thStyle = { 
+    fontSize: 15, 
+    fontWeight: 600, 
+    letterSpacing: "0.4px", 
+    color: "#fcfbfb", 
+    textAlign: "left", 
+    padding: "11px 14px", 
+    background: "#017efc", 
+    borderBottom: "1px solid #e8eaed", 
+    fontFamily: "'Google Sans', sans-serif", 
+    whiteSpace: "nowrap", 
+    textTransform: "capitalize",
+    position: "sticky",
+    top: 0,
+    zIndex: 10
+  };
+  
+  const tdStyle = { 
+    padding: "12px 14px", 
+    fontSize: 14, 
+    borderBottom: "1px solid #e8eaed", 
+    fontFamily: "'Google Sans', sans-serif", 
+    color: "#202124", 
+    textAlign: "left", 
+    verticalAlign: "middle" 
+  };
 
   // ── Loading / Error states ─────────────────────────────────────
   if (loading) {
@@ -305,31 +380,6 @@ const PaymentTable = () => {
     );
   }
 
-  // Table styles matching Vehicle Master
-  const thStyle = { 
-    fontSize: 14, 
-    fontWeight: 600, 
-    letterSpacing: "0.4px", 
-    color: "#0a0a0a", 
-    textAlign: "left", 
-    padding: "11px 14px", 
-    background: "#f8f9fa", 
-    borderBottom: "1px solid #e8eaed", 
-    fontFamily: "'Google Sans', sans-serif", 
-    whiteSpace: "nowrap", 
-    textTransform: "capitalize" 
-  };
-  
-  const tdStyle = { 
-    padding: "12px 14px", 
-    fontSize: 13, 
-    borderBottom: "1px solid #e8eaed", 
-    fontFamily: "'Google Sans', sans-serif", 
-    color: "#202124", 
-    textAlign: "left", 
-    verticalAlign: "middle" 
-  };
-
   // ── Render ─────────────────────────────────────────────────────
   return (
     <>
@@ -343,19 +393,21 @@ const PaymentTable = () => {
         .status-select {
           padding: 4px 10px;
           border-radius: 6px;
-          font-size: 12px;
+          font-size: 14px;
           font-weight:bold;
           border: none;
           cursor: pointer;
           text-align: left;
           outline: none;
           font-family: 'Google Sans', sans-serif;
+          background-color: transparent;
+          color: #333;
         }
         .status-select:disabled { cursor: not-allowed; opacity: 0.6; }
-        .status-select.pill-green { background:#188038 ; color: #f6faf7; }
-        .status-select.pill-amber { background: rgb(26, 115, 232); color: #faf9fc; }
-        .status-select.pill-red { background: #fc5032f5; color: #f5f1f1; }
-        .status-select.pill-muted { background:#5f6368; colorrgb(249, 250, 252)68; }
+        .status-select.pill-green { background:#188038 !important; color: #f6faf7 !important; }
+        .status-select.pill-amber { background: rgb(247, 170, 4) !important; color: #faf9fc !important; }
+        .status-select.pill-red { background: #d35741f5 !important; color: #f5f1f1 !important; }
+        .status-select.pill-muted { background:#5f6368 !important; color: #fff !important; }
         
         .file-link {
           display: inline-flex;
@@ -394,18 +446,16 @@ const PaymentTable = () => {
         .pt-modal-body { padding: 24px; }
         
         .client-info { display: flex; flex-direction: column; gap: 4px; }
-        .client-name { font-weight: 600; color: #111827; font-size: 13px; }
-        .client-place { font-size: 11px; color: #0c0c0c; display: flex; align-items: center; gap: 4px; }
-        .client-phone { font-size: 11px; color: #0a0a0a; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+        .client-name { font-weight: 600; color: #111827; font-size: 14px; }
+        .client-place { font-size: 13px; color: #0c0c0c; display: flex; align-items: center; gap: 4px; }
+        .client-phone { font-size: 13px; color: #0a0a0a; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
         .client-place svg, .client-phone svg { width: 11px; height: 11px; opacity: 0.7; flex-shrink: 0; }
         
         .department-badge {
           display: inline-block;
-         
           border-radius: 6px;
-          font-size: 12px;
+          font-size: 13px;
           font-weight: 500;
-          
           color: #202124;
           word-wrap: break-word;
           white-space: normal;
@@ -417,6 +467,91 @@ const PaymentTable = () => {
           word-wrap: break-word;
           max-width: 160px;
         }
+
+        /* Single scrollable table container - only table body scrolls */
+        .single-scroll-table-container {
+          flex: 1;
+          min-height: 0;
+          overflow: auto;
+          background: #fff;
+          border-radius: 10px;
+          border: 1px solid #e8eaed;
+        }
+        
+        .data-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        
+        .data-table thead tr th {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          background: #017efc;
+        }
+
+        /* Pagination Styles */
+        .pagination-container {
+          display: flex;
+          justify-content: flex-end;
+          align-items: center;
+          gap: 8px;
+          margin-top: 16px;
+          padding: 12px 0;
+          flex-shrink: 0;
+        }
+        
+        .pagination-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 36px;
+          height: 36px;
+          padding: 0 8px;
+          border: 1px solid #e8eaed;
+          background: #fff;
+          border-radius: 6px;
+          font-size: 14px;
+          font-weight: 500;
+          color: #5f6368;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-family: 'Google Sans', sans-serif;
+        }
+        
+        .pagination-button:hover:not(:disabled) {
+          background: #f8f9fa;
+          border-color: #1a73e8;
+          color: #1a73e8;
+        }
+        
+        .pagination-button.active {
+          background: #1a73e8;
+          border-color: #1a73e8;
+          color: #fff;
+        }
+        
+        .pagination-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        
+        .pagination-ellipsis {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 36px;
+          height: 36px;
+          font-size: 14px;
+          color: #5f6368;
+        }
+        
+        .pagination-info {
+          font-size: 13px;
+          color: #5f6368;
+          margin-right: 16px;
+          font-family: 'Google Sans', sans-serif;
+        }
       `}</style>
 
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -425,10 +560,10 @@ const PaymentTable = () => {
         <div style={{ 
           flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", 
           padding: "0 16px", height: 56, borderBottom: "1px solid #e8eaed", 
-          gap: 8, flexWrap: "wrap" 
+          gap:0, flexWrap: "wrap" 
         }}>
           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <h1 style={{ fontSize: 18, fontWeight: 600, color: "#202124", margin: 5, letterSpacing: "0.10px", lineHeight: 1.2 }}>
+            <h1 style={{ fontSize: 25, fontWeight: "600", color: "#050505", margin: 5, letterSpacing: "0.10px", lineHeight: 1.2 }}>
               Collections
             </h1>
           </div>
@@ -450,15 +585,13 @@ const PaymentTable = () => {
           </div>
         </div>
 
-        {/* ── Scrollable Body ── */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
-
-          {/* ── Filters Section ── */}
+        {/* ── Filters Section (Always Visible) ── */}
+        <div style={{ flexShrink: 0, padding: "12px 16px 0 16px" }}>
           <div style={{ background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "18px 20px", marginBottom: 20 }}>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
               {/* Search */}
               <div style={{ flex: 1, minWidth: 200 }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#070707", display: "block", marginBottom: 6, textTransform: "capitalize",textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
                   Search
                 </label>
                 <input 
@@ -478,7 +611,7 @@ const PaymentTable = () => {
 
               {/* Payment Type */}
               <div>
-                <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#0d0d0e", display: "block", marginBottom: 6, textTransform: "capitalize",textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
                   Payment Type
                 </label>
                 <select 
@@ -499,7 +632,7 @@ const PaymentTable = () => {
 
               {/* Status */}
               <div>
-                <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#0a0a0a", display: "block",textAlign: "left", marginBottom: 6, textTransform: "", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
                   Status
                 </label>
                 <select 
@@ -515,13 +648,13 @@ const PaymentTable = () => {
                   <option value="all">All Status</option>
                   <option value="Pending">Pending</option>
                   <option value="Completed">Completed</option>
-                  <option value="Failed">Failed</option>
+                  <option value="Rejected">Rejected</option>
                 </select>
               </div>
 
               {/* Date From */}
               <div>
-                <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#0a0a0a", textAlign: "left", display: "block", marginBottom: 6, textTransform: "capitalize", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
                   From Date
                 </label>
                 <input
@@ -538,7 +671,7 @@ const PaymentTable = () => {
 
               {/* Date To */}
               <div>
-                <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#080808",textAlign: "left", display: "block", marginBottom: 6, textTransform: "capitalize", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
                   To Date
                 </label>
                 <input
@@ -571,32 +704,36 @@ const PaymentTable = () => {
               )}
             </div>
           </div>
+        </div>
 
-          {/* ── Count ── */}
-          <div style={{ marginBottom: 16, fontSize: 13, color: "#5f6368", fontFamily: "'Google Sans', sans-serif", fontWeight: 600 }}>
-            {filteredPayments.length} payment{filteredPayments.length !== 1 ? "s" : ""} found
+        {/* ── Single Scrollable Table Body Only ── */}
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 16px 16px 16px" }}>
+          
+          {/* ── Count and Pagination Info ── */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
+            
           </div>
 
-          {/* ── Table ── */}
+          {/* ── Table with Single Scrollbar (Only Table Scrolls) ── */}
           {filteredPayments.length > 0 ? (
-            <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e8eaed", overflow: "hidden" }}>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <>
+              <div className="single-scroll-table-container">
+                <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr>
                       {headers.map(h => (
-                        <th key={h} style={thStyle}>{h}</th>
+                        <th key={h} style={{ ...thStyle, textAlign: h === "Amount" ? "right" : "left" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredPayments.map((payment, index) => (
+                    {currentPayments.map((payment, index) => (
                       <tr key={payment.id}
                         onMouseEnter={e => e.currentTarget.style.background = "#f8f9fa"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                       >
                         {/* Sl. no. */}
-                        <td style={{ ...tdStyle, color: "#9aa0a6", fontWeight: 600, width: 56 }}>{index + 1}</td>
+                        <td style={{ ...tdStyle, color: "#9aa0a6", fontWeight: 600, width: 56 }}>{startIndex + index + 1}</td>
                         
                         {/* Date */}
                         <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{formatDate(payment.date)}</td>
@@ -643,7 +780,7 @@ const PaymentTable = () => {
                         <td style={tdStyle}>{payment.collectionType}</td>
                         
                         {/* Amount */}
-                        <td style={{ ...tdStyle, textAlign: "left", fontWeight: "600" }}>{formatCurrency(payment.amount)}</td>
+                        <td style={{ ...tdStyle, textAlign: "right", fontWeight: "600" }}>{formatCurrency(payment.amount)}</td>
                         
                         {/* Paid For */}
                         <td className="paidfor-cell" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 160 }}>{payment.paidFor}</td>
@@ -652,7 +789,7 @@ const PaymentTable = () => {
                         <td style={tdStyle}>
                           <select
                             className={`status-select ${getStatusClass(payment.status)}`}
-                            value={payment.status || 'Pending'}
+                            value={(payment.status === 'Failed' ? 'Rejected' : payment.status) || 'Pending'}
                             disabled={updatingId === payment.id}
                             onChange={(e) => handleStatusUpdate(payment, e.target.value)}
                           >
@@ -705,7 +842,62 @@ const PaymentTable = () => {
                   </tbody>
                 </table>
               </div>
-            </div>
+
+              {/* ── Pagination ── */}
+              {totalPages > 1 && (
+                <div className="pagination-container">
+                  <button
+                    className="pagination-button"
+                    onClick={goToPreviousPage}
+                    disabled={currentPage === 1}
+                  >
+                    ‹ Previous
+                  </button>
+                  
+                  {getVisiblePages()[0] > 1 && (
+                    <>
+                      <button
+                        className="pagination-button"
+                        onClick={() => goToPage(1)}
+                      >
+                        1
+                      </button>
+                      {getVisiblePages()[0] > 2 && <span className="pagination-ellipsis">...</span>}
+                    </>
+                  )}
+                  
+                  {getVisiblePages().map(page => (
+                    <button
+                      key={page}
+                      className={`pagination-button ${currentPage === page ? 'active' : ''}`}
+                      onClick={() => goToPage(page)}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  
+                  {getVisiblePages()[getVisiblePages().length - 1] < totalPages && (
+                    <>
+                      {getVisiblePages()[getVisiblePages().length - 1] < totalPages - 1 && <span className="pagination-ellipsis">...</span>}
+                      <button
+                        className="pagination-button"
+                        onClick={() => goToPage(totalPages)}
+                      >
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
+                  
+                  <button
+                    className="pagination-button"
+                    onClick={goToNextPage}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next ›
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div style={{ textAlign: "left", padding: "60px 20px", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, color: "#5f6368", fontSize: 14, fontFamily: "'Google Sans', sans-serif" }}>
               <div style={{ fontWeight: 700, fontSize: 16, color: "#202124", marginBottom: 6 }}>No payments found</div>

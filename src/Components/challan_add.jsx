@@ -66,7 +66,6 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
     if (!form.challanNo)   e.challanNo   = "Required";
     if (!form.challanDate) e.challanDate = "Required";
     if (!form.offenceType) e.offenceType = "Required";
-    if (!form.location)    e.location    = "Required";
     if (!form.fineAmount || isNaN(form.fineAmount) || Number(form.fineAmount) <= 0)
       e.fineAmount = "Enter a valid amount greater than 0";
     return e;
@@ -97,7 +96,7 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
         challanNo:     form.challanNo,
         challanDate:   form.challanDate,
         offenceType:   form.offenceType,
-        location:      form.location,
+        location:      form.location || "N/A",
         fineAmount:    form.fineAmount,
         paymentStatus: form.paymentStatus,
         remark:        form.remark,
@@ -291,7 +290,7 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
             <h4 style={{ textAlign:"left", fontSize:"20px", fontWeight:"bold", fontFamily:"'Google Sans', sans-serif" }}>
               {isEdit ? "Edit Challan" : "Add New Challan"}
             </h4>
-            <Section title="Basic Info" />
+            <Section title="Basic Information" />
 
             <div style={s.inlineRow}>
               <div style={s.inlineField}>
@@ -350,12 +349,11 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
                 {errors.offenceType && <div style={s.errText}>{errors.offenceType}</div>}
               </div>
               <div style={s.inlineField}>
-                <label style={s.inlineLabel}>Location <span style={s.req}>*</span></label>
+                <label style={s.inlineLabel}>Location</label>
                 <input type="text" name="location"
-                  className={`ci${errors.location?" err":""}`}
+                  className="ci"
                   placeholder="e.g. NH 766, Kalpetta Bypass"
                   value={form.location} onChange={handleChange} />
-                {errors.location && <div style={s.errText}>{errors.location}</div>}
               </div>
               <div style={s.inlineField}>
                 <label style={s.inlineLabel}>Fine Amount (₹) <span style={s.req}>*</span></label>
@@ -365,17 +363,8 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
                   value={form.fineAmount} onChange={handleChange} />
                 {errors.fineAmount && <div style={s.errText}>{errors.fineAmount}</div>}
               </div>
-              <div style={s.inlineField}>
-                <label style={s.inlineLabel}>Payment Status</label>
-                <Sel>
-                  <select name="paymentStatus" className="cs"
-                    value={form.paymentStatus} onChange={handleChange}>
-                    <option value="Pending">Pending</option>
-                    <option value="Paid">Paid</option>
-                    <option value="Waived">Waived</option>
-                  </select>
-                </Sel>
-              </div>
+              
+              
             </div>
 
             <Sep />
@@ -475,9 +464,9 @@ const s = {
     fontFamily:"'Google Sans', sans-serif",
     fontWeight:600,
     fontSize:"15px",
-    letterSpacing:"0.18em",
+    letterSpacing:"0.4px",
     textTransform:"capitalize",
-    color:"#2563eb",
+    color:"#000000",
     marginBottom:10,
     textAlign:"left",
   },
@@ -507,7 +496,7 @@ const s = {
   },
   inlineLabel: {
     fontSize:"12px",
-    color:"#0a0a0a",
+    color:"#000000",
     fontWeight:600,
     fontFamily:"'Google Sans', sans-serif",
     textAlign:"left",

@@ -1,7 +1,7 @@
 // payment.js
 // API service layer for Payment Collection — connects collection.jsx & collection_list.jsx to the Django backend.
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://erp.flashinnovations.in/api';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 // ─── Helper: get auth headers ─────────────────────────────────────────────────
 function getAuthHeaders() {
@@ -100,7 +100,7 @@ async function handleResponse(response) {
  * @param {Object} params
  * @param {string} [params.search]          - Searches client_name, branch, paid_for
  * @param {string} [params.collection_type] - Filter by payment type (e.g. 'Cash')
- * @param {string} [params.status]          - Filter by status ('Pending' | 'Completed' | 'Failed')
+ * @param {string} [params.status]          - Filter by status ('Pending' | 'Completed' | 'Rejected')
  * @param {string} [params.branch]          - Filter by branch
  * @param {string} [params.date]            - Filter by exact date (YYYY-MM-DD)
  * @param {string} [params.ordering]        - e.g. '-created_at', 'amount'
@@ -196,7 +196,7 @@ export async function updatePayment(id, formData) {
  * Used by the Edit/Status toggle in collection_list.jsx.
  *
  * @param {number} id
- * @param {'Pending'|'Completed'|'Failed'} status
+ * @param {'Pending'|'Completed'|'Rejected'} status
  */
 export async function updatePaymentStatus(id, status) {
   const response = await authFetch(`${BASE_URL}/payments/${id}/status/`, {
@@ -224,7 +224,7 @@ export async function deletePayment(id) {
 
 /**
  * Fetch aggregate stats for the summary bar in collection_list.jsx.
- * Returns: { total_amount, total_count, completed_count, pending_count, failed_count }
+ * Returns: { total_amount, total_count, completed_count, pending_count, rejected_count }
  */
 export async function fetchPaymentSummary() {
   const response = await authFetch(`${BASE_URL}/payments/summary/`, {

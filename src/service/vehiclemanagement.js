@@ -14,7 +14,7 @@
 
 import axios from 'axios';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://erp.flashinnovations.in';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 const api = axios.create({
   baseURL: BASE_URL,
@@ -60,6 +60,7 @@ function normaliseTrip(raw) {
     purpose:             raw.purpose_of_trip     ?? '',
     date:                raw.date                ?? '',
     startTime:           raw.start_time          ?? '',
+    endDate:             raw.end_date            ?? '',
     endTime:             raw.end_time            ?? '',
     odoStart:            parseFloat(raw.odometer_start)   || 0,
     odoEnd:              parseFloat(raw.odometer_end)     || 0,
@@ -156,6 +157,7 @@ export async function endTrip(id, endData) {
   try {
     const fd = new FormData();
 
+    fd.append('end_date',     endData.end_date);
     fd.append('end_time',     endData.end_time);
     fd.append('odometer_end', endData.odometer_end);
     if (endData.fuel_cost != null) {

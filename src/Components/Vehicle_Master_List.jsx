@@ -9,11 +9,16 @@ import GridViewOutlinedIcon from "@mui/icons-material/GridViewOutlined";
 import SearchOutlinedIcon from "@mui/icons-material/SearchOutlined";
 import FilterListOutlinedIcon from "@mui/icons-material/FilterListOutlined";
 import RestartAltOutlinedIcon from "@mui/icons-material/RestartAltOutlined";
+import NavigateBeforeOutlinedIcon from "@mui/icons-material/NavigateBeforeOutlined";
+import NavigateNextOutlinedIcon from "@mui/icons-material/NavigateNextOutlined";
+import FirstPageOutlinedIcon from "@mui/icons-material/FirstPageOutlined";
+import LastPageOutlinedIcon from "@mui/icons-material/LastPageOutlined";
 import VehicleForm from "./Vehicle_Master_Add";
 import { getVehicles, deleteVehicle } from "../service/vehiclemaster";
 
 const VEHICLE_TYPES  = ["All Types", "Car", "Bike", "Truck", "Van", "Bus", "Other"];
 const STATUS_OPTIONS = ["All", "Active", "Inactive"];
+const PAGE_SIZE = 10; // Items per page
 
 /* ─── Resolve image URL (handles relative /media/... paths) ── */
 function resolveImageUrl(raw) {
@@ -101,7 +106,7 @@ function ImageLightbox({ src, alt, onClose }) {
             boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
             color: "#202124", fontWeight: 700,
           }}
-        >x</button>
+        >×</button>
       </div>
       <span style={{
         color: "rgba(255,255,255,0.75)", fontSize: 12,
@@ -156,7 +161,7 @@ function CardImage({ src, alt, type, onExpand }) {
           display: "flex", alignItems: "center", justifyContent: "center",
           boxShadow: "0 4px 16px rgba(0,0,0,0.25)",
           fontSize: 20,
-        }}>&#128269;</div>
+        }}>🔍</div>
       </div>
     </div>
   );
@@ -168,9 +173,9 @@ function StatusPill({ status }) {
   return (
     <span style={{
       position: "absolute", top: 12, right: 12,
-      padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-      background: isActive ? "#e6f4ea" : "#fce8e6",
-      color:      isActive ? "#188038" : "#d93025",
+      padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+      background: isActive ? "#188038" : "#d93025",
+      color:      isActive ? "#fbfdfc" : "#fffcfc",
       fontFamily: "'Google Sans', sans-serif",
       border: `1px solid ${isActive ? "#a8d5b5" : "#f5c2be"}`,
     }}>
@@ -196,24 +201,48 @@ function DaysLeftBadge({ days }) {
   else if (days <= 30){ bg = "#fef7e0"; color = "#b06000"; }
   else                { bg = "#e6f4ea"; color = "#188038"; }
   return (
-    <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700, background: bg, color, fontFamily: "'Google Sans', sans-serif", whiteSpace: "nowrap" }}>
+    <span style={{ padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 700, background: bg, color, fontFamily: "'Google Sans', sans-serif", whiteSpace: "nowrap" }}>
       {days < 0 ? `Expired ${Math.abs(days)}d ago` : `${days}d left`}
     </span>
   );
 }
 
-/* ─── Table View ──────────────────────────────────────────── */
+/* ─── Table View with fixed header and scrollable body ── */
 function TableView({ vehicles, onEdit, onDelete }) {
- const thStyle = { fontSize: 14, fontWeight: 600, letterSpacing: "0.4px", color: "#0a0a0a", textAlign: "left", padding: "11px 14px", background: "#f8f9fa", borderBottom: "1px solid #e8eaed", fontFamily: "'Google Sans', sans-serif", whiteSpace: "nowrap", textTransform: "capitalize" };
-  const tdStyle = { padding: "12px 14px", fontSize: 13, borderBottom: "1px solid #e8eaed", fontFamily: "'Google Sans', sans-serif", color: "#202124", textAlign: "left", verticalAlign: "middle" };
+  const thStyle = {
+    fontSize: 15,
+    fontWeight: 600,
+    letterSpacing: "0.4px",
+    color: "#fdfafa",
+    textAlign: "left",
+    padding: "11px 14px",
+    background: "#0982fc",
+    borderBottom: "1px solid #e8eaed",
+    fontFamily: "'Google Sans', sans-serif",
+    whiteSpace: "nowrap",
+    textTransform: "capitalize",
+    position: "sticky",
+    top: 0,
+    zIndex: 10,
+  };
+  
+  const tdStyle = {
+    padding: "12px 14px",
+    fontSize: 14,
+    borderBottom: "1px solid #e8eaed",
+    fontFamily: "'Google Sans', sans-serif",
+    color: "#202124",
+    textAlign: "left",
+    verticalAlign: "middle",
+  };
 
   const headers = ["Sl. no.", "Photo", "Reg. no.", "Vehicle", "Ownership", "Type", "Insurance Expiry", "Days Left", "Pollution Expiry", "Status", "Action"];
 
   return (
     <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e8eaed", overflow: "hidden" }}>
-      <div style={{ overflowX: "auto" }}>
+      <div style={{ overflowY: "auto", maxHeight: "calc(100vh - 280px)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
+          <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
             <tr>
               {headers.map(h => (
                 <th key={h} style={thStyle}>{h}</th>
@@ -271,9 +300,9 @@ function TableView({ vehicles, onEdit, onDelete }) {
                   {/* Status */}
                   <td style={tdStyle}>
                     <span style={{
-                      padding: "3px 10px", borderRadius: 20, fontSize: 11, fontWeight: 700,
-                      background: v.status === "Active" ? "#e6f4ea" : "#fce8e6",
-                      color:      v.status === "Active" ? "#188038" : "#d93025",
+                      padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600,
+                      background: v.status === "Active" ? "#188038" : "#d93025",
+                      color: v.status === "Active" ? "#fbfdfc" : "#fffcfc",
                       fontFamily: "'Google Sans', sans-serif",
                     }}>
                       {v.status}
@@ -359,6 +388,194 @@ function CardView({ vehicles, onEdit, onDelete }) {
   );
 }
 
+/* ─── Pagination Component ─────────────────────────────────── */
+function Pagination({ currentPage, totalPages, totalItems, pageSize, onPageChange }) {
+  const maxButtons = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(maxButtons / 2));
+  let endPage = Math.min(totalPages, startPage + maxButtons - 1);
+  
+  if (endPage - startPage + 1 < maxButtons) {
+    startPage = Math.max(1, endPage - maxButtons + 1);
+  }
+
+  const pageNumbers = [];
+  for (let i = startPage; i <= endPage; i++) {
+    pageNumbers.push(i);
+  }
+
+  const startItem = (currentPage - 1) * pageSize + 1;
+  const endItem = Math.min(currentPage * pageSize, totalItems);
+
+  return (
+    <div style={{
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginTop: 24,
+      padding: "16px 20px",
+      background: "#fff",
+      border: "1px solid #e8eaed",
+      borderRadius: 10,
+      flexWrap: "wrap",
+      gap: 12,
+    }}>
+      {/* Items info */}
+      <div style={{ fontSize: 13, color: "#5f6368", fontFamily: "'Google Sans', sans-serif" }}>
+        Showing {startItem} to {endItem} of {totalItems} vehicles
+      </div>
+
+      {/* Pagination buttons */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+        {/* First Page */}
+        <button
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 6,
+            border: "1px solid #e8eaed",
+            background: currentPage === 1 ? "#f8f9fa" : "#fff",
+            color: currentPage === 1 ? "#9aa0a6" : "#1a73e8",
+            cursor: currentPage === 1 ? "not-allowed" : "pointer",
+            fontSize: 13,
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontFamily: "'Google Sans', sans-serif",
+            transition: "all 0.2s",
+          }}
+        >
+          <FirstPageOutlinedIcon style={{ fontSize: 16 }} /> First
+        </button>
+
+        {/* Previous */}
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 6,
+            border: "1px solid #e8eaed",
+            background: currentPage === 1 ? "#f8f9fa" : "#fff",
+            color: currentPage === 1 ? "#9aa0a6" : "#1a73e8",
+            cursor: currentPage === 1 ? "not-allowed" : "pointer",
+            fontSize: 13,
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontFamily: "'Google Sans', sans-serif",
+          }}
+        >
+          <NavigateBeforeOutlinedIcon style={{ fontSize: 16 }} /> Prev
+        </button>
+
+        {/* Page numbers */}
+        {pageNumbers.map(pageNum => (
+          <button
+            key={pageNum}
+            onClick={() => onPageChange(pageNum)}
+            style={{
+              minWidth: 36,
+              padding: "6px 12px",
+              borderRadius: 6,
+              border: currentPage === pageNum ? "none" : "1px solid #e8eaed",
+              background: currentPage === pageNum ? "#1a73e8" : "#fff",
+              color: currentPage === pageNum ? "#fff" : "#5f6368",
+              cursor: "pointer",
+              fontSize: 13,
+              fontWeight: currentPage === pageNum ? 700 : 500,
+              fontFamily: "'Google Sans', sans-serif",
+              transition: "all 0.2s",
+            }}
+            onMouseEnter={e => {
+              if (currentPage !== pageNum) {
+                e.currentTarget.style.background = "#f8f9fa";
+                e.currentTarget.style.borderColor = "#dadce0";
+              }
+            }}
+            onMouseLeave={e => {
+              if (currentPage !== pageNum) {
+                e.currentTarget.style.background = "#fff";
+                e.currentTarget.style.borderColor = "#e8eaed";
+              }
+            }}
+          >
+            {pageNum}
+          </button>
+        ))}
+
+        {/* Next */}
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 6,
+            border: "1px solid #e8eaed",
+            background: currentPage === totalPages ? "#f8f9fa" : "#fff",
+            color: currentPage === totalPages ? "#9aa0a6" : "#1a73e8",
+            cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+            fontSize: 13,
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontFamily: "'Google Sans', sans-serif",
+          }}
+        >
+          Next <NavigateNextOutlinedIcon style={{ fontSize: 16 }} />
+        </button>
+
+        {/* Last Page */}
+        <button
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 6,
+            border: "1px solid #e8eaed",
+            background: currentPage === totalPages ? "#f8f9fa" : "#fff",
+            color: currentPage === totalPages ? "#9aa0a6" : "#1a73e8",
+            cursor: currentPage === totalPages ? "not-allowed" : "pointer",
+            fontSize: 13,
+            fontWeight: 600,
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            fontFamily: "'Google Sans', sans-serif",
+          }}
+        >
+          Last <LastPageOutlinedIcon style={{ fontSize: 16 }} />
+        </button>
+      </div>
+
+      {/* Page size selector (optional) */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 12, color: "#5f6368" }}>Show:</span>
+        <select
+          value={pageSize}
+          onChange={(e) => onPageChange(1, parseInt(e.target.value))}
+          style={{
+            padding: "6px 10px",
+            borderRadius: 6,
+            border: "1px solid #e8eaed",
+            background: "#fff",
+            fontSize: 12,
+            cursor: "pointer",
+            fontFamily: "'Google Sans', sans-serif",
+          }}
+        >
+          <option value={10}>10 per page</option>
+          <option value={20}>20 per page</option>
+          <option value={50}>50 per page</option>
+        </select>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main Component ──────────────────────────────────────── */
 // ✅ Accept onVehicleSaved prop — called after add/edit so the parent
 //    (which passes vehicles[] to StartTrip) can re-fetch and stay in sync.
@@ -366,6 +583,10 @@ export default function VehicleMasterList({ onVehicleSaved }) {
   const [vehicles,     setVehicles]     = useState([]);
   const [loading,      setLoading]      = useState(false);
   const [fetchError,   setFetchError]   = useState('');
+  const [totalItems,   setTotalItems]   = useState(0);
+  const [totalPages,   setTotalPages]   = useState(1);
+  const [currentPage,  setCurrentPage]  = useState(1);
+  const [pageSize,     setPageSize]     = useState(PAGE_SIZE);
 
   // Filter state
   const [search,       setSearch]       = useState("");
@@ -380,8 +601,8 @@ export default function VehicleMasterList({ onVehicleSaved }) {
   const [editVehicle,  setEditVehicle]  = useState(null);
   const [showAddForm,  setShowAddForm]  = useState(false);
 
-  // ── Fetch vehicles from backend ─────────────────────────────
-  const fetchVehicles = useCallback(async () => {
+  // ── Fetch vehicles from backend (with pagination) ─────────────────────────────
+  const fetchVehicles = useCallback(async (page = currentPage, size = pageSize) => {
     setLoading(true);
     setFetchError('');
     try {
@@ -389,38 +610,70 @@ export default function VehicleMasterList({ onVehicleSaved }) {
         search:       appliedSearch,
         status:       appliedStatus,
         vehicle_type: appliedType,
+        page:         page,
+        page_size:    size,
       });
-      // Support both paginated ({ results: [] }) and plain array responses
-      const list = Array.isArray(data) ? data : (data.results || []);
+      
+      // Handle paginated response
+      const list = data.results || (Array.isArray(data) ? data : []);
+      const count = data.count || list.length;
+      
       setVehicles(list.map(normalise));
+      setTotalItems(count);
+      setTotalPages(Math.ceil(count / size));
+      setCurrentPage(page);
+      setPageSize(size);
     } catch (err) {
       setFetchError(err.message || 'Failed to load vehicles.');
+      setVehicles([]);
+      setTotalItems(0);
+      setTotalPages(1);
     } finally {
       setLoading(false);
     }
-  }, [appliedSearch, appliedType, appliedStatus]);
+  }, [appliedSearch, appliedType, appliedStatus, currentPage, pageSize]);
 
+  // Fetch when filters or page changes
   useEffect(() => {
-    fetchVehicles();
-  }, [fetchVehicles]);
+    fetchVehicles(currentPage, pageSize);
+  }, [fetchVehicles, currentPage, pageSize]);
+
+  // Handle page change
+  const handlePageChange = (newPage, newPageSize = pageSize) => {
+    if (newPageSize !== pageSize) {
+      setPageSize(newPageSize);
+      setCurrentPage(1);
+      fetchVehicles(1, newPageSize);
+    } else {
+      setCurrentPage(newPage);
+      fetchVehicles(newPage, pageSize);
+    }
+  };
 
   // ── Filter handlers ─────────────────────────────────────────
   const handleApply = () => {
     setAppliedSearch(search);
     setAppliedType(typeFilter);
     setAppliedStatus(statusFilter);
+    setCurrentPage(1); // Reset to first page when applying filters
   };
 
   const handleReset = () => {
-    setSearch(""); setTypeFilter("All Types"); setStatusFilter("All");
-    setAppliedSearch(""); setAppliedType("All Types"); setAppliedStatus("All");
+    setSearch(""); 
+    setTypeFilter("All Types"); 
+    setStatusFilter("All");
+    setAppliedSearch(""); 
+    setAppliedType("All Types"); 
+    setAppliedStatus("All");
+    setCurrentPage(1);
   };
 
   // ── Save callback (Add / Edit) ──────────────────────────────
   const handleSaved = (_savedVehicle) => {
     setShowAddForm(false);
     setEditVehicle(null);
-    fetchVehicles();
+    setCurrentPage(1); // Reset to first page to show newly added vehicle
+    fetchVehicles(1, pageSize);
     // ✅ Notify parent to re-fetch vehicles so StartTrip dropdown stays in sync
     onVehicleSaved?.();
   };
@@ -430,7 +683,13 @@ export default function VehicleMasterList({ onVehicleSaved }) {
     if (!window.confirm("Delete this vehicle?")) return;
     try {
       await deleteVehicle(id);
-      setVehicles(prev => prev.filter(v => v.id !== id));
+      // If current page has only one item and it's not the first page, go to previous page
+      if (vehicles.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+        fetchVehicles(currentPage - 1, pageSize);
+      } else {
+        fetchVehicles(currentPage, pageSize);
+      }
       // ✅ Notify parent on delete too so StartTrip dropdown removes deleted vehicle
       onVehicleSaved?.();
     } catch (err) {
@@ -477,8 +736,7 @@ export default function VehicleMasterList({ onVehicleSaved }) {
       {/* ── Sticky Page Header Bar ── */}
       <div className="vml-header" style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 16px", height: 56, background: "#fff", borderBottom: "1px solid #e8eaed", gap: 8, flexWrap: "wrap" }}>
         <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
-         
-          <h1 style={{ fontSize: 18, fontWeight: 600, color: "#202124", margin: 0,letterSpacing:"0.10px", lineHeight: 1.2 }}>
+          <h1 style={{ fontSize: 25, fontWeight: 600, color: "#202124", margin: 0, letterSpacing: "0.10px", lineHeight: 1.2 }}>
             Vehicle Master
           </h1>
         </div>
@@ -520,7 +778,7 @@ export default function VehicleMasterList({ onVehicleSaved }) {
           <div className="vml-filters" style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
             {/* Search */}
             <div style={{ flex: 1, minWidth: 200 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>Search</label>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#0d0d0e", display: "block", marginBottom: 6, textTransform: "capitalize",textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>Search</label>
               <div style={{ position: "relative" }}>
                 <SearchOutlinedIcon style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", fontSize: 16, color: "#9aa0a6" }} />
                 <input className="vm-search-input" type="text" value={search} placeholder="Registration, name, company..."
@@ -532,7 +790,7 @@ export default function VehicleMasterList({ onVehicleSaved }) {
 
             {/* Vehicle Type */}
             <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>Vehicle Type</label>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#0f0f0f", display: "block", marginBottom: 6, textTransform: "capitalize",textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>Vehicle Type</label>
               <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)} style={selectStyle}>
                 {VEHICLE_TYPES.map(t => <option key={t}>{t}</option>)}
               </select>
@@ -540,7 +798,7 @@ export default function VehicleMasterList({ onVehicleSaved }) {
 
             {/* Status */}
             <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>Status</label>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#0f0f0f", display: "block", marginBottom: 6, textTransform: "capitalize",textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>Status</label>
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={selectStyle}>
                 {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
               </select>
@@ -560,7 +818,7 @@ export default function VehicleMasterList({ onVehicleSaved }) {
 
         {/* ── Count ── */}
         <div style={{ marginBottom: 16, fontSize: 13, color: "#5f6368", fontFamily: "'Google Sans', sans-serif", fontWeight: 600 }}>
-          {loading ? "Loading…" : `${vehicles.length} vehicle${vehicles.length !== 1 ? "s" : ""} found`}
+          {loading ? "Loading…" : `${totalItems} vehicle${totalItems !== 1 ? "s" : ""} found`}
         </div>
 
         {/* ── Loading skeleton ── */}
@@ -580,9 +838,23 @@ export default function VehicleMasterList({ onVehicleSaved }) {
         )}
 
         {!loading && vehicles.length > 0 && (
-          viewMode === "card"
-            ? <CardView  vehicles={vehicles} onEdit={handleEdit} onDelete={handleDelete} />
-            : <TableView vehicles={vehicles} onEdit={handleEdit} onDelete={handleDelete} />
+          <>
+            {viewMode === "card"
+              ? <CardView  vehicles={vehicles} onEdit={handleEdit} onDelete={handleDelete} />
+              : <TableView vehicles={vehicles} onEdit={handleEdit} onDelete={handleDelete} />
+            }
+            
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                totalItems={totalItems}
+                pageSize={pageSize}
+                onPageChange={handlePageChange}
+              />
+            )}
+          </>
         )}
       </div>
     </div>

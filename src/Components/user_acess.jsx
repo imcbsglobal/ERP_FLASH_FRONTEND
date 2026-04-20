@@ -16,12 +16,13 @@ import DirectionsCarOutlinedIcon from '@mui/icons-material/DirectionsCarOutlined
 import AirportShuttleOutlinedIcon from '@mui/icons-material/AirportShuttleOutlined';
 import PlaylistAddCheckOutlinedIcon from '@mui/icons-material/PlaylistAddCheckOutlined';
 import DriveEtaOutlinedIcon from '@mui/icons-material/DriveEtaOutlined';
+import EmergencyOutlinedIcon from '@mui/icons-material/EmergencyOutlined';
 
 // ── Static config ─────────────────────────────────────────────────────────────
 const ROLES = ["Admin", "Manager", "Operator", "Viewer", "Support", "Auditor"];
 
-// All 7 permission keys — mirrors Layout.jsx NAV exactly
-const ALL_PERM_KEYS = ["dashboard", "col_reports", "vm_trips", "vm_service", "um_users", "um_roles", "mm_vehicle"];
+// All permission keys — mirrors Layout.jsx NAV exactly
+const ALL_PERM_KEYS = ["dashboard", "col_reports", "vm_trips", "vm_service", "cl_list", "um_users", "um_roles", "mm_vehicle"];
 
 const MENU_GROUPS = [
   {
@@ -44,6 +45,13 @@ const MENU_GROUPS = [
     items: [
       { key: "vm_trips",   label: "Trip",    icon: <DriveEtaOutlinedIcon style={{ width: 16, height: 16 }} /> },
       { key: "vm_service", label: "Challan", icon: <PlaylistAddCheckOutlinedIcon style={{ width: 16, height: 16 }} /> },
+    ],
+  },
+  {
+    group: "Claims",
+    icon: <EmergencyOutlinedIcon style={{ width: 18, height: 18 }} />,
+    items: [
+      { key: "cl_list", label: "Claims", icon: <EmergencyOutlinedIcon style={{ width: 16, height: 16 }} /> },
     ],
   },
   {
@@ -93,7 +101,7 @@ function normalizePerms(apiData) {
   };
 }
 
-// ── Direct save — sends ALL 7 keys so nothing gets dropped ────────────────────
+// ── Direct save — sends ALL keys so nothing gets dropped ────────────────────
 async function saveAllPermissions(userId, perms) {
   const token = localStorage.getItem("access_token");
 
@@ -142,7 +150,7 @@ function UserSkeleton() {
 function PermSkeleton() {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "4px", padding: "16px 24px" }}>
-      {[...Array(7)].map((_, i) => (
+      {[...Array(8)].map((_, i) => (
         <div key={i} style={{
           height: "44px", borderRadius: "8px", background: "#f1f3f4",
           animation: "pulse 1.4s ease-in-out infinite", animationDelay: `${i * 0.08}s`,
@@ -150,6 +158,50 @@ function PermSkeleton() {
       ))}
     </div>
   );
+}
+
+// ── Avatar Component ──────────────────────────────────────────────────────────
+function UserAvatar({ user, isActive, size = 36 }) {
+  const [imgError, setImgError] = useState(false);
+  const name = user.full_name || user.username || "User";
+  const initials = name.slice(0, 2).toUpperCase();
+
+  useEffect(() => {
+    setImgError(false);
+  }, [user.photo_url]);
+
+  const avatarBase = {
+    width: `${size}px`,
+    height: `${size}px`,
+    borderRadius: "50%",
+    flexShrink: 0,
+    border: isActive ? "2px solid #1a73e8" : "2px solid #d2d4d8",
+    boxSizing: "border-box",
+    background: "#1a73e8",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    fontSize: size === 36 ? "14px" : "16px",
+    fontWeight: 600,
+    color: "#fff",
+    textTransform: "uppercase",
+    overflow: "hidden",
+  };
+
+  if (user.photo_url && !imgError) {
+    return (
+      <div style={avatarBase}>
+        <img
+          src={user.photo_url}
+          alt={name}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+          onError={() => setImgError(true)}
+        />
+      </div>
+    );
+  }
+
+  return <div style={avatarBase}>{initials}</div>;
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -301,7 +353,7 @@ export default function RoleAccess() {
     markDirty(uid);
   };
 
-  // ── Save — uses direct fetch with all 7 keys ─────────────────────────────────
+  // ── Save — uses direct fetch with all keys ─────────────────────────────────
   const handleSave = async () => {
     if (!selectedUser) return;
     const uid = selectedUser.id;
@@ -403,7 +455,7 @@ export default function RoleAccess() {
         <div style={{ padding: "18px 16px 12px", borderBottom: "1px solid #e8eaed", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "12px" }}>
             <span style={{ fontSize: "15px", fontWeight: 700, color: "#202124" }}>Users</span>
-            <span style={{ fontSize: "13px", color: "#5f6368" }}>{users.length}</span>
+            <span style={{ fontSize: "13px", color: "#0f0f0f" }}>{users.length}</span>
           </div>
 
           <div style={{ position: "relative", marginBottom: "8px" }}>
@@ -459,20 +511,10 @@ export default function RoleAccess() {
                       transition: "background 0.15s",
                     }}
                   >
-                    {user.photo_url && (
-                      <div style={{
-                        width: "36px", height: "36px", borderRadius: "50%",
-                        overflow: "hidden", flexShrink: 0,
-                        border: isActive ? "2px solid #1a73e8" : "2px solid #d2d4d8",
-                        boxSizing: "border-box",
-                      }}>
-                        <img src={user.photo_url} alt={name}
-                          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                      </div>
-                    )}
+                    <UserAvatar user={user} isActive={isActive} size={36} />
                     <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
-                        <span style={{ fontSize: "13px", fontWeight: 600, color: "#202124", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+                        <span style={{ fontSize: "15px", fontWeight: 600, color: "#202124", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
                         {hasDirty && <span className="ua-dirty-dot" title="Unsaved changes" style={{ flexShrink: 0 }} />}
                       </div>
                       <span style={{
@@ -504,16 +546,7 @@ export default function RoleAccess() {
               display: "flex", alignItems: "center", justifyContent: "space-between", gap: "16px",
             }}>
               <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
-                {selectedUser.photo_url && (
-                  <div style={{
-                    width: "42px", height: "42px", borderRadius: "50%",
-                    overflow: "hidden", flexShrink: 0,
-                    border: "2px solid #1a73e8", boxSizing: "border-box",
-                  }}>
-                    <img src={selectedUser.photo_url} alt={selectedUser.full_name || selectedUser.username}
-                      style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                  </div>
-                )}
+                <UserAvatar user={selectedUser} isActive={true} size={42} />
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                     <span style={{ fontSize: "16px", fontWeight: 700, color: "#202124" }}>
@@ -582,7 +615,7 @@ export default function RoleAccess() {
                         </svg>
                       </button>
                       <span style={{ color: "#5f6368", display: "flex", alignItems: "center" }}>{group.icon}</span>
-                      <span style={{ flex: 1, fontSize: "14px", fontWeight: 500, color: groupAllChecked ? "#1a73e8" : "#202124" }}>{group.group}</span>
+                      <span style={{ flex: 1, fontSize: "15px", fontWeight: 500, color: groupAllChecked ? "#1a73e8" : "#202124" }}>{group.group}</span>
                       <input type="checkbox" className="ua-cb"
                         checked={groupAllChecked}
                         disabled={permLoading}
@@ -604,7 +637,7 @@ export default function RoleAccess() {
                         onClick={() => !permLoading && togglePerm(item.key)}
                       >
                         <span style={{ color: "#9aa0a6", display: "flex", alignItems: "center" }}>{item.icon}</span>
-                        <span style={{ flex: 1, fontSize: "14px", color: currentPerms[item.key] ? "#1a73e8" : "#202124" }}>{item.label}</span>
+                        <span style={{ flex: 1, fontSize: "15px", color: currentPerms[item.key] ? "#1a73e8" : "#202124" }}>{item.label}</span>
                         <input type="checkbox" className="ua-cb"
                           checked={!!currentPerms[item.key]}
                           disabled={permLoading}

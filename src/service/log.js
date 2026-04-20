@@ -1,7 +1,7 @@
 // src/services/authService.js
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_URL || "https://erp.flashinnovations.in";
+const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000";
 
 // ── Axios instance ────────────────────────────────────────────
 const api = axios.create({
@@ -71,6 +71,7 @@ const authService = {
       localStorage.removeItem("access_token");
       localStorage.removeItem("refresh_token");
       localStorage.removeItem("user");
+      localStorage.removeItem("menu_permissions");
     }
   },
 

@@ -190,7 +190,7 @@ const StartTrip = ({ onClose, onStart }) => {
       fontSize: 10, fontWeight: 700, letterSpacing: '1.6px',
       textTransform: 'uppercase', color: '#1a73e8', marginBottom: 2,
     },
-    title: { fontSize: 18, fontWeight: 600, color: '#202124', margin: 0, letterSpacing: '1.2px', lineHeight: 1.5 },
+    title: { fontSize: 20, fontWeight: 700, color: '#202124', margin: 0, letterSpacing: '1.2px', lineHeight: 1.5 },
     body:   { flex: 1, overflowY: 'auto', padding: '16px' },
     card:   {
       background: '#fff', borderRadius: 14,
@@ -199,17 +199,17 @@ const StartTrip = ({ onClose, onStart }) => {
     },
     sectionLabel: {
       fontSize: '15px', fontWeight:600, letterSpacing: '1.4px',
-      textTransform: 'capitalize', color: 'var(--accent)',
-      marginBottom: 16, display: 'flex', alignItems: 'center', gap: 7,
+      textTransform: 'capitalize', color: 'black',
+      marginBottom: 12, display: 'flex', alignItems: 'center', gap: 7,
       borderBottom: '2px solid #e0e0e0',
-      paddingBottom: '8px',
+      paddingBottom: '6px',
     },
     sectionDivider: { border: 'none', borderTop: '1.5px solid #f0f0f0', margin: '22px 0' },
     grid2: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 },
     grid3: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 },
     formGroup: { display: 'flex', flexDirection: 'column' },
     label: {
-      fontSize: '12px',fontWeight:600, color: '#000000',
+      fontSize: '13px',fontWeight:600, color: '#000000',
       marginBottom: 6, letterSpacing: '0.8px', textTransform: 'capitalize', textAlign: 'left',
     },
     required: { color: '#e74c3c', marginLeft: 3 },
@@ -308,7 +308,7 @@ const StartTrip = ({ onClose, onStart }) => {
       `}</style>
       <div style={S.body}>
         <div style={S.card}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
             <div style={S.headerLeft}>
               <h1 style={S.title}>Start New Trip</h1>
             </div>

@@ -26,6 +26,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
   // ── End-trip editable state ───────────────────────────────────
   const [form, setForm] = useState({
     fuelCost:        '',
+    endDate:         new Date().toISOString().split('T')[0],
     endTime:         new Date().toTimeString().slice(0, 5),
     odometerEnd:     '',
     odometerImage:        null,
@@ -83,6 +84,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
   // ── Validation ────────────────────────────────────────────────
   const validate = () => {
     const errs = {};
+    if (!form.endDate)                errs.endDate     = 'End date is required.';
     if (!form.endTime)                errs.endTime     = 'End time is required.';
     if (!form.odometerEnd)            errs.odometerEnd = 'Odometer end reading is required.';
     if (
@@ -111,6 +113,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
         odometer_start:  odometerStart,
         // end info
         fuel_cost:       form.fuelCost    ? parseFloat(form.fuelCost)    : null,
+        end_date:        form.endDate,
         end_time:        form.endTime,
         odometer_end:    parseFloat(form.odometerEnd),
         distance_covered: distanceCovered,
@@ -162,7 +165,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
     // ── Section headers with bottom border only ──
     sectionHeader: (color) => ({
       fontSize: 15, fontWeight:'bold', letterSpacing: '1.4px',
-      textTransform: 'capitalize', color: 'var(--accent)',
+      textTransform: 'capitalize', color: 'black',
       marginBottom: 16, display: 'flex', alignItems: 'center', gap: 7,
       borderBottom: '2px solid #e0e0e0', // Only bottom border
       paddingBottom: '8px',               // Space between text and border
@@ -181,7 +184,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
     },  // overridden to 1-col on mobile via <style>
     infoItem: { display: 'flex', flexDirection: 'column', gap: 6 },
     infoItemLabel: {
-      fontSize: 12, fontWeight: 700, letterSpacing: '0.8px',
+      fontSize: 13, fontWeight: 700, letterSpacing: '0.8px',
       textTransform: 'capitalize', color: 'rgb(12, 12, 12)',
       display: 'flex', alignItems: 'center', gap: 4,
     },
@@ -436,6 +439,23 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
               />
             </div>
 
+            {/* End Date */}
+            <div style={S.formGroup}>
+              <label style={S.label}>
+                <CalendarTodayOutlinedIcon style={{ fontSize: 13 }} />
+                End Date <span style={S.required}>*</span>
+              </label>
+              <input
+                type="date"
+                name="endDate"
+                value={form.endDate}
+                onChange={handleChange}
+                className="et-input"
+                style={fieldStyle('endDate')}
+              />
+              {errors.endDate && <span style={S.errorMsg}>{errors.endDate}</span>}
+            </div>
+
             {/* End Time */}
             <div style={S.formGroup}>
               <label style={S.label}>
@@ -453,30 +473,26 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
               {errors.endTime && <span style={S.errorMsg}>{errors.endTime}</span>}
             </div>
 
-          </div>
-
-          {/* Row 2: Odometer End (full width on its own row for emphasis) */}
-          <div style={{ marginTop: 16 }}>
-            <div style={{ maxWidth: 320, width: "100%" }}>
-              <div style={S.formGroup}>
-                <label style={S.label}>
-                  <SpeedOutlinedIcon style={{ fontSize: 13 }} />
-                  Odometer End (km) <span style={S.required}>*</span>
-                </label>
-                <input
-                  type="number"
-                  name="odometerEnd"
-                  value={form.odometerEnd}
-                  onChange={handleChange}
-                  placeholder="e.g., 15450"
-                  className="et-input"
-                  style={fieldStyle('odometerEnd')}
-                  min={odometerStart ?? 0}
-                  step="1"
-                />
-                {errors.odometerEnd && <span style={S.errorMsg}>{errors.odometerEnd}</span>}
-              </div>
+            {/* Odometer End */}
+            <div style={S.formGroup}>
+              <label style={S.label}>
+                <SpeedOutlinedIcon style={{ fontSize: 13 }} />
+                Odometer End (km) <span style={S.required}>*</span>
+              </label>
+              <input
+                type="number"
+                name="odometerEnd"
+                value={form.odometerEnd}
+                onChange={handleChange}
+                placeholder="e.g., 15450"
+                className="et-input"
+                style={fieldStyle('odometerEnd')}
+                min={odometerStart ?? 0}
+                step="1"
+              />
+              {errors.odometerEnd && <span style={S.errorMsg}>{errors.odometerEnd}</span>}
             </div>
+
           </div>
 
           <hr style={S.sectionDivider} />

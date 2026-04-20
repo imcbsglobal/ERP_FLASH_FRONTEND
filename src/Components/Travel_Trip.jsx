@@ -5,6 +5,7 @@ import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined
 import StopCircleIcon from '@mui/icons-material/StopCircle';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import HistoryIcon from '@mui/icons-material/History';
+import PreviewOutlinedIcon from '@mui/icons-material/PreviewOutlined';
 import StartTrip from "../Components/Start_trip.jsx";
 import EndTrip from "../Components/End_trip.jsx";
 import {
@@ -13,6 +14,7 @@ import {
   endTrip,
   deleteTrip,
 } from "../service/vehiclemanagement";
+import { Bold } from "lucide-react";
 
 const statusColors = {
   "Client Visit": { bg: "#e8f5e9", color: "#2e7d32" },
@@ -21,13 +23,23 @@ const statusColors = {
   Other: { bg: "#f3e5f5", color: "#6a1b9a" },
 };
 
-function ImageCard({ src, label, onExpand }) {
+function ImageCard({ src, label, onExpand, odoValue }) {
   const isStart = label === "Start";
   const accentColor = isStart ? "#2e7d32" : "#b71c1c";
   const Icon = isStart ? AccessTimeIcon : HistoryIcon;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, minWidth: 90 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 90 }}>
+      <span style={{
+        fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
+        color: accentColor,
+        borderRadius: 20,
+        padding: "2px 8px",
+        fontFamily: "'Google Sans', sans-serif",
+        display: "flex", alignItems: "center", gap: 3,
+      }}>
+        <Icon style={{ fontSize: 11 }} /> {label}
+      </span>
       {src ? (
         <div
           onClick={() => onExpand(src, label)}
@@ -49,7 +61,6 @@ function ImageCard({ src, label, onExpand }) {
             alt={label}
             style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
           />
-          {/* Hover overlay */}
           <div style={{
             position: "absolute", inset: 0,
             background: "rgba(0,0,0,0.28)",
@@ -59,7 +70,7 @@ function ImageCard({ src, label, onExpand }) {
           }}
             className="img-overlay"
           >
-            <span style={{ color: "#fff", fontSize: 18 }}>🔍</span>
+            <span style={{ color: "#fff", fontSize: 14 }}>🔍</span>
           </div>
         </div>
       ) : (
@@ -75,20 +86,26 @@ function ImageCard({ src, label, onExpand }) {
           fontFamily: "'Google Sans', sans-serif",
           gap: 3,
         }}>
-          <span style={{ fontSize: 18 }}>📷</span>
+          <span style={{ fontSize: 14 }}>📷</span>
           <span>No image</span>
         </div>
       )}
-      <span style={{
-        fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
-        color: accentColor,
-        borderRadius: 20,
-        padding: "2px 8px",
-        fontFamily: "'Google Sans', sans-serif",
-        display: "flex", alignItems: "center", gap: 3,
-      }}>
-        <Icon style={{ fontSize: 11 }} /> {label}
-      </span>
+      {odoValue != null && odoValue !== 0 ? (
+        <span style={{
+          fontSize: 10, fontWeight: 700,
+          color: "#202124",
+          fontFamily: "'Google Sans', sans-serif",
+          letterSpacing: 0.2,
+          whiteSpace: "nowrap",
+        }}>
+          {Number(odoValue).toLocaleString('en-IN')} km
+        </span>
+      ) : (
+        <span style={{
+          fontSize: 10, color: "#bdbdbd",
+          fontFamily: "'Google Sans', sans-serif",
+        }}>—</span>
+      )}
     </div>
   );
 }
@@ -127,7 +144,7 @@ function ImageLightbox({ src, label, onClose }) {
             position: "absolute", top: -14, right: -14,
             width: 32, height: 32, borderRadius: "50%",
             background: "#fff", border: "none",
-            cursor: "pointer", fontSize: 18,
+            cursor: "pointer", fontSize: 14,
             display: "flex", alignItems: "center", justifyContent: "center",
             boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
             color: "#333",
@@ -145,7 +162,6 @@ function ImageLightbox({ src, label, onClose }) {
 }
 
 export default function TravelList() {
-  // ── Get logged-in user name ────────────────────────────────────
   const getLoggedInUserName = () => {
     try {
       const userJson = localStorage.getItem('user');
@@ -173,9 +189,13 @@ export default function TravelList() {
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState(null);
   const [showEndTripModal, setShowEndTripModal] = useState(null);
-  const [lightbox, setLightbox] = useState(null); // { src, label }
+  const [lightbox, setLightbox] = useState(null);
+  const [purposePopup, setPurposePopup] = useState(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
-  // ── Load trips from backend on mount ──────────────────────────
   useEffect(() => {
     loadTrips();
   }, []);
@@ -186,6 +206,7 @@ export default function TravelList() {
     try {
       const trips = await fetchTrips();
       setData(trips);
+      setCurrentPage(1); // Reset to first page when data loads
     } catch (err) {
       setError(err.message || "Failed to load trips.");
     } finally {
@@ -193,21 +214,58 @@ export default function TravelList() {
     }
   };
 
-  // ── Filtered data for search ───────────────────────────────────
   const filtered = data.filter(
     (r) =>
-      r.vehicle.toLowerCase().includes(search.toLowerCase()) ||
-      r.traveledBy.toLowerCase().includes(search.toLowerCase()) ||
-      r.purpose.toLowerCase().includes(search.toLowerCase())
+      r.vehicle?.toLowerCase().includes(search.toLowerCase()) ||
+      r.traveledBy?.toLowerCase().includes(search.toLowerCase()) ||
+      r.purpose?.toLowerCase().includes(search.toLowerCase())
   );
 
-  // ── Start Trip ─────────────────────────────────────────────────
+  // Pagination calculations
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentData = filtered.slice(startIndex, endIndex);
+
+  // Pagination handlers
+  const goToPage = (page) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Get visible page numbers for pagination
+  const getVisiblePages = () => {
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    
+    if (endPage - startPage + 1 < maxVisible) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+    
+    const pages = [];
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
   const handleStart = async (tripData) => {
     setActionLoading(true);
     setError("");
     try {
       const newTrip = await startTrip(tripData);
-      // Merge sent fields as fallback so vehicle name + reg show immediately
       const merged = {
         vehicle:             newTrip.vehicle             || newTrip.vehicle_name        || tripData.vehicle_name,
         vehicle_name:        newTrip.vehicle_name        || tripData.vehicle_name,
@@ -226,7 +284,6 @@ export default function TravelList() {
     }
   };
 
-  // ── End Trip ───────────────────────────────────────────────────
   const handleEndTrip = async (tripId, endData) => {
     setActionLoading(true);
     setError("");
@@ -241,7 +298,6 @@ export default function TravelList() {
     }
   };
 
-  // ── Delete Trip ────────────────────────────────────────────────
   const handleDelete = async (id) => {
     setActionLoading(true);
     setError("");
@@ -256,38 +312,27 @@ export default function TravelList() {
     }
   };
 
-  const totalDistance = filtered.reduce((s, r) => s + r.distance, 0);
-  const totalCost     = filtered.reduce((s, r) => s + r.cost, 0);
-  const totalFuel     = filtered.reduce((s, r) => s + r.fuel, 0);
-
-  const purposeTag = (p) => (
-    <span style={{
-      background: "transparent", color: "#000000",
-      fontSize: 13, fontWeight: 500,
-      fontFamily: "'Google Sans', sans-serif", whiteSpace: "nowrap",
-    }}>
-      {p || "—"}
-    </span>
-  );
-
   const thStyle = {
     padding: "12px 16px",
     textAlign: "left",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 700,
     letterSpacing: "0.6px",
-    color: "#000000",
+    color: "#fdfbfb",
     fontFamily: "'Google Sans', sans-serif",
     textTransform: "capitalize",
     borderBottom: "1.5px solid #e8eaed",
     whiteSpace: "nowrap",
-    background: "#f8f9fa",
+    background: "#0f83f7",
+    position: "sticky",
+    top: 0,
+    zIndex: 10,
   };
 
   const tdStyle = {
-    padding: "12px 16px",
+    padding: "8px 12px",
     textAlign: "left",
-    fontSize: 13,
+    fontSize: 10,
     color: "#000000",
     fontFamily: "'Google Sans', sans-serif",
     borderBottom: "1px solid #f0f0f0",
@@ -295,7 +340,6 @@ export default function TravelList() {
     whiteSpace: "nowrap",
   };
 
-  // Get the current trip for end trip modal
   const currentTrip = showEndTripModal ? data.find((t) => t.id === showEndTripModal) : null;
 
   return (
@@ -314,9 +358,87 @@ export default function TravelList() {
           .tt-search { width: 100% !important; }
         }
         .img-card-wrap:hover .img-overlay { opacity: 1 !important; }
+        .scrollable-table-body {
+          flex: 1;
+          overflow-y: auto;
+          overflow-x: auto;
+          min-height: 0;
+        }
+        .scrollable-table-body table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        html, body, #root {
+          height: 100%;
+          margin: 0;
+          padding: 0;
+        }
+        
+        /* Pagination Styles */
+        .pagination-container {
+          display: flex;
+          justify-content: flex-end;
+          align-items: center;
+          gap: 8px;
+          padding: 16px 20px;
+          background: #fff;
+          border-top: 1px solid #e8eaed;
+          flex-shrink: 0;
+        }
+        
+        .pagination-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 36px;
+          height: 36px;
+          padding: 0 12px;
+          border: 1px solid #e8eaed;
+          background: #fff;
+          border-radius: 8px;
+          font-size: 14px;
+          font-weight: 500;
+          color: #5f6368;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-family: 'Google Sans', sans-serif;
+        }
+        
+        .pagination-button:hover:not(:disabled) {
+          background: #f8f9fa;
+          border-color: #1a73e8;
+          color: #1a73e8;
+        }
+        
+        .pagination-button.active {
+          background: #1a73e8;
+          border-color: #1a73e8;
+          color: #fff;
+        }
+        
+        .pagination-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        
+        .pagination-ellipsis {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 36px;
+          height: 36px;
+          font-size: 14px;
+          color: #5f6368;
+        }
+        
+        .pagination-info {
+          font-size: 13px;
+          color: #5f6368;
+          margin-right: auto;
+          font-family: 'Google Sans', sans-serif;
+        }
       `}</style>
 
-      {/* ── StartTrip Component - Rendered inline ── */}
       {showStartTrip && (
         <StartTrip
           onClose={() => setShowStartTrip(false)}
@@ -324,7 +446,6 @@ export default function TravelList() {
         />
       )}
 
-      {/* ── EndTrip Component - Rendered inline when showEndTripModal is true ── */}
       {showEndTripModal && currentTrip && (
         <EndTrip
           onClose={() => setShowEndTripModal(null)}
@@ -335,18 +456,18 @@ export default function TravelList() {
             time:            currentTrip?.startTime   ?? '',
             purpose_of_trip: currentTrip?.purpose     ?? '',
             odometer_start:  currentTrip?.odoStart    ?? null,
+            end_date:        new Date().toISOString().split("T")[0],
+            end_time:        new Date().toTimeString().slice(0, 5),
           }}
         />
       )}
 
-      {/* Only show the trip list when StartTrip AND EndTrip are NOT visible */}
       {!showStartTrip && !showEndTripModal && (
-        <div style={{ minHeight: "100vh", background: "transparent", padding: "16px", fontFamily: "'Google Sans', sans-serif" }}>
+        <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "transparent", padding: "0", fontFamily: "'Google Sans', sans-serif" }}>
 
-          {/* Global error banner */}
           {error && (
             <div style={{
-              maxWidth: 1400, margin: "0 auto 14px",
+              margin: "0 0 14px 0",
               background: "#fff0f0", border: "1.5px solid #f5c2c7",
               borderRadius: 10, padding: "10px 18px",
               color: "#b02a37", fontSize: 13, fontFamily: "'Google Sans', sans-serif",
@@ -360,18 +481,20 @@ export default function TravelList() {
             </div>
           )}
 
-          {/* Header */}
-          <div style={{ maxWidth: 1400, margin: "0 auto 22px" }}>
+          <div style={{ margin: "0 0 22px 0", width: "100%", flexShrink: 0, padding: "0 16px" }}>
             <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
               <div>
-                <h1 className="tt-title" style={{ margin: 0, fontSize: 28, fontWeight: 800, color: "#000000", letterSpacing: -0.5 }}>
+                <h1 className="tt-title" style={{ margin: 0, fontSize: 25, fontWeight: "600", color: "black", letterSpacing: -0.5 }}>
                   Travel Log
                 </h1>
               </div>
               <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
                 <input
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setCurrentPage(1); // Reset to first page on search
+                  }}
                   placeholder="Search vehicle, driver, purpose…"
                   style={{
                     padding: "9px 16px", borderRadius: 10, border: "1.5px solid #c8d8e8",
@@ -397,39 +520,21 @@ export default function TravelList() {
                 </button>
               </div>
             </div>
-
-            {/* Stats */}
-            <div style={{ display: "flex", gap: 14, marginTop: 18, flexWrap: "wrap" }}>
-              {[
-              ].map(({ label, value, icon }) => (
-                <div key={label} style={{
-                  background: "#fff", borderRadius: 12, padding: "12px 20px",
-                  boxShadow: "0 2px 10px rgba(0,0,0,0.06)", display: "flex",
-                  alignItems: "center", gap: 12, flex: "1 1 160px",
-                }}>
-                  <span style={{ fontSize: 22 }}>{icon}</span>
-                  <div>
-                    <div style={{ fontSize: 10, color: "#000000", fontFamily: "'Google Sans', sans-serif", textTransform: "uppercase", letterSpacing: 0.6 }}>{label}</div>
-                    <div style={{ fontSize: 18, fontWeight: 700, color: "#000000" }}>{value}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
           </div>
 
-          {/* Table */}
-          <div style={{ maxWidth: 1400, margin: "0 auto", background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}>
-            <div style={{ overflowX: "auto" }}>
+          <div style={{ background: "#fff", borderRadius: "16px 16px 0 0", overflow: "hidden", boxShadow: "0 4px 24px rgba(0,0,0,0.08)", display: "flex", flexDirection: "column", flex: 1, minHeight: 0, width: "100%" }}>
+            <div className="scrollable-table-body" style={{ flex: 1, overflowY: "auto", overflowX: "auto", minHeight: 0 }}>
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1200 }}>
                 <thead>
                   <tr>
-                    {["Sl.No.", "Vehicle", "Traveled By", "Purpose", "Date & Time", "Odometer", "Distance", "Fuel & Cost", "Photos", "Action"].map((h) => (
-                      <th key={h} style={thStyle}>{h}</th>
+                    {["Sl.No.", "Start Date", "Vehicle", "Traveled By", "Purpose", "Odometer Photos", "Distance", "Fuel & Cost", "End Date", "Action"].map((h) => (
+                      <th key={h} style={{ ...thStyle, textAlign: h === "Photos" ? "center" : "left" }}>
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {/* Loading state */}
                   {loading ? (
                     <tr>
                       <td colSpan={10} style={{ ...tdStyle, textAlign: "center", padding: "48px", color: "#000000" }}>
@@ -437,7 +542,7 @@ export default function TravelList() {
                         <div style={{ fontWeight: 600, fontSize: 15 }}>Loading trips…</div>
                       </td>
                     </tr>
-                  ) : filtered.length === 0 ? (
+                  ) : currentData.length === 0 ? (
                     <tr>
                       <td colSpan={10} style={{ ...tdStyle, textAlign: "center", padding: "48px", color: "#000000" }}>
                         <div style={{ fontSize: 36, marginBottom: 10 }}>🚗</div>
@@ -446,20 +551,36 @@ export default function TravelList() {
                       </td>
                     </tr>
                   ) : (
-                    filtered.map((row, i) => (
+                    currentData.map((row, i) => (
                       <tr key={row.id} style={{ transition: "background 0.15s" }}>
-                        <td style={tdStyle}>{i + 1}</td>
+                        {/* Sl.No. */}
+                        <td style={tdStyle}>{startIndex + i + 1}</td>
+
+                        {/* Start Date */}
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
+                              <AccessTimeIcon style={{ fontSize: 13, color: "#2e7d32", flexShrink: 0 }} />
+                              <span style={{ fontSize: 12, fontWeight: 500, color: "#000", whiteSpace: "nowrap" }}>
+                                {row.date ? new Date(row.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                              </span>
+                            </div>
+                            <span style={{ fontSize: 11, color: "#2e7d32", paddingLeft: 18 }}>{row.startTime || "—"}</span>
+                          </div>
+                        </td>
+
+                        {/* Vehicle */}
                         <td style={tdStyle}>
                           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                             <span style={{
-                              color: "#050505", fontSize: 13, fontWeight: 700,
+                              color: "#050505", fontSize: 14, fontWeight: 700,
                               fontFamily: "'Google Sans', sans-serif", letterSpacing: 0.4,
                             }}>
                               {row.vehicle || row.vehicle_name || "—"}
                             </span>
                             {(row.vehicleReg || row.registration_number) && (
                               <span style={{
-                                color: "#1a6fdb", fontSize: 11, fontWeight: 600,
+                                color: "#1a6fdb", fontSize: 14, fontWeight: 600,
                                 fontFamily: "'Google Sans', sans-serif", letterSpacing: 0.6,
                               }}>
                                 {row.vehicleReg || row.registration_number}
@@ -467,82 +588,68 @@ export default function TravelList() {
                             )}
                           </div>
                         </td>
-                        <td style={{ ...tdStyle, fontWeight: 600 }}>
+
+                        {/* Traveled By */}
+                        <td style={{ ...tdStyle, fontWeight: 600, fontSize: 14 }}>
                           {row.traveledBy || loggedInUser}
                         </td>
-                        <td style={tdStyle}>{purposeTag(row.purpose)}</td>
 
-                        {/* Combined Date & Time column */}
-                        <td style={tdStyle}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <div style={{ fontSize: 12, fontWeight: 500 }}>
-                              {new Date(row.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                            </div>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                              <span style={{ color: "#2e7d32", display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
-                                <AccessTimeIcon style={{ fontSize: 13 }} /> {row.startTime}
-                              </span>
-                              <span style={{ color: "#b71c1c", display: "flex", alignItems: "center", gap: 4, fontSize: 11 }}>
-                                <HistoryIcon style={{ fontSize: 13 }} /> {row.endTime || "—"}
-                              </span>
-                            </div>
-                          </div>
+                        {/* Purpose */}
+                        <td style={{ ...tdStyle, textAlign: "center" }}>
+                          {row.purpose ? (
+                            <button
+                              onClick={() => setPurposePopup(row.purpose)}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "#1a73e8", display: "inline-flex", alignItems: "center", padding: 0 }}
+                            >
+                              <PreviewOutlinedIcon style={{ fontSize: 22 }} />
+                            </button>
+                          ) : (
+                            <span style={{ color: "#cbd5e1", fontSize: 12 }}>—</span>
+                          )}
                         </td>
 
-                        {/* Combined ODO Start & End column */}
-                        <td style={tdStyle}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                              <span style={{ fontSize: 10, color: "#2e7d32", fontWeight: 700,   borderRadius: 4, padding: "1px 5px", whiteSpace: "nowrap" }}>
-                                Start
-                              </span>
-                              <span style={{ fontSize: 12, fontWeight: 600, color: "#202124" }}>
-                                {row.odoStart != null && row.odoStart !== 0
-                                  ? `${Number(row.odoStart).toLocaleString('en-IN')} km`
-                                  : <span style={{ color: "#bdbdbd", fontStyle: "italic" }}>—</span>}
-                              </span>
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                              <span style={{ fontSize: 10, color: "#b71c1c", fontWeight: 700, borderRadius: 4, padding: "1px 5px", whiteSpace: "nowrap" }}>
-                                End
-                              </span>
-                              <span style={{ fontSize: 12, color: "#202124" }}>
-                                {row.odoEnd != null && row.odoEnd !== 0
-                                  ? `${Number(row.odoEnd).toLocaleString('en-IN')} km`
-                                  : <span style={{ color: "#bdbdbd", fontStyle: "italic" }}>—</span>}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td style={tdStyle}>
-                          <span style={{ fontWeight: 700, fontFamily: "'Google Sans', sans-serif", fontSize: 13, color: "#030303" }}>
-                            {row.distance} km
-                          </span>
-                        </td>
-
-                        {/* Combined Fuel & Cost column */}
-                        <td style={tdStyle}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                            <div style={{ fontSize: 12 }}>{row.fuel.toFixed(1)} L</div>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: "#080808" }}>₹{row.cost.toLocaleString()}</div>
-                          </div>
-                        </td>
-
+                        {/* Photos */}
                         <td style={{ ...tdStyle, padding: "10px 16px" }}>
                           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                             <div className="img-card-wrap" style={{ position: "relative" }}>
-                              <ImageCard src={row.startImg} label="Start" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} />
+                              <ImageCard src={row.startImg} label="Start" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} odoValue={row.odoStart} />
                             </div>
-                            <div style={{ width: 1, height: 50, background: "#e8eaed", flexShrink: 0 }} />
+                            <div style={{ width: 1, height: 60, background: "#e8eaed", flexShrink: 0 }} />
                             <div className="img-card-wrap" style={{ position: "relative" }}>
-                              <ImageCard src={row.endImg} label="End" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} />
+                              <ImageCard src={row.endImg} label="End" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} odoValue={row.odoEnd} />
                             </div>
+                          </div>
+                        </td>
+
+                        {/* Distance */}
+                        <td style={tdStyle}>
+                          <span style={{ fontWeight: 700, fontSize: 14, color: "#030303" }}>
+                            {row.distance || 0} km
+                          </span>
+                        </td>
+
+                        {/* Fuel & Cost */}
+                        <td style={{ ...tdStyle, textAlign: "left" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            <div style={{ fontSize: 14, textAlign: "left", color: "#000000" }}>{row.fuel?.toFixed(1) || 0} L</div>
+                            <div style={{ fontSize: 14, textAlign: "center", fontWeight: 700, color: "#080808" }}>₹{(row.cost || 0).toLocaleString()}</div>
+                          </div>
+                        </td>
+
+                        {/* End Date */}
+                        <td style={tdStyle}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
+                              <HistoryIcon style={{ fontSize: 13, color: "#b71c1c", flexShrink: 0 }} />
+                              <span style={{ fontSize: 12, fontWeight: 500, color: "#000", whiteSpace: "nowrap" }}>
+                                {(row.endDate || row.end_date) ? new Date(row.endDate || row.end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                              </span>
+                            </div>
+                            <span style={{ fontSize: 11, color: "#b71c1c", paddingLeft: 18 }}>{row.endTime || "—"}</span>
                           </div>
                         </td>
                         <td style={tdStyle}>
                           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                            {/* End Trip Button */}
                             <button
                               onClick={() => setShowEndTripModal(row.id)}
                               disabled={actionLoading || row.status === "completed"}
@@ -552,7 +659,7 @@ export default function TravelList() {
                                 border: "none",
                                 background: row.status === "completed" ? "#06771f" : "#f4b400",
                                 color: "#fdfbfb",
-                                fontSize: 12,
+                                fontSize: 14,
                                 fontWeight: 600,
                                 cursor: row.status === "completed" ? "not-allowed" : "pointer",
                                 display: "flex",
@@ -575,7 +682,7 @@ export default function TravelList() {
                                   border: "none",
                                   background: "#1a73e8",
                                   color: "#fff",
-                                  fontSize: 12,
+                                  fontSize: 14,
                                   fontWeight: 600,
                                   cursor: "pointer",
                                   display: "flex",
@@ -585,7 +692,7 @@ export default function TravelList() {
                                   flex: 1,
                                 }}
                               >
-                                <EditOutlinedIcon style={{ fontSize: 13 }} /> Edit
+                                <EditOutlinedIcon style={{ fontSize: 14 }} /> Edit
                               </button>
                               <button
                                 onClick={() => setDeleteId(row.id)}
@@ -596,7 +703,7 @@ export default function TravelList() {
                                   border: "none",
                                   background: "#d93025",
                                   color: "#fff",
-                                  fontSize: 12,
+                                  fontSize: 14,
                                   fontWeight: 600,
                                   cursor: "pointer",
                                   display: "flex",
@@ -606,7 +713,7 @@ export default function TravelList() {
                                   flex: 1,
                                 }}
                               >
-                                <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
+                                <DeleteOutlineOutlinedIcon style={{ fontSize: 14 }} /> Delete
                               </button>
                             </div>
                           </div>
@@ -617,25 +724,83 @@ export default function TravelList() {
                 </tbody>
               </table>
             </div>
+            
+            {/* Pagination */}
+            {!loading && totalPages > 1 && (
+              <div className="pagination-container">
+                <div className="pagination-info">
+                  Showing {filtered.length > 0 ? startIndex + 1 : 0} to {Math.min(endIndex, filtered.length)} of {filtered.length} entries
+                </div>
+                <button
+                  className="pagination-button"
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                >
+                  ‹ Previous
+                </button>
+                
+                {getVisiblePages()[0] > 1 && (
+                  <>
+                    <button
+                      className="pagination-button"
+                      onClick={() => goToPage(1)}
+                    >
+                      1
+                    </button>
+                    {getVisiblePages()[0] > 2 && <span className="pagination-ellipsis">...</span>}
+                  </>
+                )}
+                
+                {getVisiblePages().map(page => (
+                  <button
+                    key={page}
+                    className={`pagination-button ${currentPage === page ? 'active' : ''}`}
+                    onClick={() => goToPage(page)}
+                  >
+                    {page}
+                  </button>
+                ))}
+                
+                {getVisiblePages()[getVisiblePages().length - 1] < totalPages && (
+                  <>
+                    {getVisiblePages()[getVisiblePages().length - 1] < totalPages - 1 && <span className="pagination-ellipsis">...</span>}
+                    <button
+                      className="pagination-button"
+                      onClick={() => goToPage(totalPages)}
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
+                
+                <button
+                  className="pagination-button"
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                >
+                  Next ›
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
-            {/* Footer */}
-            <div style={{
-              padding: "12px 20px",
-              background: "white",
-              borderTop: "1px solid white",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              fontSize: 12,
-              color: "#000000",
-              fontFamily: "'Google Sans', sans-serif",
-            }}>
+      {purposePopup && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setPurposePopup(null)}>
+          <div style={{ background: "#fff", borderRadius: 12, padding: "24px 28px", maxWidth: 400, width: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", fontFamily: "'Google Sans', sans-serif" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <PreviewOutlinedIcon style={{ fontSize: 20, color: "#1a73e8" }} />
+              <span style={{ fontWeight: 700, fontSize: 15, color: "#202124" }}>Purpose</span>
+            </div>
+            <p style={{ margin: 0, fontSize: 14, color: "#3c3c3c", lineHeight: 1.8, whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "break-word", maxHeight: 300, overflowY: "auto" }}>{purposePopup}</p>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+              <button onClick={() => setPurposePopup(null)} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#1a73e8", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "'Google Sans', sans-serif" }}>Close</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Delete Confirm */}
       {deleteId && (
         <div
           style={{ position: "fixed", inset: 0, background: "rgba(10,25,40,0.45)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
@@ -646,7 +811,7 @@ export default function TravelList() {
             onClick={(e) => e.stopPropagation()}
           >
             <div style={{ fontSize: 40, marginBottom: 12 }}>🗑️</div>
-            <h3 style={{ margin: "0 0 8px", fontSize: 18, color: "#000000" }}>Delete Entry?</h3>
+            <h3 style={{ margin: "0 0 8px", fontSize: 14, color: "#000000" }}>Delete Entry?</h3>
             <p style={{ margin: "0 0 22px", fontSize: 13, color: "#000000" }}>This action cannot be undone.</p>
             <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
               <button
@@ -668,7 +833,6 @@ export default function TravelList() {
         </div>
       )}
       
-      {/* Image Lightbox */}
       {lightbox && (
         <ImageLightbox
           src={lightbox.src}

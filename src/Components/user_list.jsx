@@ -4,7 +4,7 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const ROLES    = ["Admin", "Manager", "Operator", "User", "Support", "Auditor"];
+const ROLES    = ["Admin", "Manager", "User"];
 const STATUSES = ["Active", "Inactive"];
 const EMPTY_FORM = {
   username: "", address: "", phone: "", branch: "",
@@ -29,13 +29,13 @@ const COLS = [
 const thStyle = (col) => ({
   padding: "11px 14px",
   textAlign: col.align,
-  fontSize: "14px",
+  fontSize: "15px",
   fontWeight: 600,
-  color: "black",
+  color: "white",
   textTransform: "capitalize",
   letterSpacing: "0.8px",
   borderBottom: "1px solid var(--border)",
-  background: "white",
+  background: "rgb(1, 126, 252)",
   whiteSpace: "nowrap",
 });
 
@@ -166,7 +166,7 @@ function PhotoUpload({ preview, existingUrl, onChange, onClear }) {
             fontWeight: 600,
             borderRadius: "6px",
             border: "1px solid var(--accent)",
-            color: "var(--accent)",
+            color: "black",
             background: "transparent",
             cursor: "pointer",
           }}
@@ -732,7 +732,7 @@ export default function RegisteredUsers() {
 
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", borderBottom: "1px solid var(--border)", background: "var(--surface)", flexShrink: 0 }} className="header-container">
-        <div style={{ fontSize: "20px", fontWeight: 700, color: "black" }} className="header-title">Registered Users</div>
+        <div style={{ fontSize: "25px", fontWeight: 600, color: "black" }} className="header-title">Registered Users</div>
         <button className="btn btn-p add-user-btn" onClick={() => setOpen(true)} style={{ padding: "8px 20px", cursor: "pointer" }}>
           + Add User
         </button>
@@ -750,18 +750,18 @@ export default function RegisteredUsers() {
       <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", minHeight: 0 }} className="user-table-container">
         <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }} className="user-table">
           <colgroup>{COLS.map(col => <col key={col.key} style={{ width: col.width }} />)}</colgroup>
-          <thead style={{ position: "sticky", top: 0, zIndex: 5, background: "#1a4f1a" }}>
+          <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
             <tr>{COLS.map(col => <th key={col.key} style={thStyle(col)}>{col.label}</th>)}</tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={COLS.length} style={{ textAlign: "center", padding: "80px 20px", color: "var(--muted)" }}>Loading users…</td></tr>
+              <tr><td colSpan={COLS.length} style={{ textAlign: "center", padding: "80px 20px", color: "var(--muted)", fontSize: "18px" }}>Loading users…</td></tr>
             ) : users.length === 0 ? (
               <tr>
                 <td colSpan={COLS.length} style={{ textAlign: "center", padding: "80px 20px", color: "var(--muted)" }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
                     <span style={{ fontSize: "48px", opacity: 0.4 }}>👥</span>
-                    <span style={{ fontSize: "14px" }}>No users added yet. Click <strong style={{ color: "var(--accent)" }}>Add User</strong> to create one.</span>
+                    <span style={{ fontSize: "18px" }}>No users added yet. Click <strong style={{ color: "var(--accent)" }}>Add User</strong> to create one.</span>
                   </div>
                 </td>
               </tr>
@@ -780,7 +780,7 @@ export default function RegisteredUsers() {
                     <td style={tdStyle(COLS[1])}>
                       <div style={{ display: "flex", alignItems: "center", gap: "9px", overflow: "hidden" }}>
                         <UserAvatar user={u} />
-                        <span style={{ fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <span style={{ fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "13px" }}>
                           {u.username}
                         </span>
                       </div>
@@ -789,14 +789,23 @@ export default function RegisteredUsers() {
                     {/* Password */}
                     <td style={tdStyle(COLS[2])}>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-                        <span style={{ fontFamily: "'Google Sans', sans-serif", fontSize: "13px", color: revealedPwds.has(u.id) ? "var(--text)" : "var(--muted)", letterSpacing: revealedPwds.has(u.id) ? "0.5px" : "2px", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        <span style={{ 
+                          fontFamily: "'Google Sans', sans-serif", 
+                          fontSize: "13px",
+                          color: revealedPwds.has(u.id) ? "var(--text)" : "var(--muted)", 
+                          letterSpacing: revealedPwds.has(u.id) ? "0.5px" : "2px", 
+                          minWidth: 0, 
+                          overflow: "hidden", 
+                          textOverflow: "ellipsis", 
+                          whiteSpace: "nowrap" 
+                        }}>
                           {revealedPwds.has(u.id) ? (displayPassword || "••••••••") : "••••••••"}
                         </span>
                         <button onClick={() => togglePasswordVisibility(u.id)}
                           style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", padding: "2px", lineHeight: 1, flexShrink: 0, display: "flex", alignItems: "center" }}
                           title={revealedPwds.has(u.id) ? "Hide password" : "Show password"}
                         >
-                          {revealedPwds.has(u.id) ? <VisibilityOffOutlinedIcon style={{ fontSize: 16 }} /> : <VisibilityOutlinedIcon style={{ fontSize: 16 }} />}
+                          {revealedPwds.has(u.id) ? <VisibilityOffOutlinedIcon style={{ fontSize: 20 }} /> : <VisibilityOutlinedIcon style={{ fontSize: 20 }} />}
                         </button>
                       </div>
                     </td>
@@ -817,7 +826,15 @@ export default function RegisteredUsers() {
 
                     {/* Status */}
                     <td style={tdStyle(COLS[7])}>
-                      <span style={{ display: "inline-block", padding: "4px 10px", borderRadius: "12px", fontSize: "11px", fontWeight: 600, background: u.status === "Active" ? "#d1fae5" : "#fee2e2", color: u.status === "Active" ? "#065f46" : "#991b1b" }}>
+                      <span style={{ 
+                        display: "inline-block", 
+                        padding: "4px 10px", 
+                        borderRadius: "6px", 
+                        fontSize: "14px",
+                        fontWeight: 600, 
+                        background: u.status === "Active" ? "#058b46" : "#921212", 
+                        color: u.status === "Active" ? "#f7faf9" : "#faf8f8" 
+                      }}>
                         {u.status}
                       </span>
                     </td>
@@ -826,14 +843,34 @@ export default function RegisteredUsers() {
                     <td style={tdStyle(COLS[8])}>
                       <div style={{ display: "flex", gap: "5px", justifyContent: "center" }}>
                         <button onClick={() => handleOpenEdit(u)}
-                          style={{ background: "none", border: "1px solid var(--border)", color: "var(--accent)", cursor: "pointer", fontSize: "12px", fontWeight: 600, padding: "4px 10px", borderRadius: "6px", transition: "background 0.15s" }}
-                          onMouseEnter={e => e.currentTarget.style.background = "var(--surface2)"}
-                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                          style={{ 
+                            background: "var(--accent)", 
+                            border: "1px solid var(--border)", 
+                            color: "white", 
+                            cursor: "pointer", 
+                            fontSize: "14px",
+                            fontWeight: 600, 
+                            padding: "4px 10px", 
+                            borderRadius: "6px", 
+                            transition: "background 0.15s" 
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = "var(--accent)"}
+                         
                         >Edit</button>
                         <button onClick={() => handleDelete(u)}
-                          style={{ background: "none", border: "none", color: "var(--red)", cursor: "pointer", fontSize: "12px", fontWeight: 600, padding: "4px 10px", borderRadius: "6px", transition: "background 0.15s" }}
-                          onMouseEnter={e => e.currentTarget.style.background = "var(--red-lt)"}
-                          onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                          style={{ 
+                            background: "var(--red)", 
+                            border: "none", 
+                            color: "white", 
+                            cursor: "pointer", 
+                            fontSize: "14px",
+                            fontWeight: 600, 
+                            padding: "4px 10px", 
+                            borderRadius: "6px", 
+                            transition: "background 0.15s" 
+                          }}
+                          onMouseEnter={e => e.currentTarget.style.background = "var(--red)"}
+                         
                         >Delete</button>
                       </div>
                     </td>
@@ -848,12 +885,12 @@ export default function RegisteredUsers() {
       {/* ── Add User Modal ── */}
       {open && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(2px)" }} onClick={handleClose}>
-          <div style={{ background: "var(--surface)", borderRadius: "12px", width: "min(520px, 92vw)", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.25)" }} onClick={e => e.stopPropagation()} className="modal-content">
+          <div style={{ background: "var(--surface)", borderRadius: "12px", width: "min(650px, 92vw)", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.25)" }} onClick={e => e.stopPropagation()} className="modal-content">
 
             {/* Header */}
             <div style={{ padding: "22px 28px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }} className="modal-header">
               <div>
-                <h2 style={{ fontSize: "20px", fontFamily: "var(--ffd)", color: "var(--accent)", marginBottom: "4px" }} className="modal-title">Add New User</h2>
+                <h2 style={{ fontSize: "25px", fontFamily: "var(--ffd)", color: "black", marginBottom: "4px" }} className="modal-title">Add New User</h2>
                 <p style={{ fontSize: "13px", color: "var(--muted)" }} className="modal-subtitle">Fill in the details to create a new user account.</p>
               </div>
               <button onClick={handleClose} style={{ background: "none", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: "24px", lineHeight: 1, padding: "2px 6px" }}>×</button>
@@ -874,7 +911,7 @@ export default function RegisteredUsers() {
 
               {/* Username */}
               <div className="form-group">
-                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
+                <label style={{ display: "block", fontSize: "16px", fontWeight: 600, color: "black", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Username <span style={{ color: "var(--red)" }}>*</span>
                 </label>
                 <input name="username" type="text" value={form.username} onChange={handleInput} placeholder="e.g. john_doe" style={inputStyle(errors.username)} className="form-input" />
@@ -883,7 +920,7 @@ export default function RegisteredUsers() {
 
               {/* Password */}
               <div className="form-group">
-                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
+                <label style={{ display: "block", fontSize: "16px", fontWeight: 600, color: "black", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Password <span style={{ color: "var(--red)" }}>*</span>
                 </label>
                 <div style={{ position: "relative" }}>
@@ -897,7 +934,7 @@ export default function RegisteredUsers() {
 
               {/* Address */}
               <div className="form-group">
-                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
+                <label style={{ display: "block", fontSize: "16px", fontWeight: 600, color: "black", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Address <span style={{ color: "var(--red)" }}>*</span>
                 </label>
                 <input name="address" type="text" value={form.address} onChange={handleInput} placeholder="Full address" style={inputStyle(errors.address)} className="form-input" />
@@ -906,7 +943,7 @@ export default function RegisteredUsers() {
 
               {/* Phone */}
               <div className="form-group">
-                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
+                <label style={{ display: "block", fontSize: "16px", fontWeight: 600, color: "black", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Phone <span style={{ color: "var(--red)" }}>*</span>
                 </label>
                 <input name="phone" type="tel" value={form.phone} onChange={handleInput} placeholder="+91 98765 43210" style={inputStyle(errors.phone)} className="form-input" />
@@ -916,11 +953,11 @@ export default function RegisteredUsers() {
               {/* Branch */}
               <div className="form-group">
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <label style={{ fontSize: "14px", fontWeight: 600, color: "var(--accent)" }} className="form-label">
+                  <label style={{ fontSize: "16px", fontWeight: 600, color: "black" }} className="form-label">
                     Branch <span style={{ color: "var(--red)" }}>*</span>
                   </label>
                   {!newBranchMode && (
-                    <button type="button" onClick={() => { setNewBranchMode(true); setNewBranchName(""); setNewBranchError(""); }} style={{ fontSize: "12px", fontWeight: 600, color: "var(--accent)", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
+                    <button type="button" onClick={() => { setNewBranchMode(true); setNewBranchName(""); setNewBranchError(""); }} style={{ fontSize: "14px", fontWeight: 600, color: "black", background: "none", border: "none", cursor: "pointer", padding: 0 }}>
                       + New Branch
                     </button>
                   )}
@@ -945,7 +982,7 @@ export default function RegisteredUsers() {
 
               {/* Role */}
               <div className="form-group">
-                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
+                <label style={{ display: "block", fontSize: "16px", fontWeight: 600, color: "black", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Role <span style={{ color: "var(--red)" }}>*</span>
                 </label>
                 <select value={form.role} onChange={e => handleSelect("role")(e.target.value)} style={inputStyle(errors.role)} className="form-select">
@@ -957,7 +994,7 @@ export default function RegisteredUsers() {
 
               {/* Status */}
               <div className="form-group">
-                <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">
+                <label style={{ display: "block", fontSize: "16px", fontWeight: 600, color: "black", marginBottom: "6px", textAlign: "left" }} className="form-label">
                   Status <span style={{ color: "var(--red)" }}>*</span>
                 </label>
                 <select value={form.status} onChange={e => handleSelect("status")(e.target.value)} style={inputStyle(errors.status)} className="form-select">
@@ -987,7 +1024,7 @@ export default function RegisteredUsers() {
       {/* ── Edit User Modal ── */}
       {editOpen && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(2px)" }} onClick={handleCloseEdit}>
-          <div style={{ background: "var(--surface)", borderRadius: "12px", width: "min(520px, 92vw)", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.25)", animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()} className="modal-content">
+          <div style={{ background: "var(--surface)", borderRadius: "12px", width: "min(650px, 92vw)", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.25)", animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()} className="modal-content">
 
             {/* Header */}
             <div style={{ padding: "22px 28px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }} className="modal-header">

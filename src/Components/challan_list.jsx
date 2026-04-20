@@ -1,17 +1,14 @@
 import { useState, useEffect } from "react";
-import { getChallans, deleteChallan } from "../service/challan";
+import { getChallans, deleteChallan, updateChallan } from "../service/challan";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
+import EditNotificationsOutlinedIcon from "@mui/icons-material/EditNotificationsOutlined";
 import ChallanAdd from "./challan_add";
 
-// API base is handled in the service files, no changes needed here
-// The service files should already use the correct BASE_URL
-
 const STATUS_STYLES = {
-  Paid:    { background: "#188038", color: "#fbfcfb" },
-  Pending: { background: "rgb(241 147 33)", color: "#fbfcfb" },
-  Waived:  { background: "#7c3aed", color: "#f8f7fa" },
+  Paid:    { background: "#188038", color: "#ffffff" },
+  Pending: { background: "#f49333", color: "#ffffff" },
 };
 
 // Table headers matching Vehicle Master style
@@ -28,6 +25,12 @@ export default function ChallanList({ onAdd, onEdit }) {
   const [statusFilter, setStatusFilter] = useState("All");
   const [delId, setDelId]             = useState(null);
   const [editRow, setEditRow]         = useState(null);
+  const [updatingStatusId, setUpdatingStatusId] = useState(null);
+  const [remarkPopup, setRemarkPopup] = useState(null);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const fetchChallans = async () => {
     try {
@@ -37,6 +40,7 @@ export default function ChallanList({ onAdd, onEdit }) {
         ? response
         : (response.results || []);
       setData(challanData);
+      setCurrentPage(1); // Reset to first page when data loads
     } catch (error) {
       console.error("Failed to fetch challans:", error);
     } finally {
@@ -58,7 +62,60 @@ export default function ChallanList({ onAdd, onEdit }) {
     return matchSearch && matchStatus;
   });
 
+  // Pagination calculations
+  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentData = filtered.slice(startIndex, endIndex);
+
+  // Pagination handlers
+  const goToPage = (page) => {
+    setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const goToPreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  // Get visible page numbers for pagination
+  const getVisiblePages = () => {
+    const maxVisible = 5;
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+    
+    if (endPage - startPage + 1 < maxVisible) {
+      startPage = Math.max(1, endPage - maxVisible + 1);
+    }
+    
+    const pages = [];
+    for (let i = startPage; i <= endPage; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
+
   const confirmDelete = (id) => setDelId(id);
+
+  const handleStatusChange = async (id, newStatus) => {
+    setUpdatingStatusId(id);
+    try {
+      await updateChallan(id, { paymentStatus: newStatus });
+      setData(d => d.map(r => r.id === id ? { ...r, payment_status: newStatus } : r));
+    } catch (error) {
+      console.error("Failed to update status:", error);
+      alert("Failed to update status. Please try again.");
+    } finally {
+      setUpdatingStatusId(null);
+    }
+  };
 
   const doDelete = async () => {
     try {
@@ -71,49 +128,46 @@ export default function ChallanList({ onAdd, onEdit }) {
     }
   };
 
-  // Helper function to format vehicle display - shows only vehicle number and name without extra formatting
+  // Helper function to format vehicle display - returns { number, name } parts
   const formatVehicleDisplay = (vehicleData) => {
-    if (!vehicleData) return "—";
-    
-    // If vehicle_display is already a clean string, use it directly
+    if (!vehicleData) return { number: null, name: null };
+
     if (typeof vehicleData === 'string') {
-      // Remove any "Vehicle #" prefix if present
-      return vehicleData.replace(/^Vehicle\s*#\s*/, '');
+      const clean = vehicleData.replace(/^Vehicle\s*#\s*/, '');
+      const parts = clean.split(/\s*-\s*/);
+      if (parts.length >= 2) {
+        return { number: parts[0].trim(), name: parts.slice(1).join(' - ').trim() };
+      }
+      return { number: clean, name: null };
     }
-    
-    // If vehicle has number and name properties
-    if (vehicleData.number && vehicleData.name) {
-      return `${vehicleData.number} - ${vehicleData.name}`;
+
+    if (vehicleData.number || vehicleData.name) {
+      return { number: vehicleData.number || null, name: vehicleData.name || null };
     }
-    
-    if (vehicleData.number) {
-      return vehicleData.number;
-    }
-    
-    if (vehicleData.name) {
-      return vehicleData.name;
-    }
-    
-    return "—";
+
+    return { number: null, name: null };
   };
 
   const totalFine = filtered.reduce((s, r) => s + parseFloat(r.fine_amount || 0), 0);
   const paidCount = filtered.filter(r => r.payment_status === "Paid").length;
   const pendCount = filtered.filter(r => r.payment_status === "Pending").length;
 
-  // Table styles matching Vehicle Master exactly
+  // Table styles with sticky header
   const thStyle = { 
-    fontSize: 14, 
+    fontSize: 15, 
     fontWeight: 600, 
     letterSpacing: "0.4px", 
-    color: "#0a0a0a", 
+    color: "#fdfcfc", 
     textAlign: "left", 
     padding: "11px 14px", 
-    background: "#f8f9fa", 
+    background: "#0b81f8", 
     borderBottom: "1px solid #e8eaed", 
     fontFamily: "'Google Sans', sans-serif", 
     whiteSpace: "nowrap", 
-    textTransform: "capitalize" 
+    textTransform: "capitalize",
+    position: "sticky",
+    top: 0,
+    zIndex: 10
   };
   
   const tdStyle = { 
@@ -244,6 +298,91 @@ export default function ChallanList({ onAdd, onEdit }) {
           color: #5f6368;
           margin-top: 4px;
         }
+
+        /* Scrollable table container */
+        .scrollable-table-container {
+          flex: 1;
+          min-height: 0;
+          overflow: auto;
+          background: #fff;
+          border-radius: 10px;
+          border: 1px solid #e8eaed;
+        }
+        
+        .data-table {
+          width: 100%;
+          border-collapse: collapse;
+        }
+        
+        .data-table thead tr th {
+          position: sticky;
+          top: 0;
+          z-index: 10;
+          background: #0b81f8;
+        }
+
+        /* Pagination Styles */
+        .pagination-container {
+          display: flex;
+          justify-content: flex-end;
+          align-items: center;
+          gap: 8px;
+          margin-top: 16px;
+          padding: 12px 0;
+          flex-shrink: 0;
+        }
+        
+        .pagination-button {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 36px;
+          height: 36px;
+          padding: 0 12px;
+          border: 1px solid #e8eaed;
+          background: #fff;
+          border-radius: 6px;
+          font-size: 14px;
+          font-weight: 500;
+          color: #5f6368;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-family: 'Google Sans', sans-serif;
+        }
+        
+        .pagination-button:hover:not(:disabled) {
+          background: #f8f9fa;
+          border-color: #1a73e8;
+          color: #1a73e8;
+        }
+        
+        .pagination-button.active {
+          background: #1a73e8;
+          border-color: #1a73e8;
+          color: #fff;
+        }
+        
+        .pagination-button:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+        
+        .pagination-ellipsis {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 36px;
+          height: 36px;
+          font-size: 14px;
+          color: #5f6368;
+        }
+        
+        .pagination-info {
+          font-size: 13px;
+          color: #5f6368;
+          margin-right: auto;
+          font-family: 'Google Sans', sans-serif;
+        }
       `}</style>
 
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -251,11 +390,11 @@ export default function ChallanList({ onAdd, onEdit }) {
         {/* ── Sticky Page Header Bar ── */}
         <div style={{ 
           flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", 
-          padding: "0 16px", height: 56,  borderBottom: "1px solid #e8eaed", 
+          padding: "0 16px", height: 56, borderBottom: "1px solid #e8eaed", 
           gap: 8, flexWrap: "wrap" 
         }}>
           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <h1 style={{ fontSize: 18, fontWeight: 600, color: "#202124", margin: 4, letterSpacing: "0.10px", lineHeight: 1.2 }}>
+            <h1 style={{ fontSize: 25, fontWeight: 600, color: "#0d0d0e", margin: 4, letterSpacing: "0.10px", lineHeight: 1.2 }}>
               Challan List
             </h1>
           </div>
@@ -278,38 +417,14 @@ export default function ChallanList({ onAdd, onEdit }) {
         </div>
 
         {/* ── Scrollable Body ── */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
-
-          {/* ── Summary Cards ── */}
-          <div className="summary-cards">
-            <div className="summary-card">
-              <div className="summary-card-title">Total Challans</div>
-              <div className="summary-card-value">{filtered.length}</div>
-              <div className="summary-card-sub">Total records</div>
-            </div>
-            <div className="summary-card">
-              <div className="summary-card-title">Total Fine Amount</div>
-              <div className="summary-card-value">₹{totalFine.toLocaleString()}</div>
-              <div className="summary-card-sub">Accumulated fines</div>
-            </div>
-            <div className="summary-card">
-              <div className="summary-card-title">Paid</div>
-              <div className="summary-card-value">{paidCount}</div>
-              <div className="summary-card-sub">Completed payments</div>
-            </div>
-            <div className="summary-card">
-              <div className="summary-card-title">Pending</div>
-              <div className="summary-card-value">{pendCount}</div>
-              <div className="summary-card-sub">Awaiting payment</div>
-            </div>
-          </div>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "12px 16px" }}>
 
           {/* ── Filters Section ── */}
-          <div style={{ background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "18px 20px", marginBottom: 20 }}>
+          <div style={{ background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "18px 20px", marginBottom: 20, flexShrink: 0 }}>
             <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
               {/* Search */}
               <div style={{ flex: 1, minWidth: 200 }}>
-                <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: "#0a0a0a", display: "block", marginBottom: 6, textTransform: "capitalize",textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
                   Search
                 </label>
                 <input 
@@ -317,7 +432,10 @@ export default function ChallanList({ onAdd, onEdit }) {
                   type="text" 
                   placeholder="Search vehicle, challan, offence..."
                   value={search}
-                  onChange={e => setSearch(e.target.value)}
+                  onChange={e => {
+                    setSearch(e.target.value);
+                    setCurrentPage(1); // Reset to first page on search
+                  }}
                   style={{ 
                     width: "100%", padding: "9px 12px", border: "1px solid #e8eaed", 
                     borderRadius: 7, fontSize: 13, fontFamily: "'Google Sans', sans-serif", 
@@ -329,34 +447,33 @@ export default function ChallanList({ onAdd, onEdit }) {
 
               {/* Status Filter */}
               <div>
-                <label style={{ fontSize: 11, fontWeight: 700, color: "#5f6368", display: "block", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
+                <label style={{ fontSize: 12, fontWeight: 700, color: "#020202", display: "block", marginBottom: 6, textTransform: "capitalize",textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
                   Status
                 </label>
                 <select
                   className="status-select"
                   value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value)}
-                  style={{ minWidth: 140 }}
+                  onChange={e => {
+                    setStatusFilter(e.target.value);
+                    setCurrentPage(1); // Reset to first page on filter change
+                  }}
+                  style={{ width: 160, padding: "9px 12px" }}
                 >
                   <option value="All">All</option>
                   <option value="Paid">Paid</option>
                   <option value="Pending">Pending</option>
-                  <option value="Waived">Waived</option>
                 </select>
               </div>
             </div>
           </div>
 
-          {/* ── Count ── */}
-          <div style={{ marginBottom: 16, fontSize: 13, color: "#5f6368", fontFamily: "'Google Sans', sans-serif", fontWeight: 600 }}>
-            {filtered.length} record{filtered.length !== 1 ? "s" : ""} found
-          </div>
+          
 
-          {/* ── Table with Vehicle Master styling ── */}
+          {/* ── Table with Scrollable Container (Only Table Scrolls) ── */}
           {filtered.length > 0 ? (
-            <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e8eaed", overflow: "hidden" }}>
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <>
+              <div className="scrollable-table-container">
+                <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr>
                       {HEADERS.map(h => (
@@ -365,17 +482,34 @@ export default function ChallanList({ onAdd, onEdit }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {filtered.map((row, index) => (
+                    {currentData.map((row, index) => (
                       <tr key={row.id}
                         onMouseEnter={e => e.currentTarget.style.background = "#f8f9fa"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                       >
-                        {/* Sl. no. */}
-                        <td style={{ ...tdStyle, color: "#9aa0a6", fontWeight: 600, width: 56, textAlign: "center" }}>{index + 1}</td>
+                        {/* Sl. no. - shows correct sequential number across pages */}
+                        <td style={{ ...tdStyle, color: "#9aa0a6", fontWeight: 600, width: 56, textAlign: "center" }}>{startIndex + index + 1}</td>
                         
-                        {/* Vehicle - properly formatted without extra characters */}
-                        <td style={{ ...tdStyle, fontWeight: 500, color: "#1e293b" }}>
-                          {formatVehicleDisplay(row.vehicle_display || row.vehicle)}
+                        {/* Vehicle - number and name stacked, no dash */}
+                        <td style={tdStyle}>
+                          {(() => {
+                            const { number, name } = formatVehicleDisplay(row.vehicle_display || row.vehicle);
+                            return (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                {name && (
+                                  <span style={{ fontSize: 13, fontWeight: 700, color: "#1a73e8", letterSpacing: 0.4 }}>
+                                    {name}
+                                  </span>
+                                )}
+                                {number && (
+                                  <span style={{ fontSize: 12, fontWeight: 500, color: "#1e293b" }}>
+                                    {number}
+                                  </span>
+                                )}
+                                {!number && !name && <span style={{ color: "#cbd5e1" }}>—</span>}
+                              </div>
+                            );
+                          })()}
                         </td>
                         
                         {/* Default Date */}
@@ -400,9 +534,32 @@ export default function ChallanList({ onAdd, onEdit }) {
                         
                         {/* Payment Status */}
                         <td style={tdStyle}>
-                          <span className="pill" style={STATUS_STYLES[row.payment_status] || { background: "#f1f3f4", color: "#5f6368" }}>
-                            {row.payment_status || "Pending"}
-                          </span>
+                          {(() => {
+                            const statusStyle = STATUS_STYLES[row.payment_status] || STATUS_STYLES["Pending"];
+                            return (
+                              <select
+                                value={row.payment_status || "Pending"}
+                                onChange={(e) => handleStatusChange(row.id, e.target.value)}
+                                disabled={updatingStatusId === row.id}
+                                style={{
+                                  padding: "6px 10px",
+                                  borderRadius: 6,
+                                  border: "none",
+                                  background: statusStyle.background,
+                                  color: statusStyle.color,
+                                  fontFamily: "'Google Sans', sans-serif",
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  cursor: updatingStatusId === row.id ? "not-allowed" : "pointer",
+                                  outline: "none",
+                                  opacity: updatingStatusId === row.id ? 0.7 : 1
+                                }}
+                              >
+                                <option value="Pending" style={{ background: "#fff", color: "#202124" }}>Pending</option>
+                                <option value="Paid" style={{ background: "#fff", color: "#202124" }}>Paid</option>
+                              </select>
+                            );
+                          })()}
                         </td>
                         
                         {/* Challan Doc - centered icon */}
@@ -428,8 +585,17 @@ export default function ChallanList({ onAdd, onEdit }) {
                         </td>
                         
                         {/* Remark */}
-                        <td className="wrap-text" style={{ ...tdStyle, color: "#64748b" }}>
-                          {row.remark || <span className="no-file">—</span>}
+                        <td style={{ ...tdStyle, textAlign: "center" }}>
+                          {row.remark ? (
+                            <button
+                              onClick={() => setRemarkPopup(row.remark)}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "#1a73e8", display: "inline-flex", alignItems: "center", padding: 0 }}
+                            >
+                              <EditNotificationsOutlinedIcon style={{ fontSize: 20 }} />
+                            </button>
+                          ) : (
+                            <span className="no-file">—</span>
+                          )}
                         </td>
                         
                         {/* Actions */}
@@ -464,7 +630,62 @@ export default function ChallanList({ onAdd, onEdit }) {
                   </tbody>
                 </table>
               </div>
-            </div>
+
+              {/* ── Pagination ── */}
+              {totalPages > 1 && (
+                <div className="pagination-container">
+                  <button
+                    className="pagination-button"
+                    onClick={goToPreviousPage}
+                    disabled={currentPage === 1}
+                  >
+                    ‹ Previous
+                  </button>
+                  
+                  {getVisiblePages()[0] > 1 && (
+                    <>
+                      <button
+                        className="pagination-button"
+                        onClick={() => goToPage(1)}
+                      >
+                        1
+                      </button>
+                      {getVisiblePages()[0] > 2 && <span className="pagination-ellipsis">...</span>}
+                    </>
+                  )}
+                  
+                  {getVisiblePages().map(page => (
+                    <button
+                      key={page}
+                      className={`pagination-button ${currentPage === page ? 'active' : ''}`}
+                      onClick={() => goToPage(page)}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                  
+                  {getVisiblePages()[getVisiblePages().length - 1] < totalPages && (
+                    <>
+                      {getVisiblePages()[getVisiblePages().length - 1] < totalPages - 1 && <span className="pagination-ellipsis">...</span>}
+                      <button
+                        className="pagination-button"
+                        onClick={() => goToPage(totalPages)}
+                      >
+                        {totalPages}
+                      </button>
+                    </>
+                  )}
+                  
+                  <button
+                    className="pagination-button"
+                    onClick={goToNextPage}
+                    disabled={currentPage === totalPages}
+                  >
+                    Next ›
+                  </button>
+                </div>
+              )}
+            </>
           ) : (
             <div style={{ textAlign: "center", padding: "60px 20px", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, color: "#5f6368", fontSize: 14, fontFamily: "'Google Sans', sans-serif" }}>
               <div style={{ fontWeight: 700, fontSize: 16, color: "#202124", marginBottom: 6 }}>No challans found</div>
@@ -473,6 +694,22 @@ export default function ChallanList({ onAdd, onEdit }) {
           )}
         </div>
       </div>
+
+      {/* ── Remark Popup ── */}
+      {remarkPopup && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }} onClick={() => setRemarkPopup(null)}>
+          <div style={{ background: "#fff", borderRadius: 12, padding: "24px 28px", maxWidth: 400, width: "90vw", boxShadow: "0 20px 60px rgba(0,0,0,0.2)", fontFamily: "'Google Sans', sans-serif" }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+              <EditNotificationsOutlinedIcon style={{ fontSize: 20, color: "#1a73e8" }} />
+              <span style={{ fontWeight: 700, fontSize: 15, color: "#202124" }}>Remark</span>
+            </div>
+            <p style={{ margin: 0, fontSize: 14, color: "#3c3c3c", lineHeight: 1.8, whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "break-word", maxHeight: 300, overflowY: "auto" }}>{remarkPopup}</p>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+              <button onClick={() => setRemarkPopup(null)} style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#1a73e8", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "'Google Sans', sans-serif" }}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Edit Modal ── */}
       {editRow && (
