@@ -266,39 +266,6 @@ export default function ChallanList({ onAdd, onEdit }) {
           max-width: 200px;
         }
 
-        .summary-cards {
-          display: flex;
-          gap: 16px;
-          margin-bottom: 20px;
-          flex-wrap: wrap;
-        }
-        .summary-card {
-          background: #fff;
-          border: 1px solid #e8eaed;
-          border-radius: 12px;
-          padding: 16px 20px;
-          flex: 1;
-          min-width: 150px;
-        }
-        .summary-card-title {
-          font-size: 12px;
-          font-weight: 600;
-          color: #5f6368;
-          text-transform: uppercase;
-          letter-spacing: 0.8px;
-          margin-bottom: 8px;
-        }
-        .summary-card-value {
-          font-size: 28px;
-          font-weight: 700;
-          color: #202124;
-        }
-        .summary-card-sub {
-          font-size: 12px;
-          color: #5f6368;
-          margin-top: 4px;
-        }
-
         /* Scrollable table container */
         .scrollable-table-container {
           flex: 1;
@@ -383,37 +350,172 @@ export default function ChallanList({ onAdd, onEdit }) {
           margin-right: auto;
           font-family: 'Google Sans', sans-serif;
         }
+
+        /* ── Header bar ── */
+        .cl-header-bar {
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 16px;
+          height: 56px;
+          border-bottom: 1px solid #e8eaed;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .cl-header-bar h1 {
+          font-size: 25px;
+          font-weight: 600;
+          color: #0d0d0e;
+          margin: 4px 0;
+          letter-spacing: 0.1px;
+          line-height: 1.2;
+        }
+        .cl-add-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 8px 18px;
+          border-radius: 8px;
+          border: none;
+          background: #1a73e8;
+          color: #fff;
+          font-weight: 700;
+          font-size: 13px;
+          cursor: pointer;
+          font-family: 'Google Sans', sans-serif;
+          box-shadow: 0 2px 8px rgba(26,115,232,0.3);
+          transition: all 0.2s;
+          white-space: nowrap;
+        }
+        .cl-add-btn:hover { background: #1557b0; transform: translateY(-1px); }
+
+        /* ── Filters ── */
+        .cl-filters-wrap {
+          display: flex;
+          gap: 14px;
+          flex-wrap: wrap;
+          align-items: flex-end;
+        }
+        .cl-filter-search {
+          flex: 1;
+          min-width: 200px;
+        }
+        .cl-filter-item {
+          min-width: 140px;
+        }
+        .cl-filter-label {
+          font-size: 12px;
+          font-weight: 600;
+          color: #0a0a0a;
+          display: block;
+          margin-bottom: 6px;
+          text-align: left;
+          letter-spacing: 0.8px;
+          font-family: 'Google Sans', sans-serif;
+        }
+        .cl-filter-input {
+          width: 100%;
+          padding: 9px 12px;
+          border: 1px solid #e8eaed;
+          border-radius: 7px;
+          font-size: 13px;
+          font-family: 'Google Sans', sans-serif;
+          outline: none;
+          transition: border 0.2s, box-shadow 0.2s;
+          box-sizing: border-box;
+        }
+        .cl-filter-input:focus { border-color: #1a73e8; box-shadow: 0 0 0 2px rgba(26,115,232,0.12); }
+
+        /* ── Summary cards ── */
+        .summary-cards {
+          display: flex;
+          gap: 16px;
+          margin-bottom: 20px;
+          flex-wrap: wrap;
+        }
+        .summary-card {
+          background: #fff;
+          border: 1px solid #e8eaed;
+          border-radius: 12px;
+          padding: 16px 20px;
+          flex: 1;
+          min-width: 150px;
+        }
+        .summary-card-title {
+          font-size: 12px;
+          font-weight: 600;
+          color: #5f6368;
+          text-transform: uppercase;
+          letter-spacing: 0.8px;
+          margin-bottom: 8px;
+        }
+        .summary-card-value {
+          font-size: 28px;
+          font-weight: 700;
+          color: #202124;
+        }
+        .summary-card-sub {
+          font-size: 12px;
+          color: #5f6368;
+          margin-top: 4px;
+        }
+
+        /* ── Mobile ── */
+        @media (max-width: 600px) {
+          .cl-header-bar {
+            height: auto;
+            padding: 12px 14px;
+            gap: 10px;
+          }
+          .cl-header-bar h1 { font-size: 20px !important; }
+          .cl-add-btn {
+            width: 100%;
+            justify-content: center;
+            padding: 10px 18px;
+          }
+          .cl-filters-wrap {
+            flex-direction: column;
+            gap: 12px;
+          }
+          .cl-filter-search,
+          .cl-filter-item {
+            width: 100%;
+            min-width: unset;
+            flex: unset;
+          }
+          .cl-filter-item select,
+          .status-select {
+            width: 100% !important;
+          }
+          .summary-cards {
+            gap: 10px;
+          }
+          .summary-card {
+            min-width: calc(50% - 5px);
+            padding: 12px 14px;
+          }
+          .summary-card-value { font-size: 22px; }
+          .pagination-container {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px;
+          }
+          .col-hide-mobile { display: none !important; }
+        }
       `}</style>
 
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* ── Sticky Page Header Bar ── */}
-        <div style={{ 
-          flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", 
-          padding: "0 16px", height: 56, borderBottom: "1px solid #e8eaed", 
-          gap: 8, flexWrap: "wrap" 
-        }}>
-          <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <h1 style={{ fontSize: 25, fontWeight: 600, color: "#0d0d0e", margin: 4, letterSpacing: "0.10px", lineHeight: 1.2 }}>
-              Challan List
-            </h1>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
-            <button 
-              onClick={onAdd} 
-              style={{ 
-                display: "flex", alignItems: "center", gap: 6, padding: "8px 18px", 
-                borderRadius: 8, border: "none", background: "#1a73e8", color: "#fff", 
-                fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Google Sans', sans-serif", 
-                boxShadow: "0 2px 8px rgba(26,115,232,0.3)", transition: "all 0.2s", whiteSpace: "nowrap" 
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = "#1557b0"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "#1a73e8"; e.currentTarget.style.transform = "translateY(0)"; }}
-            >
-              + Add Challan
-            </button>
-          </div>
+        <div className="cl-header-bar">
+          <h1>Challan List</h1>
+          <button
+            className="cl-add-btn"
+            onClick={onAdd}
+          >
+            + Add Challan
+          </button>
         </div>
 
         {/* ── Scrollable Body ── */}
@@ -421,43 +523,33 @@ export default function ChallanList({ onAdd, onEdit }) {
 
           {/* ── Filters Section ── */}
           <div style={{ background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "18px 20px", marginBottom: 20, flexShrink: 0 }}>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div className="cl-filters-wrap">
               {/* Search */}
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#0a0a0a", display: "block", marginBottom: 6, textTransform: "capitalize",textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
-                  Search
-                </label>
+              <div className="cl-filter-search">
+                <label className="cl-filter-label">Search</label>
                 <input 
-                  className="cl-search-input"
+                  className="cl-search-input cl-filter-input"
                   type="text" 
                   placeholder="Search vehicle, challan, offence..."
                   value={search}
                   onChange={e => {
                     setSearch(e.target.value);
-                    setCurrentPage(1); // Reset to first page on search
-                  }}
-                  style={{ 
-                    width: "100%", padding: "9px 12px", border: "1px solid #e8eaed", 
-                    borderRadius: 7, fontSize: 13, fontFamily: "'Google Sans', sans-serif", 
-                    outline: "none", transition: "border 0.2s, box-shadow 0.2s", 
-                    boxSizing: "border-box" 
+                    setCurrentPage(1);
                   }}
                 />
               </div>
 
               {/* Status Filter */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: "#020202", display: "block", marginBottom: 6, textTransform: "capitalize",textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
-                  Status
-                </label>
+              <div className="cl-filter-item">
+                <label className="cl-filter-label">Status</label>
                 <select
                   className="status-select"
                   value={statusFilter}
                   onChange={e => {
                     setStatusFilter(e.target.value);
-                    setCurrentPage(1); // Reset to first page on filter change
+                    setCurrentPage(1);
                   }}
-                  style={{ width: 160, padding: "9px 12px" }}
+                  style={{ width: "100%" }}
                 >
                   <option value="All">All</option>
                   <option value="Paid">Paid</option>
@@ -477,7 +569,7 @@ export default function ChallanList({ onAdd, onEdit }) {
                   <thead>
                     <tr>
                       {HEADERS.map(h => (
-                        <th key={h} style={thStyle}>{h}</th>
+                        <th key={h} className={["Challan Date","Offence Type","Location","Challan Doc","Payment Receipt","Remark"].includes(h) ? "col-hide-mobile" : ""} style={thStyle}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -519,13 +611,13 @@ export default function ChallanList({ onAdd, onEdit }) {
                         <td style={{ ...tdStyle, color: "#1a73e8", fontWeight: 600 }}>{row.challan_no || "—"}</td>
                         
                         {/* Challan Date */}
-                        <td style={tdStyle}>{row.challan_date || "—"}</td>
+                        <td className="col-hide-mobile" style={tdStyle}>{row.challan_date || "—"}</td>
                         
                         {/* Offence Type */}
-                        <td style={tdStyle}>{row.offence_type || "—"}</td>
+                        <td className="col-hide-mobile" style={tdStyle}>{row.offence_type || "—"}</td>
                         
                         {/* Location */}
-                        <td className="wrap-text" style={tdStyle}>{row.location || "—"}</td>
+                        <td className="wrap-text col-hide-mobile" style={tdStyle}>{row.location || "—"}</td>
                         
                         {/* Fine Amount */}
                         <td style={{ ...tdStyle, fontWeight: 600, color: "#0f172a", textAlign: "right" }}>
@@ -563,7 +655,7 @@ export default function ChallanList({ onAdd, onEdit }) {
                         </td>
                         
                         {/* Challan Doc - centered icon */}
-                        <td style={{ ...tdStyle, textAlign: "center" }}>
+                        <td className="col-hide-mobile" style={{ ...tdStyle, textAlign: "center" }}>
                           {row.challan_doc_url ? (
                             <a className="file-link" href={row.challan_doc_url} target="_blank" rel="noreferrer">
                               <VisibilityOutlinedIcon style={{ fontSize: 18 }} />
@@ -574,7 +666,7 @@ export default function ChallanList({ onAdd, onEdit }) {
                         </td>
                         
                         {/* Payment Receipt - centered icon */}
-                        <td style={{ ...tdStyle, textAlign: "center" }}>
+                        <td className="col-hide-mobile" style={{ ...tdStyle, textAlign: "center" }}>
                           {row.payment_receipt_url ? (
                             <a className="file-link" href={row.payment_receipt_url} target="_blank" rel="noreferrer">
                               <VisibilityOutlinedIcon style={{ fontSize: 18 }} />
@@ -585,7 +677,7 @@ export default function ChallanList({ onAdd, onEdit }) {
                         </td>
                         
                         {/* Remark */}
-                        <td style={{ ...tdStyle, textAlign: "center" }}>
+                        <td className="col-hide-mobile" style={{ ...tdStyle, textAlign: "center" }}>
                           {row.remark ? (
                             <button
                               onClick={() => setRemarkPopup(row.remark)}

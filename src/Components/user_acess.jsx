@@ -204,8 +204,21 @@ function UserAvatar({ user, isActive, size = 36 }) {
   return <div style={avatarBase}>{initials}</div>;
 }
 
+// ── Hook: window width ────────────────────────────────────────────────────────
+function useWindowWidth() {
+  const [width, setWidth] = useState(() => typeof window !== "undefined" ? window.innerWidth : 1024);
+  useEffect(() => {
+    const handler = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return width;
+}
+
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function RoleAccess() {
+  const windowWidth = useWindowWidth();
+  const isMobile = windowWidth <= 600;
   const [users, setUsers]               = useState([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [search, setSearch]             = useState("");
@@ -224,6 +237,8 @@ export default function RoleAccess() {
     MENU_GROUPS.forEach(g => { init[g.group] = true; });
     return init;
   });
+
+  const [mobileView, setMobileView] = useState("users"); // "users" | "perms"
 
   // ── Fetch all users (only those created in user_list.jsx) ──────────────────────────────────────────────────────────
   const fetchUsers = useCallback(async () => {
@@ -421,9 +436,9 @@ export default function RoleAccess() {
   // ── Render ───────────────────────────────────────────────────────────────────
   return (
     <div style={{
-      display: "flex", width: "100%", height: "100%",
+      display: "flex", flexDirection: "column", width: "100%", height: "100%",
       background: "#f8f9fa", fontFamily: "'Google Sans', sans-serif",
-      overflow: "hidden", textAlign: "left",
+      overflow: "hidden", textAlign: "left", position: "relative",
     }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
@@ -444,13 +459,84 @@ export default function RoleAccess() {
           padding-right: 28px !important;
         }
         .ua-dirty-dot { width:7px; height:7px; border-radius:50%; background:#f59e0b; display:inline-block; margin-left:4px; flex-shrink:0; }
+
+        /* ── Mobile: stack panels, show only active one ── */
+        @media (max-width: 600px) {
+          .ua-left-panel {
+            width: 100% !important;
+            min-width: 0 !important;
+            border-right: none !important;
+            border-bottom: 1px solid #e8eaed;
+          }
+          .ua-right-panel {
+            width: 100% !important;
+            flex: unset !important;
+          }
+          .ua-mobile-tab-bar {
+            display: flex !important;
+          }
+          .ua-perm-header-actions {
+            flex-wrap: wrap !important;
+            gap: 6px !important;
+          }
+          .ua-perm-header-actions button {
+            padding: 6px 10px !important;
+            font-size: 12px !important;
+          }
+          .ua-save-bar {
+            padding: 10px 16px !important;
+          }
+          .ua-save-bar button {
+            width: 100% !important;
+            justify-content: center !important;
+          }
+        }
+        .ua-mobile-tab-bar {
+          display: none;
+          border-bottom: 1px solid #e8eaed;
+          background: #fff;
+          flex-shrink: 0;
+        }
+        .ua-tab-btn {
+          flex: 1;
+          padding: 12px 8px;
+          border: none;
+          background: none;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          color: #5f6368;
+          border-bottom: 3px solid transparent;
+          transition: all 0.15s;
+        }
+        .ua-tab-btn.active {
+          color: #1a73e8;
+          border-bottom-color: #1a73e8;
+        }
       `}</style>
 
+      {/* Mobile tab bar */}
+      <div style={{ flexShrink: 0 }} className="ua-mobile-tab-bar">
+        <button className={`ua-tab-btn ${mobileView === "users" ? "active" : ""}`} onClick={() => setMobileView("users")}>
+          👥 Users ({users.length})
+        </button>
+        <button className={`ua-tab-btn ${mobileView === "perms" ? "active" : ""}`} onClick={() => setMobileView("perms")} disabled={!selectedUser}>
+          🔐 Permissions{selectedUser ? ` — ${selectedUser.full_name || selectedUser.username}` : ""}
+        </button>
+      </div>
+
+      {/* Panels row */}
+      <div style={{ display: "flex", flex: 1, overflow: "hidden", minHeight: 0 }}>
+
       {/* ═══ LEFT PANEL: User List ═══════════════════════════════════════════ */}
-      <div style={{
-        width: "300px", minWidth: "260px", flexShrink: 0,
-        background: "#ffffff", borderRight: "1px solid #e8eaed",
-        display: "flex", flexDirection: "column", height: "100%",
+      <div className="ua-left-panel" style={{
+        width: isMobile ? "100%" : "300px",
+        minWidth: isMobile ? 0 : "260px",
+        flexShrink: 0,
+        background: "#ffffff",
+        borderRight: isMobile ? "none" : "1px solid #e8eaed",
+        display: isMobile && mobileView !== "users" ? "none" : "flex",
+        flexDirection: "column", height: "100%",
       }}>
         <div style={{ padding: "18px 16px 12px", borderBottom: "1px solid #e8eaed", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "12px" }}>
@@ -503,7 +589,7 @@ export default function RoleAccess() {
                   <div
                     key={user.id}
                     className={`ua-user-row ${isActive ? "active" : ""}`}
-                    onClick={() => { setSelectedUser(user); setSaved(false); setSaveError(""); }}
+                    onClick={() => { setSelectedUser(user); setSaved(false); setSaveError(""); setMobileView("perms"); }}
                     style={{
                       display: "flex", alignItems: "center", gap: "12px",
                       padding: "10px 16px", cursor: "pointer",
@@ -532,7 +618,10 @@ export default function RoleAccess() {
       </div>
 
       {/* ═══ RIGHT PANEL: Permissions ════════════════════════════════════════ */}
-      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0, height: "100%" }}>
+      <div className="ua-right-panel" style={{
+        flex: 1, display: isMobile && mobileView !== "perms" ? "none" : "flex",
+        flexDirection: "column", minWidth: 0, height: "100%",
+      }}>
         {!selectedUser ? (
           <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9aa0a6", fontSize: "14px" }}>
             Select a user to manage permissions
@@ -570,7 +659,7 @@ export default function RoleAccess() {
                 </div>
               </div>
 
-              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }} className="ua-perm-header-actions">
                 {saved && <span style={{ fontSize: "12px", color: "#188038", fontWeight: 600 }}>✓ Saved</span>}
                 {saveError && (
                   <span style={{ fontSize: "12px", color: "#d93025", fontWeight: 500, maxWidth: "200px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={saveError}>
@@ -652,7 +741,7 @@ export default function RoleAccess() {
             </div>
 
             {/* Save bar */}
-            <div style={{
+            <div className="ua-save-bar" style={{
               padding: "14px 24px", borderTop: "1px solid #e8eaed",
               background: "#fff", flexShrink: 0,
               display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "12px",
@@ -692,7 +781,8 @@ export default function RoleAccess() {
             </div>
           </>
         )}
-      </div>
+      </div>{/* end right panel */}
+      </div>{/* end panels row */}
     </div>
   );
 }

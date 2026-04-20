@@ -177,6 +177,7 @@ export default function Layout({ children }) {
     claimsmenu: false,   // ── NEW
   });
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [challanView, setChallanView] = useState("list");
   const [claimsView, setClaimsView] = useState("list");
 
@@ -240,6 +241,7 @@ export default function Layout({ children }) {
   const toggleSection = (id) => setOpen(p => ({ ...p, [id]: !p[id] }));
   const handleNav = (id, parentId) => {
     setActive(id);
+    setMobileOpen(false);
     if (parentId) setOpen(p => ({ ...p, [parentId]: true }));
     if (id !== "vm_service") setChallanView("list");
     if (id !== "cl_list") setClaimsView("list");
@@ -324,6 +326,82 @@ export default function Layout({ children }) {
         .logout-btn:hover .logout-icon { transform:rotate(90deg); }
         .logout-text { font-size:13px; font-weight:500; color:#202124; }
         .main { flex:1; min-width:0; display:flex; flex-direction:column; height:100vh; overflow:hidden; background:var(--bg); }
+
+        /* ── Mobile hamburger ── */
+        .mobile-topbar {
+          display: none;
+          align-items: center;
+          gap: 12px;
+          padding: 0 16px;
+          height: 52px;
+          background: #fff;
+          border-bottom: 1px solid #e8eaed;
+          flex-shrink: 0;
+          position: sticky;
+          top: 0;
+          z-index: 100;
+        }
+        .hamburger-btn {
+          display: flex; align-items: center; justify-content: center;
+          width: 36px; height: 36px;
+          border: none; background: none; cursor: pointer;
+          border-radius: 8px; padding: 6px;
+          transition: background 0.15s;
+        }
+        .hamburger-btn:hover { background: #f1f3f4; }
+        .mobile-topbar-logo { height: 28px; object-fit: contain; }
+
+        /* ── Overlay backdrop ── */
+        .sb-overlay {
+          display: none;
+          position: fixed; inset: 0;
+          background: rgba(0,0,0,0.35);
+          z-index: 200;
+          animation: fadeIn 0.2s ease;
+        }
+        .sb-overlay.open { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        @media (max-width: 768px) {
+          .shell { position: relative; }
+
+          /* Hide desktop collapse button on mobile */
+          .collapse-btn-header { display: none !important; }
+
+          /* Sidebar becomes a fixed drawer */
+          .sidebar {
+            position: fixed !important;
+            top: 0; left: 0;
+            height: 100vh !important;
+            width: 260px !important;
+            min-width: 260px !important;
+            z-index: 300;
+            transform: translateX(-100%);
+            transition: transform 0.28s cubic-bezier(0.4,0,0.2,1) !important;
+            box-shadow: none;
+          }
+          .sidebar.mobile-drawer-open {
+            transform: translateX(0);
+            box-shadow: 4px 0 24px rgba(0,0,0,0.15);
+          }
+          /* Always show full labels in mobile drawer */
+          .sidebar.collapsed .sb-sec-lbl,
+          .sidebar.collapsed .sb-child-label,
+          .sidebar.collapsed .sb-chevron,
+          .sidebar.collapsed .sb-group-label { display: block !important; }
+          .sidebar.collapsed .sb-sec { justify-content: flex-start !important; padding: 11px 22px !important; }
+          .sidebar.collapsed .sb-child { justify-content: flex-start !important; padding: 8px 22px 8px 46px !important; }
+          .sidebar.collapsed .sb-footer { padding: 12px 16px !important; }
+          .sidebar.collapsed .sb-user-section { justify-content: flex-start !important; }
+          .sidebar.collapsed .sb-user-info { display: block !important; }
+          .sidebar.collapsed .sb-divider { margin: 6px 22px !important; }
+
+          /* Show mobile topbar */
+          .mobile-topbar { display: flex; }
+
+          /* Main area fills full width */
+          .main { width: 100vw; }
+        }
         .page { flex:1; padding:28px; overflow-y:auto; }
         .page-full { flex:1; display:flex; flex-direction:column; overflow:hidden; }
         .page-full-scroll { flex:1; display:flex; flex-direction:column; overflow-y:auto; }
@@ -372,8 +450,11 @@ export default function Layout({ children }) {
 
       <div className={`shell ${isCollapsed ? 'collapsed' : ''}`} style={{ '--sidebar-width': sidebarWidth }}>
 
+        {/* ── Mobile overlay backdrop ── */}
+        <div className={`sb-overlay${mobileOpen ? ' open' : ''}`} onClick={() => setMobileOpen(false)} />
+
         {/* ── SIDEBAR ── */}
-        <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`}>
+        <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-drawer-open' : ''}`}>
           <div className="sb-header">
             <div className="sb-logo">
               {isCollapsed ? (
@@ -451,6 +532,18 @@ export default function Layout({ children }) {
 
         {/* ── MAIN ── */}
         <div className="main">
+
+          {/* ── Mobile top bar ── */}
+          <div className="mobile-topbar">
+            <button className="hamburger-btn" onClick={() => setMobileOpen(true)} aria-label="Open menu">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round">
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
+            </button>
+            <img src={floshLogo} alt="Flosh" className="mobile-topbar-logo" />
+          </div>
 
           {isVehiclePage && (
             <div className="page-full"><VehicleMaster /></div>

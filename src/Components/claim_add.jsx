@@ -1,746 +1,618 @@
-// MobileResponsiveClaimsAdd.jsx - Enhanced mobile version with touch optimizations
-import { useState, useRef, useEffect } from "react";
-import CameraswitchOutlinedIcon from "@mui/icons-material/CameraswitchOutlined";
-import { createClaim, saveDraftClaim } from "../service/claims";
-import CloseIcon from "@mui/icons-material/Close";
-import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { getVehicles } from "../service/vehiclemaster";
+import { createChallan, updateChallan } from "../service/challan";
 
-const expenseTypes = [
-  { value: "", label: "Select Expense Type" },
-  { value: "self_expense", label: "Self Expense" },
-  { value: "travel_expense", label: "Travel Expense" },
-  { value: "food_expense", label: "Food Expense" },
-  { value: "accommodation", label: "Accommodation Expense" },
-  { value: "fuel", label: "Fuel Expense" },
-  { value: "parking", label: "Parking Expense" },
-  { value: "toll", label: "Toll Expense" },
+const offenceTypes = [
+  "Signal Jumping","Over Speeding","Drunk Driving","Wrong Parking",
+  "No Helmet","No Seatbelt","Using Mobile While Driving","Overloading",
+  "No License","No Insurance","Triple Riding","Lane Violation","Other",
 ];
 
-const BASE_URL = "https://flasherp.in/api";
-const DEPARTMENTS_API_URL = `${BASE_URL}/claims/departments/`;
+const today = new Date().toISOString().split("T")[0];
 
-const initialForm = {
-  expenseType: "",
-  department: "",
-  clientName: "",
-  purpose: "",
-  amount: "",
-  notes: "",
-  receipt: null,
-};
+function ChallanAdd({ onBack, onSuccess, initialData }) {
+  const isEdit = Boolean(initialData?.id);
 
-function Field({ label, required, error, children }) {
-  return (
-    <div style={s.fieldWrap}>
-      <label style={s.label}>
-        {label} {required && <span style={s.required}>*</span>}
-      </label>
-      {children}
-      {error && <span style={s.errorMsg}>{error}</span>}
-    </div>
-  );
-}
-
-export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
-  const [form, setForm] = useState(initialForm);
-  const [errors, setErrors] = useState({});
-  const [submitted, setSubmitted] = useState(false);
-  const [isDraft, setIsDraft] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const [receiptPreview, setReceiptPreview] = useState(null);
+  const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [apiError, setApiError] = useState("");
-  const [isMobile, setIsMobile] = useState(false);
-  const [departments, setDepartments] = useState([{ value: "", label: "Select Department" }]);
-  const [deptLoading, setDeptLoading] = useState(true);
-  const fileInputRef = useRef();
+  const [error, setError] = useState(null);
 
-  // Detect mobile
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
+  const fetchVehicles = useCallback(async () => {
+    try {
+      const data = await getVehicles({ status: "Active" });
+      const list = Array.isArray(data) ? data : (data.results || []);
+      setVehicles(list);
+    } catch (err) {
+      console.error("Failed to load vehicles:", err);
+      setError("Failed to load vehicles. Please refresh.");
+    }
   }, []);
 
-  // Fetch departments from API
-  useEffect(() => {
-    async function loadDepartments() {
-      try {
-        const token = localStorage.getItem("access_token");
-        const res = await fetch(DEPARTMENTS_API_URL, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (!res.ok) throw new Error("Failed to fetch departments");
-        const data = await res.json();
-        const results = data?.results ?? data;
-        if (Array.isArray(results)) {
-          setDepartments([
-            { value: "", label: "Select Department" },
-            ...results.map((d) => ({
-              value: d.department,   // store the name so it displays directly everywhere
-              label: d.department,
-            })),
-          ]);
-        }
-      } catch (err) {
-        console.error("Department fetch error:", err);
-        // Keep placeholder on error
-        setDepartments([{ value: "", label: "Select Department" }]);
-      } finally {
-        setDeptLoading(false);
-      }
-    }
-    loadDepartments();
-  }, []);
+  useEffect(() => { fetchVehicles(); }, [fetchVehicles]);
 
-  const validate = (isDraftSave = false) => {
-    const newErrors = {};
-    if (!form.expenseType) newErrors.expenseType = "Expense type is required.";
-    if (!form.department) newErrors.department = "Department is required.";
-    if (!isDraftSave) {
-      if (!form.clientName.trim()) newErrors.clientName = "Client name is required.";
-      if (!form.purpose.trim()) newErrors.purpose = "Purpose is required.";
-      if (!form.amount || isNaN(form.amount) || Number(form.amount) <= 0)
-        newErrors.amount = "Enter a valid amount.";
-    }
-    return newErrors;
+  const buildInitial = () => ({
+    vehicle:       initialData?.vehicle        ?? "",
+    date:          initialData?.date           ?? today,
+    challanNo:     initialData?.challan_no     ?? "",
+    challanDate:   initialData?.challan_date   ?? today,
+    offenceType:   initialData?.offence_type   ?? "",
+    location:      initialData?.location       ?? "",
+    fineAmount:    initialData?.fine_amount     ?? "",
+    paymentStatus: initialData?.payment_status ?? "Pending",
+    remark:        initialData?.remark         ?? "",
+  });
+
+  const [form, setForm]                   = useState(buildInitial);
+  const [challanDoc, setChallanDoc]       = useState(null);
+  const [paymentReceipt, setPaymentReceipt] = useState(null);
+  const [submitted, setSubmitted]         = useState(false);
+  const [errors, setErrors]               = useState({});
+  const challanDocRef = useRef();
+  const receiptRef    = useRef();
+
+  // Re-populate form whenever initialData changes (e.g. switching between edit records)
+  useEffect(() => {
+    setForm(buildInitial());
+    setChallanDoc(null);
+    setPaymentReceipt(null);
+    setErrors({});
+    setError(null);
+  }, [initialData?.id]);
+
+  const validate = () => {
+    const e = {};
+    if (!form.vehicle || form.vehicle === "")
+      e.vehicle = "Required";
+    if (!form.challanNo)   e.challanNo   = "Required";
+    if (!form.challanDate) e.challanDate = "Required";
+    if (!form.offenceType) e.offenceType = "Required";
+    if (!form.fineAmount || isNaN(form.fineAmount) || Number(form.fineAmount) <= 0)
+      e.fineAmount = "Enter a valid amount greater than 0";
+    return e;
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    if (errors[name]) setErrors((prev) => ({ ...prev, [name]: undefined }));
-    if (apiError) setApiError("");
+    setForm(f => ({ ...f, [name]: value }));
+    setErrors(err => ({ ...err, [name]: undefined }));
   };
 
-  const handleFile = (file) => {
-    if (!file) return;
-    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-    if (!allowed.includes(file.type)) {
-      setErrors((prev) => ({ ...prev, receipt: "Only JPG, PNG, WEBP or PDF allowed." }));
-      return;
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      setErrors((prev) => ({ ...prev, receipt: "File size must be under 5 MB." }));
-      return;
-    }
-    setForm((prev) => ({ ...prev, receipt: file }));
-    setErrors((prev) => ({ ...prev, receipt: undefined }));
-    if (file.type.startsWith("image/")) {
-      const reader = new FileReader();
-      reader.onload = (e) => setReceiptPreview(e.target.result);
-      reader.readAsDataURL(file);
-    } else {
-      setReceiptPreview("pdf");
-    }
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    handleFile(e.dataTransfer.files[0]);
-  };
-
-  const removeReceipt = () => {
-    setForm((prev) => ({ ...prev, receipt: null }));
-    setReceiptPreview(null);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+  const handleFile = (e, setter) => {
+    const f = e.target.files[0];
+    if (f) setter(f);
   };
 
   const handleSubmit = async () => {
-    const validationErrors = validate(false);
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
+    const e = validate();
+    if (Object.keys(e).length) { setErrors(e); return; }
+
     setLoading(true);
-    setApiError("");
+    setError(null);
+
     try {
-      const createdClaim = await createClaim(form);
-      setIsDraft(false);
+      const payload = {
+        vehicle:       form.vehicle,
+        date:          form.date,
+        challanNo:     form.challanNo,
+        challanDate:   form.challanDate,
+        offenceType:   form.offenceType,
+        location:      form.location || "N/A",
+        fineAmount:    form.fineAmount,
+        paymentStatus: form.paymentStatus,
+        remark:        form.remark,
+        challanDoc:    challanDoc,
+        paymentReceipt: paymentReceipt,
+      };
+
+      if (isEdit) {
+        await updateChallan(initialData.id, payload);
+      } else {
+        await createChallan(payload);
+      }
+
       setSubmitted(true);
-      if (onSuccess) onSuccess({ ...createdClaim, _localReceiptPreview: receiptPreview });
+      setTimeout(() => {
+        setSubmitted(false);
+        handleReset();
+        if (onSuccess) onSuccess();
+        else if (onBack) onBack();
+      }, 2000);
+
     } catch (err) {
-      setApiError(err.message || "Failed to submit claim. Please try again.");
+      console.error("Submission failed:", err);
+      const messages = Object.entries(err)
+        .filter(([k]) => k !== "_status")
+        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
+        .join(" | ");
+      setError(messages || "Failed to submit challan. Please try again.");
+    } finally {
       setLoading(false);
     }
   };
 
-  const handleSaveDraft = async () => {
-    const validationErrors = validate(true);
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
-    setLoading(true);
-    setApiError("");
-    try {
-      const draftClaim = await saveDraftClaim(form);
-      setIsDraft(true);
-      setSubmitted(true);
-      if (onSuccess) onSuccess({ ...draftClaim, _localReceiptPreview: receiptPreview });
-    } catch (err) {
-      setApiError(err.message || "Failed to save draft. Please try again.");
-      setLoading(false);
-    }
+  const handleReset = () => {
+    setForm(buildInitial());
+    setChallanDoc(null);
+    setPaymentReceipt(null);
+    setErrors({});
+    setError(null);
   };
 
-  const handleClose = () => {
-    if (onCancel) onCancel();
-  };
+  const Sel = ({ children }) => (
+    <div style={{ position:"relative" }}>
+      {children}
+      <span style={s.chevron}>▾</span>
+    </div>
+  );
+  const Sep = () => <hr style={s.sep} />;
+  const Section = ({ title }) => <div style={s.section}>{title}</div>;
 
-  if (submitted) {
-    return (
-      <div style={mobileSuccessStyles.container}>
-        <div style={mobileSuccessStyles.card}>
-          <div
-            style={{
-              ...mobileSuccessStyles.icon,
-              background: isDraft ? "#64748b" : "#10b981",
-            }}
-          >
-            {isDraft ? "📋" : "✓"}
-          </div>
-          <h2 style={mobileSuccessStyles.title}>
-            {isDraft ? "Draft Saved!" : "Claim Submitted!"}
-          </h2>
-          <p style={mobileSuccessStyles.message}>
-            {isDraft
-              ? "Your claim draft has been saved."
-              : `₹${Number(form.amount).toLocaleString("en-IN")} submitted successfully`}
-          </p>
-          <button onClick={handleClose} style={mobileSuccessStyles.closeButton}>
-            Close
-          </button>
-        </div>
-      </div>
-    );
-  }
+  return (
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
+        *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+        body { background:#f0f4f8; font-family: 'Google Sans', sans-serif; }
 
-  // Mobile form layout
-  if (isMobile) {
-    return (
-      <div style={mobileFormStyles.container}>
-        <div style={mobileFormStyles.header}>
-          <button style={mobileFormStyles.backBtn} onClick={onCancel}>
-            <ArrowBackIcon />
-          </button>
-          <h1 style={mobileFormStyles.title}>New Claim</h1>
-          <div style={{ width: 40 }} />
-        </div>
+        input[type=date]::-webkit-calendar-picker-indicator { cursor:pointer; }
+        input[type=number]::-webkit-inner-spin-button { -webkit-appearance:none; }
 
-        {apiError && (
-          <div style={mobileFormStyles.errorBanner}>
-            ⚠️ {apiError}
-          </div>
-        )}
+        /* ── Base field styles ── */
+        .ci, .cs, .ct {
+          width:100%;
+          background:#fff;
+          border:1px solid #e6e1e1;
+          border-radius:8px;
+          color:black;
+          font-family:'Google Sans', sans-serif;
+          font-size:14px;
+          padding:9px 13px;
+          outline:none;
+          appearance:none;
+          transition:border-color .2s, box-shadow .2s;
+        }
+        .ci:focus,.cs:focus,.ct:focus {
+          border-color:#2563eb;
+          box-shadow:0 0 0 3px rgba(37,99,235,.13);
+        }
+        .ci.err,.cs.err { border-color:#ef4444; }
+        .cs option { background:#fff; color:#1e293b; }
+        .ct { resize:vertical; min-height:84px; }
 
-        <div style={mobileFormStyles.form}>
-          <Field label="Department" required error={errors.department}>
-            <select
-              name="department"
-              value={form.department}
-              onChange={handleChange}
-              style={mobileFormStyles.select}
-              disabled={deptLoading}
-            >
-              {deptLoading
-                ? <option value="">Loading departments…</option>
-                : departments.map((d) => (
-                    <option key={d.value || "placeholder"} value={d.value}>{d.label}</option>
-                  ))
-              }
-            </select>
-          </Field>
+        /* ── File upload button ── */
+        .cfile {
+          display:flex;
+          align-items:center;
+          gap:10px;
+          width:100%;
+          background:#f8fafc;
+          border:1px dashed #cbd5e1;
+          border-radius:8px;
+          padding:9px 14px;
+          color:#94a3b8;
+          font-family:'Google Sans', sans-serif;
+          font-size:14px;
+          cursor:pointer;
+          transition:all .18s;
+          text-align:left;
+        }
+        .cfile:hover { border-color:#2563eb; color:#2563eb; background:#eff6ff; }
 
-          <Field label="Expense Type" required error={errors.expenseType}>
-            <select
-              name="expenseType"
-              value={form.expenseType}
-              onChange={handleChange}
-              style={mobileFormStyles.select}
-            >
-              {expenseTypes.map((t) => (
-                <option key={t.value} value={t.value}>{t.label}</option>
-              ))}
-            </select>
-          </Field>
+        /* ── Action buttons ── */
+        .cbtn-submit {
+          padding:11px 34px;
+          background:linear-gradient(135deg,#2563eb,#1d4ed8);
+          border:none;
+          border-radius:9px;
+          color:#fff;
+          font-family:'Google Sans', sans-serif;
+          font-weight:700;
+          font-size:.88rem;
+          letter-spacing:.04em;
+          cursor:pointer;
+          box-shadow:0 4px 14px rgba(37,99,235,.3);
+          transition:opacity .2s,transform .15s;
+        }
+        .cbtn-submit:disabled { opacity:.6; cursor:not-allowed; }
+        .cbtn-submit:hover:not(:disabled) { opacity:.88; transform:translateY(-1px); }
 
-          <Field label="Client Name" required error={errors.clientName}>
-            <input
-              type="text"
-              name="clientName"
-              placeholder="Enter client name"
-              value={form.clientName}
-              onChange={handleChange}
-              style={mobileFormStyles.input}
-            />
-          </Field>
+        .cbtn-reset, .cbtn-cancel {
+          padding:11px 22px;
+          background:#fff;
+          border:1px solid #d1d9e0;
+          border-radius:9px;
+          color:#64748b;
+          font-family:'Google Sans', sans-serif;
+          font-size:.86rem;
+          cursor:pointer;
+          transition:all .18s;
+        }
+        .cbtn-reset:hover { background:#f1f5f9; color:#1e293b; border-color:#94a3b8; }
+        .cbtn-cancel:hover { background:#ffff; color:#757272; border-color:#757272; }
 
-          <Field label="Amount (₹)" required error={errors.amount}>
-            <input
-              type="number"
-              name="amount"
-              placeholder="0.00"
-              value={form.amount}
-              onChange={handleChange}
-              style={mobileFormStyles.input}
-            />
-          </Field>
+        /* ── Toast ── */
+        .ctoast {
+          position:fixed;
+          bottom:28px;
+          left:50%;
+          transform:translateX(-50%) translateY(70px);
+          background:#fff;
+          border:1px solid rgba(34,197,94,.4);
+          border-radius:10px;
+          padding:12px 22px;
+          display:flex;
+          align-items:center;
+          gap:10px;
+          font-size:.86rem;
+          color:#16a34a;
+          box-shadow:0 8px 30px rgba(0,0,0,.1);
+          transition:transform .4s cubic-bezier(.34,1.56,.64,1),opacity .3s;
+          opacity:0;
+          z-index:999;
+          white-space:nowrap;
+        }
+        .ctoast.show { transform:translateX(-50%) translateY(0); opacity:1; }
 
-          <Field label="Purpose" required error={errors.purpose}>
-            <input
-              type="text"
-              name="purpose"
-              placeholder="Briefly describe the purpose"
-              value={form.purpose}
-              onChange={handleChange}
-              style={mobileFormStyles.input}
-            />
-          </Field>
+        /* ══════════════════════════════════
+           MOBILE RESPONSIVE — ≤ 600px
+        ══════════════════════════════════ */
+        @media (max-width: 600px) {
 
-          <Field label="Receipt" error={errors.receipt}>
-            {!receiptPreview ? (
-              <div
-                style={mobileFormStyles.dropZone}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <CameraswitchOutlinedIcon style={{ fontSize: 28, color: "#64748b" }} />
-                <div style={mobileFormStyles.dropText}>Tap to upload receipt</div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  style={{ display: "none" }}
-                  onChange={(e) => handleFile(e.target.files[0])}
-                />
-              </div>
-            ) : (
-              <div style={mobileFormStyles.receiptPreview}>
-                {receiptPreview === "pdf" ? (
-                  <span>📄 {form.receipt?.name}</span>
-                ) : (
-                  <img src={receiptPreview} alt="Preview" style={mobileFormStyles.previewImg} />
-                )}
-                <button style={mobileFormStyles.removeBtn} onClick={removeReceipt}>
-                  <CloseIcon style={{ fontSize: 16 }} />
+          /* Root padding tight on mobile */
+          .c-root-mobile {
+            padding: 0 !important;
+            background: #f0f4f8 !important;
+          }
+
+          /* Card becomes full-bleed sheet */
+          .c-card-mobile {
+            border-radius: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 16px 16px 100px !important;
+            min-height: 100vh !important;
+          }
+
+          /* Page title row (back button + title) */
+          .c-header-mobile {
+            display: flex !important;
+            align-items: center !important;
+            gap: 10px !important;
+            margin-bottom: 16px !important;
+            padding-bottom: 12px !important;
+            border-bottom: 1px solid #e2e8f0 !important;
+          }
+          .c-header-mobile h4 {
+            font-size: 17px !important;
+          }
+
+          /* All inline grid rows become single column */
+          .c-inline-row-mobile {
+            grid-template-columns: 1fr !important;
+            gap: 12px !important;
+          }
+
+          /* Inputs & selects: larger touch targets, prevent iOS zoom */
+          .ci, .cs, .ct {
+            font-size: 16px !important;
+            padding: 12px 13px !important;
+            border-radius: 10px !important;
+          }
+          .ct { min-height: 90px !important; }
+
+          /* File upload button */
+          .cfile {
+            font-size: 14px !important;
+            padding: 14px 14px !important;
+            border-radius: 10px !important;
+            justify-content: center !important;
+            flex-direction: column !important;
+            gap: 6px !important;
+            min-height: 72px !important;
+          }
+
+          /* Section headings */
+          .c-section-mobile {
+            font-size: 13px !important;
+            margin-top: 4px !important;
+          }
+
+          /* Labels */
+          .c-label-mobile {
+            font-size: 13px !important;
+          }
+
+          /* Action bar: fixed to bottom, full-width buttons */
+          .c-actions-mobile {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            background: #fff !important;
+            border-top: 1px solid #e2e8f0 !important;
+            padding: 12px 16px !important;
+            display: flex !important;
+            gap: 10px !important;
+            z-index: 100 !important;
+            margin-top: 0 !important;
+            padding-top: 12px !important;
+            border-top-left-radius: 0 !important;
+            border-top-right-radius: 0 !important;
+            box-shadow: 0 -4px 16px rgba(0,0,0,.08) !important;
+          }
+          .c-actions-mobile .cbtn-reset,
+          .c-actions-mobile .cbtn-cancel {
+            flex: 1 !important;
+            padding: 13px 10px !important;
+            font-size: 14px !important;
+            border-radius: 10px !important;
+            text-align: center !important;
+          }
+          .c-actions-mobile .cbtn-submit {
+            flex: 2 !important;
+            padding: 13px 10px !important;
+            font-size: 15px !important;
+            border-radius: 10px !important;
+            text-align: center !important;
+          }
+
+          /* Toast bottom offset so it clears the action bar */
+          .ctoast {
+            bottom: 80px !important;
+            font-size: 13px !important;
+            padding: 10px 18px !important;
+            max-width: 90vw !important;
+            white-space: normal !important;
+            text-align: center !important;
+          }
+        }
+
+        /* ── Tablet tweaks: 601–900px ── */
+        @media (min-width: 601px) and (max-width: 900px) {
+          .ci, .cs, .ct {
+            font-size: 15px !important;
+            padding: 10px 13px !important;
+          }
+          .c-card-mobile {
+            padding: 20px 24px !important;
+          }
+        }
+      `}</style>
+
+      <div style={s.root} className="c-root-mobile">
+        <div style={s.container}>
+          <div style={s.card} className="c-card-mobile">
+            <div className="c-header-mobile" style={{ display:"flex", alignItems:"center", gap:10, marginBottom:16 }}>
+              {onBack && (
+                <button onClick={onBack} style={{ background:"none", border:"none", cursor:"pointer", padding:"4px 6px", borderRadius:6, color:"#2563eb", display:"flex", alignItems:"center" }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#2563eb" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg>
                 </button>
+              )}
+              <h4 style={{ textAlign:"left", fontSize:"20px", fontWeight:"bold", fontFamily:"'Google Sans', sans-serif" }}>
+                {isEdit ? "Edit Challan" : "Add New Challan"}
+              </h4>
+            </div>
+            <Section title="Basic Information" />
+
+            <div style={s.inlineRow} className="c-inline-row-mobile">
+              <div style={s.inlineField}>
+                <label style={s.inlineLabel} className="c-label-mobile">Vehicle <span style={s.req}>*</span></label>
+                <Sel>
+                  <select name="vehicle" className={`cs${errors.vehicle?" err":""}`}
+                    value={form.vehicle} onChange={handleChange}>
+                    <option value="">— Select Vehicle —</option>
+                    {vehicles.map(v => (
+                      <option key={v.id} value={v.id}>
+                        {v.registration_number} - {v.vehicle_name || v.model}
+                      </option>
+                    ))}
+                  </select>
+                </Sel>
+                {errors.vehicle && <div style={s.errText}>{errors.vehicle}</div>}
+              </div>
+              <div style={s.inlineField}>
+                <label style={s.inlineLabel}>Detail Date (Violation Date)</label>
+                <input type="date" name="date" className="ci"
+                  value={form.date} onChange={handleChange} />
+              </div>
+            </div>
+
+            <div style={s.inlineRow} className="c-inline-row-mobile">
+              <div style={s.inlineField}>
+                <label style={s.inlineLabel} className="c-label-mobile">Challan No <span style={s.req}>*</span></label>
+                <input type="text" name="challanNo"
+                  className={`ci${errors.challanNo?" err":""}`}
+                  placeholder="e.g. CH-2024-00123"
+                  value={form.challanNo} onChange={handleChange} />
+                {errors.challanNo && <div style={s.errText}>{errors.challanNo}</div>}
+              </div>
+              <div style={s.inlineField}>
+                <label style={s.inlineLabel}>Challan Date <span style={s.req}>*</span></label>
+                <input type="date" name="challanDate"
+                  className={`ci${errors.challanDate?" err":""}`}
+                  value={form.challanDate} onChange={handleChange} />
+                {errors.challanDate && <div style={s.errText}>{errors.challanDate}</div>}
+              </div>
+            </div>
+
+            <Sep />
+            <Section title="Offence Details" />
+
+            <div style={s.inlineRow} className="c-inline-row-mobile">
+              <div style={s.inlineField}>
+                <label style={s.inlineLabel} className="c-label-mobile">Offence Type <span style={s.req}>*</span></label>
+                <Sel>
+                  <select name="offenceType" className={`cs${errors.offenceType?" err":""}`}
+                    value={form.offenceType} onChange={handleChange}>
+                    <option value="">— Select Offence —</option>
+                    {offenceTypes.map(o=><option key={o}>{o}</option>)}
+                  </select>
+                </Sel>
+                {errors.offenceType && <div style={s.errText}>{errors.offenceType}</div>}
+              </div>
+              <div style={s.inlineField}>
+                <label style={s.inlineLabel}>Location</label>
+                <input type="text" name="location"
+                  className="ci"
+                  placeholder="e.g. NH 766, Kalpetta Bypass"
+                  value={form.location} onChange={handleChange} />
+              </div>
+              <div style={s.inlineField}>
+                <label style={s.inlineLabel}>Fine Amount (₹) <span style={s.req}>*</span></label>
+                <input type="number" name="fineAmount" min="1"
+                  className={`ci${errors.fineAmount?" err":""}`}
+                  placeholder="0.00"
+                  value={form.fineAmount} onChange={handleChange} />
+                {errors.fineAmount && <div style={s.errText}>{errors.fineAmount}</div>}
+              </div>
+              
+              
+            </div>
+
+            <Sep />
+            <Section title="Documents" />
+
+            <div style={s.inlineRow} className="c-inline-row-mobile">
+              <div style={s.inlineField}>
+                <label style={s.inlineLabel} className="c-label-mobile">Challan Document</label>
+                <button type="button" className="cfile"
+                  onClick={()=>challanDocRef.current.click()}>
+                  <span style={{color:challanDoc?"#2563eb":"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+                    {challanDoc
+                      ? challanDoc.name
+                      : initialData?.challan_doc_url
+                        ? "📄 Replace existing file"
+                        : "Upload Challan Doc"}
+                  </span>
+                </button>
+                <input ref={challanDocRef} type="file" accept=".pdf,.jpg,.jpeg,.png"
+                  style={{display:"none"}} onChange={e=>handleFile(e,setChallanDoc)} />
+              </div>
+              <div style={s.inlineField}>
+                <label style={s.inlineLabel}>Payment Receipt</label>
+                <button type="button" className="cfile"
+                  onClick={()=>receiptRef.current.click()}>
+                  <span style={{color:paymentReceipt?"#2563eb":"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+                    {paymentReceipt
+                      ? paymentReceipt.name
+                      : initialData?.payment_receipt_url
+                        ? "📄 Replace existing file"
+                        : "Upload Payment Receipt"}
+                  </span>
+                </button>
+                <input ref={receiptRef} type="file" accept=".pdf,.jpg,.jpeg,.png"
+                  style={{display:"none"}} onChange={e=>handleFile(e,setPaymentReceipt)} />
+              </div>
+            </div>
+
+            <Sep />
+
+            <div style={s.inlineField}>
+              <label style={s.inlineLabel}>Remark</label>
+              <textarea name="remark" className="ct"
+                placeholder="Additional notes about the violation…"
+                value={form.remark} onChange={handleChange} />
+            </div>
+
+            {error && (
+              <div style={{...s.errText, marginTop:16, padding:12, background:"#fee2e2", borderRadius:8, textAlign:"center"}}>
+                {error}
               </div>
             )}
-          </Field>
 
-          <Field label="Notes">
-            <textarea
-              name="notes"
-              placeholder="Additional notes (optional)"
-              value={form.notes}
-              onChange={handleChange}
-              style={mobileFormStyles.textarea}
-              rows={3}
-            />
-          </Field>
-
-          <div style={mobileFormStyles.actions}>
-            <button style={mobileFormStyles.draftBtn} onClick={handleSaveDraft} disabled={loading}>
-              {loading ? "Saving..." : "Save Draft"}
-            </button>
-            <button style={mobileFormStyles.submitBtn} onClick={handleSubmit} disabled={loading}>
-              {loading ? "Submitting..." : "Submit"}
-            </button>
+            <div style={s.actions} className="c-actions-mobile">
+              <button type="button" className="cbtn-reset" onClick={handleReset} disabled={loading}>Reset</button>
+              <button type="button" className="cbtn-cancel" onClick={onBack} disabled={loading}>Cancel</button>
+              <button type="button" className="cbtn-submit" onClick={handleSubmit} disabled={loading}>
+                {loading ? (isEdit ? "Saving..." : "Submitting...") : (isEdit ? "Save Changes" : "Submit")}
+              </button>
+            </div>
           </div>
         </div>
       </div>
-    );
-  }
 
-  // Desktop form
-  return (
-    <div style={s.page}>
-      <div style={s.card}>
-        <div style={s.header}>
-          <div style={s.headerCircle1} />
-          <div style={s.headerCircle2} />
-          <div style={s.headerContent}>
-            <h1 style={s.headerTitle}>Add New Claim</h1>
-          </div>
-        </div>
-
-        {apiError && (
-          <div style={s.apiBanner}>⚠️ {apiError}</div>
-        )}
-
-        <div style={s.formBody}>
-          <div style={s.row2}>
-            <Field label="Department" required error={errors.department}>
-              <select name="department" value={form.department} onChange={handleChange} style={s.input} disabled={deptLoading}>
-                {deptLoading
-                  ? <option value="">Loading departments…</option>
-                  : departments.map((d) => (
-                      <option key={d.value || "placeholder"} value={d.value}>{d.label}</option>
-                    ))
-                }
-              </select>
-            </Field>
-            <Field label="Expense Type" required error={errors.expenseType}>
-              <select name="expenseType" value={form.expenseType} onChange={handleChange} style={s.input}>
-                {expenseTypes.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
-            </Field>
-          </div>
-
-          <div style={s.row2}>
-            <Field label="Client Name" required error={errors.clientName}>
-              <input type="text" name="clientName" placeholder="Enter client name" value={form.clientName} onChange={handleChange} style={s.input} />
-            </Field>
-            <Field label="Amount (₹)" required error={errors.amount}>
-              <input type="number" name="amount" placeholder="0.00" value={form.amount} onChange={handleChange} style={s.input} />
-            </Field>
-          </div>
-
-          <div style={s.row2}>
-            <Field label="Purpose" required error={errors.purpose}>
-              <input type="text" name="purpose" placeholder="Briefly describe the purpose" value={form.purpose} onChange={handleChange} style={s.input} />
-            </Field>
-            <Field label="Receipt" error={errors.receipt}>
-              {!receiptPreview ? (
-                <div style={{ ...s.dropZoneInline, ...(dragOver ? s.dropZoneActiveInline : {}) }}
-                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-                  onDragLeave={() => setDragOver(false)} onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}>
-                  <CameraswitchOutlinedIcon style={{ fontSize: 22, color: "#64748b" }} />
-                  <div style={s.dropTextInline}>Click or drag to upload</div>
-                  <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf"
-                    style={{ display: "none" }} onChange={(e) => handleFile(e.target.files[0])} />
-                </div>
-              ) : (
-                <div style={s.receiptCardInline}>
-                  {receiptPreview === "pdf" ? (
-                    <div style={s.pdfRowInline}><span>📄</span><div>{form.receipt?.name}</div></div>
-                  ) : (
-                    <div style={s.imgPreviewInline}><img src={receiptPreview} alt="Preview" style={s.thumbImg} /><span>{form.receipt?.name}</span></div>
-                  )}
-                  <button style={s.removeBtnInline} onClick={removeReceipt}>✕</button>
-                </div>
-              )}
-            </Field>
-          </div>
-
-          <Field label="Notes">
-            <textarea name="notes" placeholder="Additional notes (optional)" value={form.notes} onChange={handleChange} style={{ ...s.input, ...s.textarea }} />
-          </Field>
-
-          <div style={s.divider} />
-
-          <div style={s.actionBar}>
-            <button style={s.cancelBtn} onClick={onCancel} disabled={loading}>Cancel</button>
-            <button style={s.draftBtn} onClick={handleSaveDraft} disabled={loading}>Save as Draft</button>
-            <button style={s.submitBtn} onClick={handleSubmit} disabled={loading}>Submit Claim</button>
-          </div>
-        </div>
+      <div className={`ctoast${submitted?" show":""}`}>
+        <span>✅</span> Challan {isEdit ? "updated" : "submitted"} successfully!
       </div>
-    </div>
+    </>
   );
 }
 
-// Mobile form styles
-const mobileFormStyles = {
-  container: {
-    background: "#f4f5f7",
-    minHeight: "100%",
-    fontFamily: "'Google Sans', sans-serif",
-  },
-  header: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "16px",
-    background: "#fff",
-    borderBottom: "1px solid #e5e7eb",
-    position: "sticky",
-    top: 0,
-    zIndex: 10,
-  },
-  backBtn: {
-    background: "none",
-    border: "none",
-    padding: 8,
-    cursor: "pointer",
-    display: "flex",
-    alignItems: "center",
-    color: "#1a73e8",
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: 600,
-    color: "#0f172a",
-    margin: 0,
-  },
-  errorBanner: {
-    margin: "12px 16px",
-    padding: "10px 12px",
-    background: "#fff5f5",
-    border: "1px solid #fca5a5",
-    borderRadius: 8,
-    color: "#b91c1c",
-    fontSize: 12,
-  },
-  form: {
-    padding: "16px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-  },
-  input: {
-    padding: "12px 14px",
-    border: "1.5px solid #e2e8f0",
-    borderRadius: 10,
-    fontSize: 16,
-    fontFamily: "'Google Sans', sans-serif",
-    width: "100%",
-    boxSizing: "border-box",
-    background: "#fff",
-  },
-  select: {
-    padding: "12px 14px",
-    border: "1.5px solid #e2e8f0",
-    borderRadius: 10,
-    fontSize: 16,
-    fontFamily: "'Google Sans', sans-serif",
-    width: "100%",
-    background: "#fff",
-  },
-  textarea: {
-    padding: "12px 14px",
-    border: "1.5px solid #e2e8f0",
-    borderRadius: 10,
-    fontSize: 16,
-    fontFamily: "'Google Sans', sans-serif",
-    width: "100%",
-    boxSizing: "border-box",
-    resize: "vertical",
-  },
-  dropZone: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: 8,
-    padding: "24px",
-    borderRadius: 10,
-    background: "#f8fafc",
-    border: "1.5px dashed #cbd5e1",
-    cursor: "pointer",
-  },
-  dropText: {
-    fontSize: 13,
-    color: "#64748b",
-  },
-  receiptPreview: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "10px 14px",
-    background: "#f8fafc",
-    borderRadius: 10,
-    border: "1.5px solid #e2e8f0",
-  },
-  previewImg: {
-    width: 40,
-    height: 40,
-    objectFit: "cover",
-    borderRadius: 6,
-  },
-  removeBtn: {
-    background: "none",
-    border: "none",
-    padding: 6,
-    cursor: "pointer",
-    color: "#ef4444",
-  },
-  actions: {
-    display: "flex",
-    gap: 12,
-    marginTop: 8,
-    paddingBottom: 20,
-  },
-  draftBtn: {
-    flex: 1,
-    padding: "14px",
-    borderRadius: 10,
-    border: "1.5px solid #cbd5e1",
-    background: "#fff",
-    color: "#334155",
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-  },
-  submitBtn: {
-    flex: 1,
-    padding: "14px",
-    borderRadius: 10,
-    border: "none",
-    background: "#1a73e8",
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-};
-
-const mobileSuccessStyles = {
-  container: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: "100%",
-    padding: "20px",
-    background: "#f4f5f7",
-  },
-  card: {
-    background: "#fff",
-    borderRadius: 20,
-    padding: "32px 24px",
-    textAlign: "center",
-    width: "100%",
-    maxWidth: 320,
-  },
-  icon: {
-    width: 60,
-    height: 60,
-    borderRadius: "50%",
-    color: "#fff",
-    fontSize: 28,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    margin: "0 auto 16px",
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 700,
-    color: "#0f172a",
-    margin: "0 0 8px",
-  },
-  message: {
-    fontSize: 14,
-    color: "#64748b",
-    margin: "0 0 20px 0",
-  },
-  closeButton: {
-    padding: "10px 20px",
-    borderRadius: 10,
-    border: "none",
-    background: "#1a73e8",
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: 600,
-    cursor: "pointer",
-    width: "100%",
-  },
-};
-
-// Original desktop styles
 const s = {
-  page: {
-    height: "50%",
-    width: "100%",
-    overflowY: "auto",
-    background: "#f4f5f7",
-    fontFamily: "'Google Sans', sans-serif",
-    padding: "28px 32px",
+  root: {
+    minHeight:"100vh",
+    overflowY:"auto",
+    background:"#f0f4f8",
+    fontFamily:"'Google Sans', sans-serif",
+    color:"#1e293b",
+    padding:"28px 28px 40px",
+    width:"100%",
+    boxSizing:"border-box",
+  },
+  container: { 
+    maxWidth:820, 
+    margin:"0 auto", 
+    boxSizing:"border-box",
+    padding: "0 16px",
   },
   card: {
-    width: "100%",
-    maxWidth: 960,
-    margin: "0 auto",
-    background: "#fff",
-    borderRadius: 20,
-    overflow: "hidden",
-    boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
-    border: "1px solid #e8eaed",
+    background:"#ffffff",
+    border:"1px solid #e2e8f0",
+    borderRadius:16,
+    padding:"28px 32px",
+    boxShadow:"0 2px 12px rgba(0,0,0,.06)",
   },
-  header: {
-    position: "relative",
-    padding: "28px 40px 24px",
-    overflow: "hidden",
+  section: {
+    fontFamily:"'Google Sans', sans-serif",
+    fontWeight:600,
+    fontSize:"15px",
+    letterSpacing:"0.4px",
+    textTransform:"capitalize",
+    color:"#000000",
+    marginBottom:10,
+    textAlign:"left",
   },
-  headerCircle1: {
-    position: "absolute", top: -60, right: -60,
-    width: 180, height: 180, borderRadius: "50%",
-    background: "rgba(255,255,255,0.05)",
+  req: { color:"#ef4444", fontSize:"0.75rem", marginLeft:1 },
+  errText: { fontSize:"0.7rem", color:"#ef4444", marginTop:4 },
+  chevron: {
+    position:"absolute",
+    right:13,
+    top:"50%",
+    transform:"translateY(-50%)",
+    color:"#2563eb",
+    fontSize:"0.8rem",
+    pointerEvents:"none",
   },
-  headerCircle2: {
-    position: "absolute", bottom: -40, left: "42%",
-    width: 120, height: 120, borderRadius: "50%",
-    background: "rgba(255,255,255,0.03)",
+  inlineRow: {
+    display:"grid",
+    gridTemplateColumns:"repeat(auto-fit, minmax(180px, 1fr))",
+    gap:"12px 20px",
+    marginBottom:12,
+    alignItems:"start",
   },
-  headerContent: { position: "relative", zIndex: 1 },
-  headerTitle: { margin: 0, fontSize: 28, fontWeight: 700, color: "black", letterSpacing: "-0.5px" },
-  apiBanner: {
-    margin: "0 40px",
-    padding: "10px 16px",
-    background: "#fff5f5",
-    border: "1px solid #fca5a5",
-    borderRadius: 8,
-    color: "#b91c1c",
-    fontSize: 13,
-    fontFamily: "'Google Sans', sans-serif",
+  inlineField: { 
+    display:"flex", 
+    flexDirection:"column", 
+    gap:5,
+    minWidth:0,
   },
-  formBody: {
-    padding: "28px 40px 32px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 18,
+  inlineLabel: {
+    fontSize:"12px",
+    color:"#000000",
+    fontWeight:600,
+    fontFamily:"'Google Sans', sans-serif",
+    textAlign:"left",
   },
-  row2: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 },
-  fieldWrap: { display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-start", width: "100%" },
-  label: { fontSize: 15, fontWeight: 600, color: "#1e293b", fontFamily: "'Google Sans', sans-serif", letterSpacing: 0.3, marginBottom: 2 },
-  required: { color: "#e11d48" },
-  input: {
-    padding: "10px 14px", border: "1.5px solid #e2e8f0", borderRadius: 10,
-    fontSize: 14, fontFamily: "'Google Sans', sans-serif", color: "#1e293b",
-    background: "#f8fafc", outline: "none", width: "100%",
-    boxSizing: "border-box", transition: "border-color 0.2s",
-  },
-  inputError: { borderColor: "#fca5a5", background: "#fff5f5" },
-  textarea: { resize: "vertical", minHeight: 70, lineHeight: 1.5 },
-  errorMsg: { fontSize: 11, color: "#e11d48", fontFamily: "'Courier New',monospace", marginTop: 3 },
-  dropZoneInline: {
-    display: "flex", alignItems: "center", gap: 10,
-    borderRadius: 10, padding: "8px 14px", background: "#f8fafc",
-    cursor: "pointer", transition: "all 0.2s",
-    border: "1.5px dashed #e2e8f0",
-  },
-  dropZoneActiveInline: { borderColor: "#0f2744", background: "#eff6ff" },
-  dropTextInline: { fontSize: 12, color: "#64748b" },
-  receiptCardInline: {
-    display: "flex", alignItems: "center", justifyContent: "space-between",
-    gap: 8, border: "1.5px solid #e2e8f0", borderRadius: 10,
-    padding: "4px 8px 4px 12px", background: "#f8fafc",
-  },
-  pdfRowInline: { display: "flex", alignItems: "center", gap: 8, flex: 1 },
-  imgPreviewInline: { display: "flex", alignItems: "center", gap: 10, flex: 1 },
-  thumbImg: { width: 28, height: 28, objectFit: "cover", borderRadius: 6 },
-  receiptFileNameInline: { fontSize: 11, color: "#1e293b", fontWeight: 500, wordBreak: "break-all", flex: 1 },
-  removeBtnInline: { background: "none", border: "none", color: "#ef4444", fontSize: 16, cursor: "pointer", padding: "4px 8px", borderRadius: 20 },
-  divider: { borderTop: "1px solid #f1f5f9", marginTop: 8 },
-  actionBar: { display: "flex", justifyContent: "flex-end", alignItems: "center", flexWrap: "wrap", gap: 12, marginTop: 4 },
-  cancelBtn: {
-    padding: "10px 24px", borderRadius: 10, border: "1.5px solid #cbd5e1",
-    background: "#ffffff", color: "#64748b", fontSize: 13,
-    fontFamily: "'Google Sans', sans-serif", fontWeight: 600, cursor: "pointer",
-  },
-  draftBtn: {
-    padding: "10px 24px", borderRadius: 10, border: "1.5px solid #cbd5e1",
-    background: "#f8fafc", color: "#334155", fontSize: 13,
-    fontFamily: "'Google Sans', sans-serif", fontWeight: 600, cursor: "pointer",
-  },
-  submitBtn: {
-    padding: "10px 28px", borderRadius: 10, border: "none",
-    background: "#1a73e8", color: "#fff", fontSize: 13,
-    fontFamily: "'Google Sans', sans-serif", fontWeight: 700, cursor: "pointer",
-    boxShadow: "0 4px 12px rgba(15,39,68,0.3)",
+  sep: { border:"none", borderTop:"1px solid #e2e8f0", margin:"16px 0" },
+  actions: {
+    display:"flex",
+    justifyContent:"flex-end",
+    gap:12,
+    marginTop:24,
+    paddingTop:20,
+    borderTop:"1px solid #e2e8f0",
+    flexWrap:"wrap",
   },
 };
+
+export default ChallanAdd;

@@ -357,6 +357,80 @@ export default function TravelList() {
           .tt-title { font-size: 20px !important; }
           .tt-search { width: 100% !important; }
         }
+        /* ── Travel Log Header ── */
+        .tt-header-wrap {
+          display: flex;
+          align-items: flex-end;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 14px;
+        }
+        .tt-controls {
+          display: flex;
+          gap: 12px;
+          align-items: center;
+          flex-wrap: wrap;
+        }
+        .tt-search {
+          padding: 9px 16px;
+          border-radius: 10px;
+          border: 1.5px solid #c8d8e8;
+          font-size: 13px;
+          font-family: 'Google Sans', sans-serif;
+          width: 260px;
+          background: #fff;
+          color: #000;
+          outline: none;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .tt-search:focus { border-color: #1a73e8; }
+        .tt-start-btn {
+          padding: 9px 22px;
+          border-radius: 10px;
+          border: none;
+          background: linear-gradient(135deg, #1a6fdb, #0d4fa8);
+          color: #fff;
+          font-weight: 700;
+          cursor: pointer;
+          font-size: 13px;
+          font-family: 'Google Sans', sans-serif;
+          box-shadow: 0 4px 14px rgba(26,111,219,0.3);
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          white-space: nowrap;
+        }
+        @media (max-width: 600px) {
+          .tt-title { font-size: 20px !important; }
+          .tt-header-wrap {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+          }
+          .tt-controls {
+            flex-direction: column;
+            gap: 10px;
+          }
+          .tt-search {
+            width: 100% !important;
+            box-sizing: border-box;
+          }
+          .tt-start-btn {
+            width: 100%;
+            justify-content: center;
+          }
+          .pagination-container {
+            flex-wrap: wrap;
+            justify-content: center;
+            padding: 12px;
+            gap: 6px;
+          }
+          .pagination-info {
+            width: 100%;
+            text-align: center;
+            margin-right: 0;
+          }
+        }
         .img-card-wrap:hover .img-overlay { opacity: 1 !important; }
         .scrollable-table-body {
           flex: 1;
@@ -482,39 +556,25 @@ export default function TravelList() {
           )}
 
           <div style={{ margin: "0 0 22px 0", width: "100%", flexShrink: 0, padding: "0 16px" }}>
-            <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", flexWrap: "wrap", gap: 14 }}>
-              <div>
-                <h1 className="tt-title" style={{ margin: 0, fontSize: 25, fontWeight: "600", color: "black", letterSpacing: -0.5 }}>
-                  Travel Log
-                </h1>
-              </div>
-              <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div className="tt-header-wrap">
+              <h1 className="tt-title" style={{ margin: 0, fontSize: 25, fontWeight: "600", color: "black", letterSpacing: -0.5 }}>
+                Travel Log
+              </h1>
+              <div className="tt-controls">
                 <input
+                  className="tt-search"
                   value={search}
                   onChange={(e) => {
                     setSearch(e.target.value);
-                    setCurrentPage(1); // Reset to first page on search
+                    setCurrentPage(1);
                   }}
                   placeholder="Search vehicle, driver, purpose…"
-                  style={{
-                    padding: "9px 16px", borderRadius: 10, border: "1.5px solid #c8d8e8",
-                    fontSize: 13, fontFamily: "'Google Sans', sans-serif", width: 260,
-                    background: "#fff", color: "#000000", outline: "none",
-                    boxShadow: "0 2px 8px rgba(0,0,0,0.06)",
-                  }}
                 />
                 <button
+                  className="tt-start-btn"
                   onClick={() => setShowStartTrip(true)}
                   disabled={actionLoading}
-                  style={{
-                    padding: "9px 22px", borderRadius: 10, border: "none",
-                    background: "linear-gradient(135deg, #1a6fdb, #0d4fa8)",
-                    color: "#fff", fontWeight: 700, cursor: "pointer",
-                    fontSize: 13, fontFamily: "'Google Sans', sans-serif",
-                    boxShadow: "0 4px 14px rgba(26,111,219,0.3)",
-                    display: "flex", alignItems: "center", gap: 7,
-                    opacity: actionLoading ? 0.7 : 1,
-                  }}
+                  style={{ opacity: actionLoading ? 0.7 : 1 }}
                 >
                   Start Trip
                 </button>

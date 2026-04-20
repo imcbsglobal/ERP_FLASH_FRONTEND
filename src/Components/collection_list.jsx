@@ -552,16 +552,127 @@ const PaymentTable = () => {
           margin-right: 16px;
           font-family: 'Google Sans', sans-serif;
         }
+
+        /* ── Filter grid layout ── */
+        .filters-grid {
+          display: flex;
+          gap: 14px;
+          flex-wrap: wrap;
+          align-items: flex-end;
+        }
+        .filter-item {
+          flex: 1;
+          min-width: 140px;
+        }
+        .filter-item-search {
+          flex: 2;
+          min-width: 200px;
+        }
+        .filter-item select,
+        .filter-item input,
+        .filter-item-search input {
+          width: 100%;
+          padding: 9px 12px;
+          border: 1px solid #e8eaed;
+          border-radius: 7px;
+          font-size: 13px;
+          font-family: 'Google Sans', sans-serif;
+          outline: none;
+          background: #fff;
+          color: #202124;
+          box-sizing: border-box;
+          transition: border 0.2s, box-shadow 0.2s;
+        }
+        .filter-item input:focus,
+        .filter-item-search input:focus {
+          border-color: #1a73e8;
+          box-shadow: 0 0 0 2px rgba(26,115,232,0.12);
+        }
+        .filter-label {
+          font-size: 12px;
+          font-weight: 600;
+          color: #070707;
+          display: block;
+          margin-bottom: 6px;
+          text-align: left;
+          letter-spacing: 0.8px;
+          font-family: 'Google Sans', sans-serif;
+        }
+        .filter-clear-btn {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 9px 22px;
+          border-radius: 7px;
+          border: 1px solid #e8eaed;
+          background: #fff;
+          color: #5f6368;
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          font-family: 'Google Sans', sans-serif;
+        }
+        .filter-clear-wrap {
+          display: flex;
+          align-items: flex-end;
+        }
+        .page-header-bar {
+          flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0 16px;
+          height: 56px;
+          border-bottom: 1px solid #e8eaed;
+          flex-wrap: wrap;
+          gap: 0;
+        }
+
+        /* ── Mobile responsive ── */
+        @media (max-width: 600px) {
+          .page-header-bar {
+            height: auto;
+            padding: 12px 14px;
+            gap: 10px;
+          }
+          .page-header-bar h1 {
+            font-size: 20px !important;
+          }
+          .filters-grid {
+            flex-direction: column;
+            gap: 12px;
+          }
+          .filter-item,
+          .filter-item-search {
+            flex: unset;
+            width: 100%;
+            min-width: unset;
+          }
+          .filter-clear-wrap {
+            width: 100%;
+          }
+          .filter-clear-btn {
+            width: 100%;
+            justify-content: center;
+          }
+          .pt-modal {
+            max-height: 95vh;
+            border-radius: 10px;
+          }
+          .pt-modal-body { padding: 14px; }
+          .pagination-container {
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 6px;
+          }
+          .col-hide-mobile { display: none !important; }
+        }
       `}</style>
 
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
         {/* ── Sticky Page Header Bar ── */}
-        <div style={{ 
-          flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", 
-          padding: "0 16px", height: 56, borderBottom: "1px solid #e8eaed", 
-          gap:0, flexWrap: "wrap" 
-        }}>
+        <div className="page-header-bar">
           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <h1 style={{ fontSize: 25, fontWeight: "600", color: "#050505", margin: 5, letterSpacing: "0.10px", lineHeight: 1.2 }}>
               Collections
@@ -588,41 +699,26 @@ const PaymentTable = () => {
         {/* ── Filters Section (Always Visible) ── */}
         <div style={{ flexShrink: 0, padding: "12px 16px 0 16px" }}>
           <div style={{ background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "18px 20px", marginBottom: 20 }}>
-            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+            <div className="filters-grid">
               {/* Search */}
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#070707", display: "block", marginBottom: 6, textTransform: "capitalize",textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
-                  Search
-                </label>
+              <div className="filter-item-search">
+                <label className="filter-label">Search</label>
                 <input 
                   className="pt-search-input"
                   type="text" 
                   placeholder="Search by client, place, phone, branch, department or service..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{ 
-                    width: "100%", padding: "9px 12px", border: "1px solid #e8eaed", 
-                    borderRadius: 7, fontSize: 13, fontFamily: "'Google Sans', sans-serif", 
-                    outline: "none", transition: "border 0.2s, box-shadow 0.2s", 
-                    boxSizing: "border-box" 
-                  }}
                 />
               </div>
 
               {/* Payment Type */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#0d0d0e", display: "block", marginBottom: 6, textTransform: "capitalize",textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
-                  Payment Type
-                </label>
+              <div className="filter-item">
+                <label className="filter-label">Payment Type</label>
                 <select 
                   className="pt-select" 
                   value={filterType}
                   onChange={(e) => setFilterType(e.target.value)}
-                  style={{ 
-                    padding: "9px 12px", border: "1px solid #e8eaed", borderRadius: 7, 
-                    fontSize: 13, background: "#fff", color: "#202124", cursor: "pointer", 
-                    fontFamily: "'Google Sans', sans-serif", outline: "none", minWidth: 160 
-                  }}
                 >
                   {collectionTypes.map(type => (
                     <option key={type} value={type}>{type === 'all' ? 'All Types' : type}</option>
@@ -631,19 +727,12 @@ const PaymentTable = () => {
               </div>
 
               {/* Status */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#0a0a0a", display: "block",textAlign: "left", marginBottom: 6, textTransform: "", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
-                  Status
-                </label>
+              <div className="filter-item">
+                <label className="filter-label">Status</label>
                 <select 
                   className="pt-select" 
                   value={filterStatus}
                   onChange={(e) => setFilterStatus(e.target.value)}
-                  style={{ 
-                    padding: "9px 12px", border: "1px solid #e8eaed", borderRadius: 7, 
-                    fontSize: 13, background: "#fff", color: "#202124", cursor: "pointer", 
-                    fontFamily: "'Google Sans', sans-serif", outline: "none", minWidth: 140 
-                  }}
                 >
                   <option value="all">All Status</option>
                   <option value="Pending">Pending</option>
@@ -653,50 +742,31 @@ const PaymentTable = () => {
               </div>
 
               {/* Date From */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#0a0a0a", textAlign: "left", display: "block", marginBottom: 6, textTransform: "capitalize", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
-                  From Date
-                </label>
+              <div className="filter-item">
+                <label className="filter-label">From Date</label>
                 <input
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  style={{ 
-                    padding: "9px 12px", border: "1px solid #e8eaed", borderRadius: 7, 
-                    fontSize: 13, background: "#fff", color: "#202124", cursor: "pointer", 
-                    fontFamily: "'Google Sans', sans-serif", outline: "none", minWidth: 140 
-                  }}
                 />
               </div>
 
               {/* Date To */}
-              <div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: "#080808",textAlign: "left", display: "block", marginBottom: 6, textTransform: "capitalize", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>
-                  To Date
-                </label>
+              <div className="filter-item">
+                <label className="filter-label">To Date</label>
                 <input
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  style={{ 
-                    padding: "9px 12px", border: "1px solid #e8eaed", borderRadius: 7, 
-                    fontSize: 13, background: "#fff", color: "#202124", cursor: "pointer", 
-                    fontFamily: "'Google Sans', sans-serif", outline: "none", minWidth: 140 
-                  }}
                 />
               </div>
 
               {/* Clear Filters Button */}
               {(dateFrom || dateTo || filterStatus !== 'all') && (
-                <div style={{ display: "flex", alignItems: "flex-end" }}>
+                <div className="filter-clear-wrap">
                   <button 
+                    className="filter-clear-btn"
                     onClick={() => { setDateFrom(''); setDateTo(''); setFilterStatus('all'); }}
-                    style={{ 
-                      display: "flex", alignItems: "center", gap: 6, padding: "9px 22px", 
-                      borderRadius: 7, border: "1px solid #e8eaed", background: "#fff", 
-                      color: "#5f6368", fontWeight: 600, fontSize: 13, cursor: "pointer", 
-                      fontFamily: "'Google Sans', sans-serif" 
-                    }}
                   >
                     Clear Filters
                   </button>
@@ -722,7 +792,7 @@ const PaymentTable = () => {
                   <thead>
                     <tr>
                       {headers.map(h => (
-                        <th key={h} style={{ ...thStyle, textAlign: h === "Amount" ? "right" : "left" }}>{h}</th>
+                        <th key={h} className={["Department","Paid For","Proof"].includes(h) ? "col-hide-mobile" : ""} style={{ ...thStyle, textAlign: h === "Amount" ? "right" : "left" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -766,7 +836,7 @@ const PaymentTable = () => {
                         <td className="branch-cell" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 120 }}>{payment.branch}</td>
                         
                         {/* Department */}
-                        <td style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 180 }}>
+                        <td className="col-hide-mobile" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 180 }}>
                           {payment.department ? (
                             <span className="department-badge">
                               {payment.department}
@@ -783,7 +853,7 @@ const PaymentTable = () => {
                         <td style={{ ...tdStyle, textAlign: "right", fontWeight: "600" }}>{formatCurrency(payment.amount)}</td>
                         
                         {/* Paid For */}
-                        <td className="paidfor-cell" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 160 }}>{payment.paidFor}</td>
+                        <td className="paidfor-cell col-hide-mobile" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 160 }}>{payment.paidFor}</td>
                         
                         {/* Status */}
                         <td style={tdStyle}>
@@ -800,7 +870,7 @@ const PaymentTable = () => {
                         </td>
                         
                         {/* Proof */}
-                        <td style={{ ...tdStyle, textAlign: "left" }}>
+                        <td className="col-hide-mobile" style={{ ...tdStyle, textAlign: "left" }}>
                           {payment.paymentProofUrl ? (
                             <a className="file-link" href={payment.paymentProofUrl} target="_blank" rel="noopener noreferrer">
                               <VisibilityOutlinedIcon style={{ fontSize: 18 }} />

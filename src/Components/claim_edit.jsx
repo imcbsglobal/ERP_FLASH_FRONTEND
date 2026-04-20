@@ -47,7 +47,7 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
   const [deptLoading, setDeptLoading] = useState(true);
   const fileInputRef = useRef();
 
-  // Fetch departments from API
+  // Fetch departments from API on mount
   useEffect(() => {
     fetch(DEPARTMENTS_API_URL)
       .then((r) => r.json())

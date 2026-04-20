@@ -190,7 +190,7 @@ const STATUS_CONFIG = {
   Approved: { bg: "#04572c", color: "#fbfdfd", dot: "#10b981" },
   Pending: { bg: "rgb(247, 170, 4)", color: "#fcfaf8", dot: "#f59e0b" },
   Rejected: { bg: "#c03030", color: "#faf9f9", dot: "#ef4444" },
-  Draft: { bg: "#475569", color: "#f8fafc", dot: "#94a3b8" },
+ 
 };
 
 function MobileClaimsListTable({
@@ -348,7 +348,7 @@ function MobileClaimsListTable({
         {/* Filter options */}
         {showFilters && (
           <div style={mobileListStyles.filterBar}>
-            {["all", "Approved", "Pending", "Rejected", "Draft"].map((status) => (
+            {["all", "Approved", "Pending", "Rejected"].map((status) => (
               <button
                 key={status}
                 style={{
@@ -703,7 +703,7 @@ function MobileClaimsListTable({
                           <option value="Approved">Approved</option>
                           <option value="Pending">Pending</option>
                           <option value="Rejected">Rejected</option>
-                          <option value="Draft">Draft</option>
+                          
                         </select>
                       </td>
                       <td style={desktopListStyles.td}>

@@ -447,14 +447,13 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
   const selectedDeptId = selectedDeptObj?.department_id;
 
   return (
-    <div className="payment-form-container" style={{ fontFamily: "'Google Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif" }}>
+    <div className="payment-form-container">
       <style>{`
         * { font-family: 'Google Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important; }
         label {
           display: block; text-align: left;
           font-size: 14px !important; font-weight: bold !important; margin-bottom: 4px;
         }
-        .form-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }
         .btn { padding: 8px 16px; font-size: 14px; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
         .btn-primary { background-color: var(--accent); color: white; border: none; min-width: 120px; }
         .btn-primary:hover:not(:disabled) { opacity: 0.88; }
@@ -573,6 +572,96 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
         .amount-input input {
           padding-left: 28px;
         }
+
+        /* ── Payment form container base ── */
+        .payment-form-container {
+          padding: 8px 4px;
+          width: 100%;
+          box-sizing: border-box;
+          font-family: 'Google Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+        .payment-form {
+          width: 100%;
+        }
+        .form-group {
+          margin-bottom: 14px;
+          width: 100%;
+          box-sizing: border-box;
+        }
+
+        /* ── Mobile-responsive form rows ── */
+        .form-row {
+          display: flex;
+          gap: 20px;
+          margin-bottom: 18px;
+          align-items: flex-start;
+        }
+        .form-row > * {
+          flex: 1;
+          margin-bottom: 0 !important;
+        }
+        .form-row .flex-15 {
+          flex: 1.5;
+        }
+
+        .form-actions {
+          display: flex;
+          gap: 12px;
+          justify-content: flex-end;
+          margin-top: 20px;
+          flex-wrap: wrap;
+        }
+
+        @media (max-width: 600px) {
+          .payment-form-container {
+            padding: 4px 0 !important;
+          }
+          .payment-form-container h2 {
+            font-size: 18px !important;
+            margin-bottom: 14px !important;
+          }
+          .form-row {
+            flex-direction: column;
+            gap: 0;
+            margin-bottom: 0;
+          }
+          .form-row > * {
+            flex: unset !important;
+            width: 100%;
+            margin-bottom: 14px !important;
+          }
+          .form-group {
+            margin-bottom: 14px;
+          }
+          .form-actions {
+            justify-content: stretch;
+            gap: 8px;
+          }
+          .form-actions .btn {
+            flex: 1;
+            text-align: center;
+            min-width: unset;
+          }
+          .debtor-panel {
+            position: fixed !important;
+            left: 8px !important;
+            right: 8px !important;
+            top: auto !important;
+            max-height: 45vh;
+            overflow-y: auto;
+            z-index: 99999 !important;
+          }
+          .dd-list {
+            max-height: 180px !important;
+          }
+          .client-detail-card {
+            flex-direction: column;
+            gap: 8px;
+          }
+          input, select, textarea {
+            font-size: 16px !important; /* prevents iOS zoom */
+          }
+        }
       `}</style>
 
       <h2 style={{ color: 'var(--accent)', fontSize: '28px', fontWeight: '600' }}>
@@ -586,8 +675,8 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
       <form onSubmit={handleSubmit} className="payment-form">
 
         {/* ── Row 1 — Department & Branch (single line) ── */}
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '18px' }}>
-          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+        <div className="form-row">
+          <div className="form-group">
             <label htmlFor="department">
               Department <span style={{ color: 'var(--red)' }}>*</span>
             </label>
@@ -616,7 +705,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
             {errors.department && <span className="error-message">{errors.department}</span>}
           </div>
 
-          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+          <div className="form-group">
             <label htmlFor="branch">Branch <span style={{ color: 'var(--red)' }}>*</span></label>
             <select
               id="branch" name="branch" value={formData.branch}
@@ -630,8 +719,8 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
         </div>
 
         {/* ── Row 2 — Client Name, Place, Phone Number (single line) ── */}
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '18px' }}>
-          <div className="form-group" style={{ flex: 1.5, marginBottom: 0 }} ref={wrapperRef}>
+        <div className="form-row">
+          <div className="form-group flex-15" ref={wrapperRef}>
             <label>
               Client Name <span style={{ color: 'var(--red)' }}>*</span>
             </label>
@@ -716,7 +805,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
             {errors.clientName && <span className="error-message">{errors.clientName}</span>}
           </div>
 
-          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+          <div className="form-group">
             <label htmlFor="place">Place <span style={{ color: 'var(--red)' }}>*</span></label>
             <input
               type="text" id="place" name="place" value={formData.place}
@@ -726,7 +815,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
             {errors.place && <span className="error-message">{errors.place}</span>}
           </div>
 
-          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+          <div className="form-group">
             <label htmlFor="phoneNumber">Phone Number <span style={{ color: 'var(--red)' }}>*</span></label>
             <input
               type="tel" id="phoneNumber" name="phoneNumber" value={formData.phoneNumber}
@@ -738,8 +827,8 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
         </div>
 
         {/* ── Row 3 — Payment Type & Payment Proof (single line) ── */}
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '18px', alignItems: 'flex-start' }}>
-          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+        <div className="form-row">
+          <div className="form-group">
             <label htmlFor="collectionType">Payment Type <span style={{ color: 'var(--red)' }}>*</span></label>
             <select
               id="collectionType" name="collectionType" value={formData.collectionType}
@@ -751,7 +840,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
             {errors.collectionType && <span className="error-message">{errors.collectionType}</span>}
           </div>
 
-          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+          <div className="form-group">
             {formData.collectionType && formData.collectionType !== 'Cash' ? (
               <>
                 <label htmlFor="paymentProof">Payment Proof <span style={{ color: 'var(--red)' }}>*</span></label>
@@ -789,8 +878,8 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
         </div>
 
         {/* ── Row 4 — Amount & Paid For (single line) ── */}
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '18px', alignItems: 'flex-start' }}>
-          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+        <div className="form-row">
+          <div className="form-group">
             <label htmlFor="amount">Amount <span style={{ color: 'var(--red)' }}>*</span></label>
             <div className="amount-input">
               <span className="currency-symbol">₹</span>
@@ -803,7 +892,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
             {errors.amount && <span className="error-message">{errors.amount}</span>}
           </div>
 
-          <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
+          <div className="form-group">
             <label htmlFor="paidFor">Paid For <span style={{ color: 'var(--red)' }}>*</span></label>
             <input
               type="text" id="paidFor" name="paidFor" value={formData.paidFor}

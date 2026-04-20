@@ -471,6 +471,7 @@ export default function LoginPage() {
   const [loading, setLoading]           = useState(false);
   const [error, setError]               = useState('');
   const [focusedField, setFocusedField] = useState('');
+  const [isMobile, setIsMobile]         = useState(window.innerWidth <= 768);
 
   useEffect(() => {
     if (authService.isAuthenticated()) {
@@ -482,12 +483,17 @@ export default function LoginPage() {
     document.body.style.overflow = 'hidden';
     document.documentElement.style.margin  = '0';
     document.documentElement.style.padding = '0';
+
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+
     return () => {
       document.body.style.margin   = '';
       document.body.style.padding  = '';
       document.body.style.overflow = '';
       document.documentElement.style.margin  = '';
       document.documentElement.style.padding = '';
+      window.removeEventListener('resize', handleResize);
     };
   }, []);
 
@@ -523,11 +529,28 @@ export default function LoginPage() {
   };
 
   return (
-    <div style={styles.page}>
-      <div style={styles.outerCard}>
+    <div style={{
+      ...styles.page,
+      ...(isMobile ? {
+        backgroundColor: '#fff',
+        overflow: 'auto',
+        alignItems: 'flex-start',
+      } : {}),
+    }}>
+      <div style={{
+        ...styles.outerCard,
+        ...(isMobile ? {
+          width: '100%',
+          maxWidth: '100%',
+          height: '100vh',
+          minHeight: '100vh',
+          borderRadius: 0,
+          boxShadow: 'none',
+        } : {}),
+      }}>
 
-        {/* ── Left Panel ── */}
-        <div style={styles.leftPanel}>
+        {/* ── Left Panel — hidden on mobile ── */}
+        {!isMobile && <div style={styles.leftPanel}>
           <div style={styles.leftBlob} />
           <div style={styles.leftBlobBottom} />
 
@@ -546,10 +569,17 @@ export default function LoginPage() {
               everything your business needs in one place.
             </div>
           </div>
-        </div>
+        </div>}
 
         {/* ── Right Panel ── */}
-        <div style={styles.rightPanel}>
+        <div style={{
+          ...styles.rightPanel,
+          ...(isMobile ? {
+            width: '100%',
+            padding: '2rem 1.5rem',
+            backgroundColor: '#fff',
+          } : {}),
+        }}>
           <div style={styles.formBox}>
             <div style={styles.logoWrap}>
               <img src={logo} alt="Logo" style={styles.logoImg} />
