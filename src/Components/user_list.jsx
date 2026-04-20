@@ -14,14 +14,14 @@ const EMPTY_FORM = {
 
 // ── Column definitions ────────────────────────────────────────────────────────
 const COLS = [
-  { key: "sl", label: "Sl.No", width: "5%", align: "center" },
-  { key: "username", label: "Username", width: "25%", align: "left" },
-  { key: "address", label: "Address", width: "20%", align: "left" },
-  { key: "phone", label: "Phone", width: "12%", align: "left" },
-  { key: "branch", label: "Branch", width: "12%", align: "left" },
-  { key: "role", label: "Role", width: "10%", align: "left" },
-  { key: "status", label: "Status", width: "8%", align: "center" },
-  { key: "action", label: "Action", width: "8%", align: "center" },
+  { key: "sl",       label: "Sl.No",    width: "5%",  align: "center" },
+  { key: "username", label: "Username", width: "18%", align: "left"   },
+  { key: "address",  label: "Address",  width: "25%", align: "left"   },
+  { key: "phone",    label: "Phone",    width: "13%", align: "left"   },
+  { key: "branch",   label: "Branch",   width: "13%", align: "left"   },
+  { key: "role",     label: "Role",     width: "10%", align: "left"   },
+  { key: "status",   label: "Status",   width: "8%",  align: "center" },
+  { key: "action",   label: "Action",   width: "8%",  align: "center" },
 ];
 
 const thStyle = (col) => ({
@@ -674,7 +674,7 @@ export default function RegisteredUsers() {
       <div style={{ flex: 1, overflowX: "auto", overflowY: "auto", minHeight: 0 }} className="user-table-container">
         {/* Desktop/tablet table */}
         <div className="user-table-wrapper">
-        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }} className="user-table">
+        <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "auto" }} className="user-table">
           <colgroup>{COLS.map(col => <col key={col.key} style={{ width: col.width }} />)}</colgroup>
           <thead style={{ position: "sticky", top: 0, zIndex: 5 }}>
             <tr>{COLS.map(col => (
