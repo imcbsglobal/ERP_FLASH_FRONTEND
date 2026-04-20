@@ -668,7 +668,7 @@ function MobileClaimsListTable({
                       <td style={desktopListStyles.td}>{claim.clientName}</td>
                       <td style={desktopListStyles.td}>
                         <span style={desktopListStyles.deptTag}>
-                          {claim.department}
+                          {claim.department || "—"}
                         </span>
                       </td>
                       <td style={desktopListStyles.td}>{claim.expense}</td>

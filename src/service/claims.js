@@ -2,7 +2,7 @@
 //  claimsApi.js  –  All API calls for the Claims module
 // ─────────────────────────────────────────────────────────────
 
-const BASE_URL = "http://localhost:8000/api";
+const BASE_URL = "https://flasherp.in/api";
 
 /** ── Helpers ────────────────────────────────────────────────── */
 
@@ -56,7 +56,7 @@ function mapClaim(apiClaim) {
   const receiptUrl = apiClaim.receipt
     ? apiClaim.receipt.startsWith("http")
       ? apiClaim.receipt
-      : `http://localhost:8000${apiClaim.receipt}`
+      : `https://flasherp.in${apiClaim.receipt}`
     : null;
 
   return {

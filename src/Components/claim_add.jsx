@@ -16,16 +16,8 @@ const expenseTypes = [
   { value: "toll", label: "Toll Expense" },
 ];
 
-const departments = [
-  { value: "", label: "Select Department" },
-  { value: "engineering", label: "Engineering" },
-  { value: "marketing", label: "Marketing" },
-  { value: "sales", label: "Sales" },
-  { value: "hr", label: "Human Resources" },
-  { value: "finance", label: "Finance" },
-  { value: "operations", label: "Operations" },
-  { value: "design", label: "Design" },
-];
+const BASE_URL = "https://flasherp.in/api";
+const DEPARTMENTS_API_URL = `${BASE_URL}/claims/departments/`;
 
 const initialForm = {
   expenseType: "",
@@ -59,6 +51,8 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
   const [isMobile, setIsMobile] = useState(false);
+  const [departments, setDepartments] = useState([{ value: "", label: "Select Department" }]);
+  const [deptLoading, setDeptLoading] = useState(true);
   const fileInputRef = useRef();
 
   // Detect mobile
@@ -67,6 +61,37 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
     checkMobile();
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  // Fetch departments from API
+  useEffect(() => {
+    async function loadDepartments() {
+      try {
+        const token = localStorage.getItem("access_token");
+        const res = await fetch(DEPARTMENTS_API_URL, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        });
+        if (!res.ok) throw new Error("Failed to fetch departments");
+        const data = await res.json();
+        const results = data?.results ?? data;
+        if (Array.isArray(results)) {
+          setDepartments([
+            { value: "", label: "Select Department" },
+            ...results.map((d) => ({
+              value: d.department,   // store the name so it displays directly everywhere
+              label: d.department,
+            })),
+          ]);
+        }
+      } catch (err) {
+        console.error("Department fetch error:", err);
+        // Keep placeholder on error
+        setDepartments([{ value: "", label: "Select Department" }]);
+      } finally {
+        setDeptLoading(false);
+      }
+    }
+    loadDepartments();
   }, []);
 
   const validate = (isDraftSave = false) => {
@@ -218,10 +243,14 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
               value={form.department}
               onChange={handleChange}
               style={mobileFormStyles.select}
+              disabled={deptLoading}
             >
-              {departments.map((d) => (
-                <option key={d.value} value={d.value}>{d.label}</option>
-              ))}
+              {deptLoading
+                ? <option value="">Loading departments…</option>
+                : departments.map((d) => (
+                    <option key={d.value || "placeholder"} value={d.value}>{d.label}</option>
+                  ))
+              }
             </select>
           </Field>
 
@@ -344,10 +373,13 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
         <div style={s.formBody}>
           <div style={s.row2}>
             <Field label="Department" required error={errors.department}>
-              <select name="department" value={form.department} onChange={handleChange} style={s.input}>
-                {departments.map((d) => (
-                  <option key={d.value} value={d.value}>{d.label}</option>
-                ))}
+              <select name="department" value={form.department} onChange={handleChange} style={s.input} disabled={deptLoading}>
+                {deptLoading
+                  ? <option value="">Loading departments…</option>
+                  : departments.map((d) => (
+                      <option key={d.value || "placeholder"} value={d.value}>{d.label}</option>
+                    ))
+                }
               </select>
             </Field>
             <Field label="Expense Type" required error={errors.expenseType}>

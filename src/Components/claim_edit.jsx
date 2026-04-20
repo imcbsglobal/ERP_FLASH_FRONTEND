@@ -13,16 +13,7 @@ const expenseTypes = [
   { value: "toll", label: "Toll Expense" },
 ];
 
-const departments = [
-  { value: "", label: "Select Department" },
-  { value: "engineering", label: "Engineering" },
-  { value: "marketing", label: "Marketing" },
-  { value: "sales", label: "Sales" },
-  { value: "hr", label: "Human Resources" },
-  { value: "finance", label: "Finance" },
-  { value: "operations", label: "Operations" },
-  { value: "design", label: "Design" },
-];
+const DEPARTMENTS_API_URL = "https://flasherp.imcbs.com/api/departments/";
 
 function Field({ label, required, error, children }) {
   return (
@@ -52,7 +43,26 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
   const [dragOver, setDragOver] = useState(false);
   const [receiptPreview, setReceiptPreview] = useState(null);
   const [hasExistingReceipt, setHasExistingReceipt] = useState(false);
+  const [departments, setDepartments] = useState([{ value: "", label: "Select Department" }]);
+  const [deptLoading, setDeptLoading] = useState(true);
   const fileInputRef = useRef();
+
+  // Fetch departments from API
+  useEffect(() => {
+    fetch(DEPARTMENTS_API_URL)
+      .then((r) => r.json())
+      .then((data) => {
+        const results = data?.results ?? data;
+        if (Array.isArray(results)) {
+          setDepartments([
+            { value: "", label: "Select Department" },
+            ...results.map((d) => ({ value: d.department, label: d.department })),
+          ]);
+        }
+      })
+      .catch(() => {})
+      .finally(() => setDeptLoading(false));
+  }, []);
 
   useEffect(() => {
     const loadClaimData = async () => {
@@ -184,10 +194,14 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
                 value={form.department}
                 onChange={handleChange}
                 style={{ ...s.input, ...(errors.department ? s.inputError : {}) }}
+                disabled={deptLoading}
               >
-                {departments.map((d) => (
-                  <option key={d.value} value={d.value}>{d.label}</option>
-                ))}
+                {deptLoading
+                  ? <option value="">Loading departments…</option>
+                  : departments.map((d) => (
+                      <option key={d.value || "placeholder"} value={d.value}>{d.label}</option>
+                    ))
+                }
               </select>
             </Field>
 

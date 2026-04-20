@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://127.0.0.1:8000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "https://flasherp.in/api";
 
 // NOTE: We do NOT import saveUserPermissions from useracess.js because
 // that service only sends 4 keys. We handle the full 7-key PATCH directly here.

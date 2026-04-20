@@ -217,7 +217,7 @@ export default function Layout({ children }) {
   const handleLogout = async () => {
     const refresh     = localStorage.getItem("refresh_token");
     const accessToken = localStorage.getItem("access_token");
-    const API_BASE    = (import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+    const API_BASE    = (import.meta.env.VITE_API_BASE_URL || "https://flasherp.in").replace(/\/$/, "");
     try {
       if (refresh) {
         await fetch(`${API_BASE}/api/auth/logout/`, {
