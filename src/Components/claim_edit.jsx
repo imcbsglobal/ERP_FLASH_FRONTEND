@@ -15,6 +15,264 @@ const expenseTypes = [
 
 const DEPARTMENTS_API_URL = "https://flasherp.imcbs.com/api/departments/";
 
+// Inject responsive CSS once
+const STYLE_ID = "claims-edit-responsive";
+if (typeof document !== "undefined" && !document.getElementById(STYLE_ID)) {
+  const style = document.createElement("style");
+  style.id = STYLE_ID;
+  style.textContent = `
+    /* ── Base (desktop standalone page) ── */
+    .ce-page {
+      height: 100%;
+      width: 100%;
+      overflow-y: auto;
+      background: #f5f7fb;
+      font-family: 'Google Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      padding: 24px;
+      box-sizing: border-box;
+    }
+
+    /*
+     * The card works in TWO contexts:
+     *   1. Standalone page  → normal block, scrolls with page
+     *   2. Inside a modal   → parent modal constrains height;
+     *      card uses flex-column so the form scrolls and
+     *      the action bar stays pinned to the bottom of the card.
+     *
+     * We use display:flex + flex-direction:column always, so both
+     * contexts work without knowing which one we're in.
+     */
+    .ce-card {
+      width: 100%;
+      max-width: 960px;
+      margin: 0 auto;
+      background: #ffffff;
+      border-radius: 28px;
+      border: 1px solid #eef2f8;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      /* When used as a standalone page the card grows naturally.
+         When inside a modal, the modal sets max-height and overflow:hidden,
+         so the card will respect that and let .ce-form-scroll handle scrolling. */
+      overflow: hidden;
+    }
+
+    /* ── Header – never scrolls ── */
+    .ce-header {
+      position: relative;
+      padding: 24px 32px 18px;
+      background: #ffffff;
+      border-bottom: 1px solid #f0f3f9;
+      flex-shrink: 0;
+    }
+    .ce-header-title {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 700;
+      color: #0a2540;
+      letter-spacing: -0.3px;
+    }
+
+    /* ── Error banner ── */
+    .ce-api-banner {
+      margin: 12px 32px 0;
+      padding: 12px 16px;
+      background: #fff5f5;
+      border-left: 4px solid #e53e3e;
+      border-radius: 14px;
+      color: #b91c1c;
+      font-size: 13px;
+      font-weight: 500;
+      flex-shrink: 0;
+    }
+
+    /* ── Scrollable form area ── */
+    .ce-form-body {
+      flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      padding: 24px 32px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .ce-row2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+
+    /* ── Action bar – pinned to bottom of card, never scrolls ── */
+    .ce-action-bar {
+      flex-shrink: 0;
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 14px;
+      padding: 16px 32px;
+      border-top: 1px solid #eef2f8;
+      background: #ffffff;
+    }
+
+    /* ── Buttons (desktop) ── */
+    .ce-cancel-btn {
+      padding: 11px 28px;
+      border-radius: 60px;
+      border: 1.5px solid #cbd5e1;
+      background: #ffffff;
+      color: #475569;
+      font-size: 14px;
+      font-family: 'Google Sans', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .ce-cancel-btn:hover:not(:disabled) {
+      background: #f8fafc;
+      border-color: #94a3b8;
+    }
+    .ce-cancel-btn:active { transform: scale(0.97); }
+
+    .ce-submit-btn {
+      padding: 11px 32px;
+      border-radius: 60px;
+      border: none;
+      background: #1a5cff;
+      color: #ffffff;
+      font-size: 14px;
+      font-family: 'Google Sans', sans-serif;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(26,92,255,0.28);
+      transition: all 0.2s ease;
+      white-space: nowrap;
+    }
+    .ce-submit-btn:hover:not(:disabled) {
+      background: #0e4ad0;
+      box-shadow: 0 6px 18px rgba(26,92,255,0.38);
+    }
+    .ce-submit-btn:active { transform: scale(0.97); }
+
+    /* ── Upload zone ── */
+    .ce-drop-zone {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      border-radius: 20px;
+      padding: 12px 16px;
+      background: #fafcff;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1.8px dashed #cbdde9;
+      min-height: 52px;
+    }
+    .ce-drop-zone.active {
+      border-color: #1a5cff;
+      background: #f0f6ff;
+    }
+    .ce-receipt-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border: 1.5px solid #e2edf5;
+      border-radius: 20px;
+      padding: 8px 14px;
+      background: #fafdff;
+    }
+
+    /* ── Mobile (≤ 600 px) ── */
+    @media (max-width: 600px) {
+      .ce-page {
+        padding: 0;
+        background: transparent;
+      }
+
+      /* Card becomes a bottom-sheet: rounded top corners, fills width */
+      .ce-card {
+        border-radius: 20px 20px 16px 16px;
+        box-shadow: none;
+        border: none;
+        /* Let the modal/parent cap the height; card will flex inside it */
+        width: 100%;
+        max-width: 100%;
+      }
+
+      .ce-header {
+        padding: 18px 20px 14px;
+      }
+      .ce-header-title {
+        font-size: 20px;
+        text-align: center;
+      }
+
+      .ce-api-banner {
+        margin: 10px 16px 0;
+        font-size: 12px;
+      }
+
+      .ce-form-body {
+        padding: 18px 20px 16px;
+        gap: 16px;
+      }
+
+      .ce-row2 {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      /* Action bar: full-width side-by-side buttons, no fixed positioning */
+      .ce-action-bar {
+        padding: 14px 20px 18px;
+        gap: 12px;
+        justify-content: stretch;
+        box-shadow: 0 -2px 12px rgba(0,0,0,0.05);
+      }
+
+      /* Both buttons share equal width */
+      .ce-cancel-btn,
+      .ce-submit-btn {
+        flex: 1;
+        text-align: center;
+        padding: 14px 12px;
+        font-size: 15px;
+        font-weight: 700;
+        border-radius: 60px;
+      }
+
+      .ce-drop-zone {
+        flex-wrap: wrap;
+        padding: 14px 12px;
+      }
+      .ce-receipt-card { flex-wrap: wrap; }
+
+      /* Prevent iOS zoom on focus */
+      input, select, textarea { font-size: 16px !important; }
+    }
+
+    /* ── Tablet (601 px – 900 px) ── */
+    @media (min-width: 601px) and (max-width: 900px) {
+      .ce-page { padding: 20px; }
+      .ce-header { padding: 22px 28px 16px; }
+      .ce-header-title { font-size: 24px; }
+      .ce-api-banner { margin: 10px 28px 0; }
+      .ce-form-body { padding: 22px 28px 18px; gap: 18px; }
+      .ce-action-bar { padding: 14px 28px; }
+      .ce-row2 { grid-template-columns: 1fr; gap: 18px; }
+    }
+
+    @media (min-width: 901px) and (max-width: 1100px) {
+      .ce-card { max-width: 880px; }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// Field component
 function Field({ label, required, error, children }) {
   return (
     <div style={s.fieldWrap}>
@@ -47,7 +305,7 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
   const [deptLoading, setDeptLoading] = useState(true);
   const fileInputRef = useRef();
 
-  // Fetch departments from API on mount
+  // Fetch departments
   useEffect(() => {
     fetch(DEPARTMENTS_API_URL)
       .then((r) => r.json())
@@ -60,14 +318,14 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
           ]);
         }
       })
-      .catch(() => {})
+      .catch(() => console.warn("dept fetch failed"))
       .finally(() => setDeptLoading(false));
   }, []);
 
+  // Load claim data
   useEffect(() => {
     const loadClaimData = async () => {
       try {
-        // Fetch full claim data including receipt URL
         const fullClaim = await fetchClaim(claim.id);
         setForm({
           expenseType: fullClaim._raw?.expense_type || claim.expense_type || "",
@@ -80,7 +338,6 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
         });
         setHasExistingReceipt(!!fullClaim._raw?.receipt);
       } catch (err) {
-        // Fallback to passed claim data
         setForm({
           expenseType: claim.expense_type || "",
           department: claim.department || "",
@@ -93,15 +350,15 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
         setHasExistingReceipt(!!claim.receipt);
       }
     };
-    loadClaimData();
+    if (claim?.id) loadClaimData();
   }, [claim]);
 
   const validate = () => {
     const newErrors = {};
     if (!form.expenseType) newErrors.expenseType = "Expense type is required.";
     if (!form.department) newErrors.department = "Department is required.";
-    if (!form.clientName.trim()) newErrors.clientName = "Client name is required.";
-    if (!form.purpose.trim()) newErrors.purpose = "Purpose is required.";
+    if (!form.clientName?.trim()) newErrors.clientName = "Client name is required.";
+    if (!form.purpose?.trim()) newErrors.purpose = "Purpose is required.";
     if (!form.amount || isNaN(form.amount) || Number(form.amount) <= 0)
       newErrors.amount = "Enter a valid amount.";
     return newErrors;
@@ -140,7 +397,7 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
   const handleDrop = (e) => {
     e.preventDefault();
     setDragOver(false);
-    handleFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files?.[0]) handleFile(e.dataTransfer.files[0]);
   };
 
   const removeReceipt = () => {
@@ -170,24 +427,19 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
   };
 
   return (
-    <div style={s.page}>
-      <div style={s.card}>
-        <div style={s.header}>
+    <div className="ce-page">
+      <div className="ce-card">
+        <div className="ce-header">
           <div style={s.headerCircle1} />
           <div style={s.headerCircle2} />
-          <div style={s.headerContent}>
-            <h1 style={s.headerTitle}>Edit Claim</h1>
-          </div>
+          <h1 className="ce-header-title">Edit Claim</h1>
         </div>
 
-        {apiError && (
-          <div style={s.apiBanner}>
-            ⚠️ {apiError}
-          </div>
-        )}
+        {apiError && <div className="ce-api-banner">⚠️ {apiError}</div>}
 
-        <div style={s.formBody}>
-          <div style={s.row2}>
+        <div className="ce-form-body">
+          {/* Department + Expense Type */}
+          <div className="ce-row2">
             <Field label="Department" required error={errors.department}>
               <select
                 name="department"
@@ -196,12 +448,15 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
                 style={{ ...s.input, ...(errors.department ? s.inputError : {}) }}
                 disabled={deptLoading}
               >
-                {deptLoading
-                  ? <option value="">Loading departments…</option>
-                  : departments.map((d) => (
-                      <option key={d.value || "placeholder"} value={d.value}>{d.label}</option>
-                    ))
-                }
+                {deptLoading ? (
+                  <option value="">Loading departments…</option>
+                ) : (
+                  departments.map((d) => (
+                    <option key={d.value || "placeholder"} value={d.value}>
+                      {d.label}
+                    </option>
+                  ))
+                )}
               </select>
             </Field>
 
@@ -213,13 +468,16 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
                 style={{ ...s.input, ...(errors.expenseType ? s.inputError : {}) }}
               >
                 {expenseTypes.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
+                  <option key={t.value} value={t.value}>
+                    {t.label}
+                  </option>
                 ))}
               </select>
             </Field>
           </div>
 
-          <div style={s.row2}>
+          {/* Client Name + Amount */}
+          <div className="ce-row2">
             <Field label="Client Name" required error={errors.clientName}>
               <input
                 type="text"
@@ -237,6 +495,7 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
                 name="amount"
                 placeholder="0.00"
                 min="0"
+                step="any"
                 value={form.amount}
                 onChange={handleChange}
                 style={{ ...s.input, ...(errors.amount ? s.inputError : {}) }}
@@ -244,7 +503,8 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
             </Field>
           </div>
 
-          <div style={s.row2}>
+          {/* Purpose + Receipt */}
+          <div className="ce-row2">
             <Field label="Purpose" required error={errors.purpose}>
               <input
                 type="text"
@@ -259,46 +519,61 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
             <Field label="Receipt / Attachment" error={errors.receipt}>
               {!receiptPreview && !hasExistingReceipt ? (
                 <div
-                  style={{ ...s.dropZoneInline, ...(dragOver ? s.dropZoneActiveInline : {}) }}
-                  onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                  className={`ce-drop-zone ${dragOver ? "active" : ""}`}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setDragOver(true);
+                  }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={handleDrop}
                   onClick={() => fileInputRef.current?.click()}
                 >
-                  <CameraswitchOutlinedIcon style={{ fontSize: 22, color: "#64748b" }} />
+                  <CameraswitchOutlinedIcon style={{ fontSize: 22, color: "#3b6cb7" }} />
                   <div style={s.dropTextInline}>Click or drag to upload</div>
                   <input
                     ref={fileInputRef}
                     type="file"
                     accept="image/jpeg,image/png,image/webp,application/pdf"
                     style={{ display: "none" }}
-                    onChange={(e) => handleFile(e.target.files[0])}
+                    onChange={(e) => handleFile(e.target.files?.[0])}
                   />
                 </div>
               ) : (
-                <div style={s.receiptCardInline}>
+                <div className="ce-receipt-card">
                   {receiptPreview === "pdf" ? (
                     <div style={s.pdfRowInline}>
-                      <span style={{ fontSize: 20 }}>📄</span>
-                      <div style={s.receiptFileNameInline}>{form.receipt?.name || "Receipt attached"}</div>
+                      <span style={{ fontSize: 22 }}>📄</span>
+                      <div style={s.receiptFileNameInline}>
+                        {form.receipt?.name || "document.pdf"}
+                      </div>
                     </div>
                   ) : receiptPreview ? (
                     <div style={s.imgPreviewInline}>
-                      <img src={receiptPreview} alt="Receipt preview" style={s.thumbImg} />
+                      <img src={receiptPreview} alt="Preview" style={s.thumbImg} />
                       <span style={s.receiptFileNameInline}>{form.receipt?.name}</span>
                     </div>
-                  ) : hasExistingReceipt && (
+                  ) : hasExistingReceipt ? (
                     <div style={s.pdfRowInline}>
                       <span style={{ fontSize: 20 }}>📎</span>
-                      <div style={s.receiptFileNameInline}>Existing receipt (replace by uploading new)</div>
+                      <div style={s.receiptFileNameInline}>
+                        Existing receipt (replace by uploading new)
+                      </div>
                     </div>
-                  )}
-                  <button style={s.removeBtnInline} onClick={removeReceipt}>✕</button>
+                  ) : null}
+                  <button
+                    type="button"
+                    style={s.removeBtnInline}
+                    onClick={removeReceipt}
+                    aria-label="Remove receipt"
+                  >
+                    ✕
+                  </button>
                 </div>
               )}
             </Field>
           </div>
 
+          {/* Notes full width */}
           <Field label="Notes">
             <textarea
               name="notes"
@@ -310,268 +585,104 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
           </Field>
 
           <div style={s.divider} />
+        </div>
 
-          <div style={s.actionBar}>
-            <button style={s.cancelBtn} onClick={onCancel} disabled={loading}>
-              Cancel
-            </button>
-            <button style={{ ...s.submitBtn, opacity: loading ? 0.7 : 1 }} onClick={handleSubmit} disabled={loading}>
-              {loading ? "Updating…" : "Update Claim"}
-            </button>
-          </div>
+        {/* Action bar – flex-shrink:0, always visible at bottom of card */}
+        <div className="ce-action-bar">
+          <button className="ce-cancel-btn" onClick={onCancel} disabled={loading}>
+            Cancel
+          </button>
+          <button
+            className="ce-submit-btn"
+            style={{ opacity: loading ? 0.7 : 1 }}
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? "Updating…" : "Update Claim"}
+          </button>
         </div>
       </div>
     </div>
   );
 }
 
+// Inline styles
 const s = {
-  page: {
-    height: "100%",
-    width: "100%",
-    overflowY: "auto",
-    background: "#f4f5f7",
-    fontFamily: "'Google Sans', sans-serif",
-    padding: "28px 32px",
-    // Mobile: reduce padding
-    "@media (max-width: 768px)": {
-      padding: "16px",
-    },
-  },
-  card: {
-    width: "100%",
-    maxWidth: 960,
-    margin: "0 auto",
-    background: "#fff",
-    borderRadius: 20,
-    overflow: "hidden",
-    boxShadow: "0 4px 24px rgba(0,0,0,0.08)",
-    border: "1px solid #e8eaed",
-  },
-  header: {
-    position: "relative",
-    padding: "28px 40px 24px",
-    overflow: "hidden",
-    // Mobile: reduce padding
-    "@media (max-width: 768px)": {
-      padding: "20px 20px 16px",
-    },
-  },
   headerCircle1: {
-    position: "absolute", top: -60, right: -60,
-    width: 180, height: 180, borderRadius: "50%",
-    background: "rgba(255,255,255,0.05)",
+    position: "absolute",
+    top: -60,
+    right: -60,
+    width: 180,
+    height: 180,
+    borderRadius: "50%",
+    background: "rgba(26,92,255,0.03)",
+    pointerEvents: "none",
   },
   headerCircle2: {
-    position: "absolute", bottom: -40, left: "42%",
-    width: 120, height: 120, borderRadius: "50%",
-    background: "rgba(255,255,255,0.03)",
-  },
-  headerContent: { position: "relative", zIndex: 1 },
-  headerTitle: {
-    margin: 0,
-    fontSize: 28,
-    fontWeight: 700,
-    color: "black",
-    letterSpacing: "-0.5px",
-    // Mobile: smaller font size
-    "@media (max-width: 768px)": {
-      fontSize: 22,
-    },
-  },
-  apiBanner: {
-    margin: "0 40px",
-    padding: "10px 16px",
-    background: "#fff5f5",
-    border: "1px solid #fca5a5",
-    borderRadius: 8,
-    color: "#b91c1c",
-    fontSize: 13,
-    fontFamily: "'Google Sans', sans-serif",
-    // Mobile: reduce side margin
-    "@media (max-width: 768px)": {
-      margin: "0 20px",
-    },
-  },
-  formBody: {
-    padding: "28px 40px 32px",
-    display: "flex",
-    flexDirection: "column",
-    gap: 18,
-    // Mobile: reduce padding
-    "@media (max-width: 768px)": {
-      padding: "20px 20px 24px",
-      gap: 14,
-    },
-  },
-  row2: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 20,
-    // Mobile: stack columns
-    "@media (max-width: 768px)": {
-      gridTemplateColumns: "1fr",
-      gap: 14,
-    },
+    position: "absolute",
+    bottom: -40,
+    left: "38%",
+    width: 130,
+    height: 130,
+    borderRadius: "50%",
+    background: "rgba(0,0,0,0.02)",
+    pointerEvents: "none",
   },
   fieldWrap: {
     display: "flex",
     flexDirection: "column",
-    gap: 5,
+    gap: 6,
     alignItems: "flex-start",
     width: "100%",
   },
   label: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 600,
-    color: "#1e293b",
+    color: "#1e2f44",
     fontFamily: "'Google Sans', sans-serif",
-    letterSpacing: 0.3,
-    marginBottom: 2,
+    letterSpacing: 0.2,
   },
-  required: { color: "#e11d48" },
+  required: { color: "#e53e3e", marginLeft: 2 },
   input: {
-    padding: "10px 14px",
-    border: "1.5px solid #e2e8f0",
-    borderRadius: 10,
+    padding: "12px 16px",
+    border: "1.5px solid #e2edf2",
+    borderRadius: 18,
     fontSize: 14,
     fontFamily: "'Google Sans', sans-serif",
-    color: "#1e293b",
-    background: "#f8fafc",
+    color: "#1a2c3e",
+    background: "#ffffff",
     outline: "none",
     width: "100%",
     boxSizing: "border-box",
-    transition: "border-color 0.2s",
-  },
-  inputError: { borderColor: "#fca5a5", background: "#fff5f5" },
-  textarea: { resize: "vertical", minHeight: 70, lineHeight: 1.5 },
-  errorMsg: { fontSize: 11, color: "#e11d48", fontFamily: "'Courier New',monospace", marginTop: 3 },
-  dropZoneInline: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    borderRadius: 10,
-    padding: "8px 14px",
-    background: "#f8fafc",
-    cursor: "pointer",
     transition: "all 0.2s",
-    border: "1.5px dashed #e2e8f0",
-    // Mobile: wrap content
-    "@media (max-width: 768px)": {
-      flexWrap: "wrap",
-      justifyContent: "center",
-      gap: 6,
-    },
   },
-  dropZoneActiveInline: { borderColor: "#0f2744", background: "#eff6ff" },
-  dropTextInline: {
-    fontSize: 12,
-    color: "#64748b",
-    // Mobile: smaller text
-    "@media (max-width: 768px)": {
-      fontSize: 11,
-    },
-  },
-  receiptCardInline: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    border: "1.5px solid #e2e8f0",
-    borderRadius: 10,
-    padding: "4px 8px 4px 12px",
-    background: "#f8fafc",
-    // Mobile: wrap on very small screens
-    "@media (max-width: 480px)": {
-      flexWrap: "wrap",
-      padding: "8px",
-    },
-  },
-  pdfRowInline: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-    flex: 1,
-    minWidth: 0, // allows text truncation
-  },
-  imgPreviewInline: {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    flex: 1,
-    minWidth: 0,
-  },
-  thumbImg: { width: 28, height: 28, objectFit: "cover", borderRadius: 6 },
+  inputError: { borderColor: "#f5b0b0", background: "#fff8f8" },
+  textarea: { resize: "vertical", minHeight: 80, lineHeight: 1.45, borderRadius: 20 },
+  errorMsg: { fontSize: 11, color: "#e53e3e", fontWeight: 500, marginTop: 4 },
+  dropTextInline: { fontSize: 13, color: "#4a627a", fontWeight: 500 },
+  pdfRowInline: { display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 },
+  imgPreviewInline: { display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0 },
+  thumbImg: { width: 34, height: 34, objectFit: "cover", borderRadius: 10, border: "1px solid #e2edf2" },
   receiptFileNameInline: {
-    fontSize: 11,
-    color: "#1e293b",
+    fontSize: 12,
+    color: "#1f3a5f",
     fontWeight: 500,
-    wordBreak: "break-all",
     flex: 1,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    "@media (max-width: 480px)": {
-      whiteSpace: "normal",
-      wordBreak: "break-word",
-    },
   },
   removeBtnInline: {
-    background: "none",
+    background: "#fef2f2",
     border: "none",
-    color: "#ef4444",
+    color: "#dc2626",
     fontSize: 16,
     cursor: "pointer",
-    padding: "4px 8px",
-    borderRadius: 20,
+    padding: "6px 12px",
+    borderRadius: 40,
     flexShrink: 0,
-  },
-  divider: { borderTop: "1px solid #f1f5f9", marginTop: 8 },
-  actionBar: {
-    display: "flex",
-    justifyContent: "flex-end",
-    alignItems: "center",
-    flexWrap: "wrap",
-    gap: 12,
-    marginTop: 4,
-    // Mobile: full width buttons
-    "@media (max-width: 768px)": {
-      flexDirection: "column",
-      alignItems: "stretch",
-      gap: 10,
-    },
-  },
-  cancelBtn: {
-    padding: "10px 24px",
-    borderRadius: 10,
-    border: "1.5px solid #cbd5e1",
-    background: "#ffffff",
-    color: "#64748b",
-    fontSize: 13,
-    fontFamily: "'Google Sans', sans-serif",
     fontWeight: 600,
-    cursor: "pointer",
-    // Mobile: full width
-    "@media (max-width: 768px)": {
-      width: "100%",
-      textAlign: "center",
-    },
+    transition: "0.1s",
   },
-  submitBtn: {
-    padding: "10px 28px",
-    borderRadius: 10,
-    border: "none",
-    background: "#1a73e8",
-    color: "#fff",
-    fontSize: 13,
-    fontFamily: "'Google Sans', sans-serif",
-    fontWeight: 700,
-    cursor: "pointer",
-    boxShadow: "0 4px 12px rgba(15,39,68,0.3)",
-    // Mobile: full width
-    "@media (max-width: 768px)": {
-      width: "100%",
-      textAlign: "center",
-    },
-  },
+  divider: { borderTop: "1px solid #ecf3f9", marginTop: 8 },
 };

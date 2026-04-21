@@ -18,6 +18,7 @@ import AirportShuttleOutlinedIcon from '@mui/icons-material/AirportShuttleOutlin
 import EvStationOutlinedIcon from '@mui/icons-material/EvStationOutlined';
 import PlaylistAddCheckOutlinedIcon from '@mui/icons-material/PlaylistAddCheckOutlined';
 import DriveEtaOutlinedIcon from '@mui/icons-material/DriveEtaOutlined';
+import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 
 // ── NEW: Claims icon + components ─────────────────────────────────────────────
 import EmergencyOutlinedIcon from '@mui/icons-material/EmergencyOutlined';
@@ -45,10 +46,17 @@ const NAV = [
       {
         id: "col_reports",
         permKey: "col_reports",
-        label: "Reports",
+        label: "Add Collection",
         icon: <GradingOutlinedIcon style={{ width: 18, height: 18 }} />
+      },
+      {
+        id: "col_reports_view",
+        permKey: "col_reports_view",
+        label: "Reports",
+        icon: <AssessmentOutlinedIcon style={{ width: 18, height: 18 }} />
       }
     ],
+    
   },
   {
     section: "Vehicle Management",
@@ -133,6 +141,7 @@ const PAGE_META = {
   vm_fuel:     { title: "Fuel Logs",            tag: "Vehicle Management",  desc: "Record and monitor fuel consumption across the fleet." },
   vm_service:  { title: "Service & Maintenance",tag: "Vehicle Management",  desc: "Schedule and track vehicle service and maintenance history." },
   col_reports: { title: "",                     tag: "",                    desc: "" },
+  col_reports_view: { title: "Collection Reports", tag: "Collection",        desc: "View and analyse collection reports and summaries." },
   // ── NEW ──
   cl_list:     { title: "Claims List",          tag: "Claims",              desc: "Track, review and manage all expense claims." },
 };
@@ -248,7 +257,8 @@ export default function Layout({ children }) {
   };
 
   const meta = PAGE_META[active] || {};
-  const isCol          = active.startsWith("col_");
+  const isCol          = active === "col_reports";
+  const isColReportsPage = active === "col_reports_view";
   const isUsersPage    = active === "um_users";
   const isRolesPage    = active === "um_roles";
   const isVehiclePage  = active === "mm_vehicle";
@@ -590,6 +600,19 @@ export default function Layout({ children }) {
 
           {isCol && (
             <div className="page-full"><PaymentTable /></div>
+          )}
+
+          {isColReportsPage && (
+            <div className="page">
+              <div className="page-head">
+                <div className="page-tag">Collection</div>
+                <h1 className="page-title">Collection Reports</h1>
+                <p className="page-desc">View and analyse collection reports and summaries.</p>
+              </div>
+              <div style={{ textAlign:"center", padding:"60px 20px", background:"#fff", border:"1px solid #e8eaed", borderRadius:10, color:"#5f6368", fontSize:14 }}>
+                📊 Collection Reports module coming soon.
+              </div>
+            </div>
           )}
 
           {isClaimsPage && (
