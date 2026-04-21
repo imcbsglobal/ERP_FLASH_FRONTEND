@@ -98,13 +98,6 @@ export default function MobileResponsiveClaimsList() {
       {showAddForm && (
         <div style={mobileModalStyles.overlay} onClick={() => setShowAddForm(false)}>
           <div style={mobileModalStyles.modal} onClick={(e) => e.stopPropagation()}>
-            <button
-              style={mobileModalStyles.closeBtn}
-              onClick={() => setShowAddForm(false)}
-              aria-label="Close"
-            >
-              <CloseIcon />
-            </button>
             <ClaimsAdd
               onSuccess={handleAddClaim}
               onCancel={() => setShowAddForm(false)}
@@ -117,13 +110,6 @@ export default function MobileResponsiveClaimsList() {
       {editingClaim && (
         <div style={mobileModalStyles.overlay} onClick={() => setEditingClaim(null)}>
           <div style={mobileModalStyles.modal} onClick={(e) => e.stopPropagation()}>
-            <button
-              style={mobileModalStyles.closeBtn}
-              onClick={() => setEditingClaim(null)}
-              aria-label="Close"
-            >
-              <CloseIcon />
-            </button>
             <ClaimsEdit
               claim={editingClaim}
               onSuccess={handleUpdateClaim}
@@ -452,9 +438,11 @@ function MobileClaimsListTable({
                     onChange={(e) => handleStatusChange(claim.id, e.target.value)}
                     disabled={isUpdatingStatus}
                     style={{
-                      ...mobileListStyles.dropdown,
-                      background: "white", // Default background color for dropdown
-                      color: "black", // Default text color for dropdown
+                      ...mobileListStyles.statusSelect,
+                      background: sc.bg,
+                      color: sc.color,
+                      borderColor: sc.dot,
+                      opacity: isUpdatingStatus ? 0.6 : 1,
                     }}
                   >
                     {Object.keys(STATUS_CONFIG).map((status) => (
@@ -776,12 +764,17 @@ function MobileClaimsListTable({
 // Mobile-specific styles
 const mobileListStyles = {
   page: {
-    height: "100%",
-    minHeight: "100vh",
+    height: "100dvh",
+    maxHeight: "100dvh",
     background: "#f4f5f7",
     fontFamily: "'Google Sans', sans-serif",
     padding: "16px",
     overflowY: "auto",
+    overflowX: "hidden",
+    WebkitOverflowScrolling: "touch",
+    boxSizing: "border-box",
+    display: "flex",
+    flexDirection: "column",
   },
   header: {
     display: "flex",
@@ -940,6 +933,7 @@ const mobileListStyles = {
   },
   cardDetails: {
     marginBottom: 12,
+    marginTop: 10,
   },
   detailRow: {
     display: "flex",
@@ -967,15 +961,16 @@ const mobileListStyles = {
     borderTop: "1px solid #f0f0f0",
   },
   statusSelect: {
-    padding: "8px 12px",
+    padding: "5px 8px",
     borderRadius: 8,
     border: "1.5px solid",
-    fontWeight: 600,
-    fontSize: 12,
+    fontWeight: 400,
+    fontSize: 9,
     fontFamily: "'Google Sans', sans-serif",
     background: "#fff",
     cursor: "pointer",
-    flex: 1,
+    flex: "0 1 auto",
+    maxWidth: 120,
   },
   actionButtons: {
     display: "flex",
@@ -1240,19 +1235,19 @@ const mobileModalStyles = {
   },
   modal: {
     position: "relative",
-    width: "50%",
+    width: "100%",
     maxWidth: "95%",
     maxHeight: "90vh",
     overflowY: "auto",
     borderRadius: 20,
     backgroundColor: "#fff",
     boxShadow: "0 20px 60px rgba(0,0,0,0.3)",
+    position: "relative",
   },
   closeBtn: {
-    position: "sticky",
+    position: "absolute",
     top: 12,
     right: 12,
-    float: "right",
     width: 36,
     height: 36,
     borderRadius: "50%",
@@ -1264,7 +1259,6 @@ const mobileModalStyles = {
     alignItems: "center",
     justifyContent: "center",
     zIndex: 10,
-    margin: "8px 8px 0 0",
   },
 };
 

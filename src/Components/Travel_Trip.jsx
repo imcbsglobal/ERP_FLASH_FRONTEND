@@ -29,7 +29,7 @@ function ImageCard({ src, label, onExpand, odoValue }) {
   const Icon = isStart ? AccessTimeIcon : HistoryIcon;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 90 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 70 }}>
       <span style={{
         fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
         color: accentColor,
@@ -45,8 +45,8 @@ function ImageCard({ src, label, onExpand, odoValue }) {
           onClick={() => onExpand(src, label)}
           title="Click to enlarge"
           style={{
-            width: 80,
-            height: 60,
+            width: 64,
+            height: 48,
             borderRadius: 10,
             overflow: "hidden",
             border: `2px solid ${accentColor}`,
@@ -75,7 +75,7 @@ function ImageCard({ src, label, onExpand, odoValue }) {
         </div>
       ) : (
         <div style={{
-          width: 80, height: 60,
+          width: 64, height: 48,
           display: "flex", flexDirection: "column",
           alignItems: "center", justifyContent: "center",
           borderRadius: 10,
@@ -313,7 +313,7 @@ export default function TravelList() {
   };
 
   const thStyle = {
-    padding: "12px 16px",
+    padding: "8px 12px",
     textAlign: "left",
     fontSize: 15,
     fontWeight: 700,
@@ -408,16 +408,21 @@ export default function TravelList() {
             gap: 12px;
           }
           .tt-controls {
-            flex-direction: column;
-            gap: 10px;
+            flex-direction: row;
+            gap: 8px;
+            flex-wrap: nowrap;
           }
           .tt-search {
-            width: 100% !important;
+            flex: 1;
+            min-width: 0;
+            width: auto !important;
             box-sizing: border-box;
           }
           .tt-start-btn {
-            width: 100%;
+            width: auto;
+            flex-shrink: 0;
             justify-content: center;
+            padding: 9px 14px;
           }
           .pagination-container {
             flex-wrap: wrap;
@@ -432,6 +437,150 @@ export default function TravelList() {
           }
         }
         .img-card-wrap:hover .img-overlay { opacity: 1 !important; }
+
+        /* ── Mobile Card View ── */
+        .desktop-table { display: block; }
+        .mobile-cards-wrapper { display: none; }
+
+        @media (max-width: 768px) {
+          .desktop-table { display: none !important; }
+          .mobile-cards-wrapper {
+            display: flex !important;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+          }
+          .mobile-cards {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 12px;
+          }
+
+          .trip-card {
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            padding: 10px 12px 10px 16px;
+            border: 1px solid #e8eaed;
+            position: relative;
+            overflow: hidden;
+          }
+          .trip-card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 4px;
+            background: linear-gradient(180deg, #1a6fdb, #0d4fa8);
+            border-radius: 4px 0 0 4px;
+          }
+
+          .trip-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            gap: 8px;
+          }
+          .trip-card-index {
+            width: 24px; height: 24px;
+            background: linear-gradient(135deg,#1a6fdb,#0d4fa8);
+            color: #fff;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 700;
+            flex-shrink: 0;
+          }
+          .trip-card-vehicle { flex: 1; }
+          .trip-card-vehicle-name { font-size: 13px; font-weight: 700; color: #202124; }
+          .trip-card-vehicle-reg { font-size: 12px; font-weight: 600; color: #1a6fdb; letter-spacing: 0.5px; }
+          .trip-status-badge {
+            font-size: 9px; font-weight: 700; padding: 2px 8px;
+            border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+          }
+          .trip-status-ongoing  { background: #fff8e1; color: #e65100; }
+          .trip-status-completed{ background: #e8f5e9; color: #2e7d32; }
+
+          .trip-card-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 6px;
+            flex-wrap: nowrap;
+          }
+          .trip-card-field {
+            flex: 1;
+            min-width: 0;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 6px 8px;
+          }
+          .trip-card-field-label {
+            font-size: 9px; font-weight: 600; color: #9aa0a6;
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;
+          }
+          .trip-card-field-value { font-size: 12px; font-weight: 600; color: #202124; }
+          .trip-card-field-sub { font-size: 10px; color: #5f6368; margin-top: 1px; }
+
+          /* Fuel + Photos on single row */
+          .trip-card-fuel-photos-row {
+            display: flex;
+            gap: 6px;
+            margin-bottom: 6px;
+            align-items: stretch;
+          }
+          .trip-card-fuel-box {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 6px 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-width: 80px;
+          }
+          .trip-card-photos-box {
+            flex: 1;
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 6px 8px;
+          }
+          .trip-card-photos {
+            display: flex; gap: 8px; align-items: center;
+          }
+          .trip-card-photos-label {
+            font-size: 9px; font-weight: 600; color: #9aa0a6;
+            text-transform: uppercase; letter-spacing: 0.5px;
+            margin-bottom: 4px;
+          }
+          .trip-photo-divider {
+            width: 1px; height: 44px; background: #e8eaed; flex-shrink: 0;
+          }
+
+          .trip-card-actions {
+            display: flex; gap: 6px; margin-top: 8px;
+          }
+          .trip-card-actions button {
+            flex: 1;
+            padding: 6px 8px;
+            border-radius: 7px; border: none;
+            font-size: 12px; font-weight: 600;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 4px;
+            font-family: 'Google Sans', sans-serif;
+            transition: opacity 0.15s;
+          }
+          .trip-card-actions button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+          .trip-card-purpose-btn {
+            display: inline-flex; align-items: center; gap: 4px;
+            background: none; border: none; cursor: pointer;
+            color: #1a73e8; font-size: 11px; font-weight: 600;
+            padding: 0; font-family: 'Google Sans', sans-serif;
+            margin-bottom: 5px;
+          }
+        }
         .scrollable-table-body {
           flex: 1;
           overflow-y: auto;
@@ -537,7 +686,7 @@ export default function TravelList() {
       )}
 
       {!showStartTrip && !showEndTripModal && (
-        <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "transparent", padding: "0", fontFamily: "'Google Sans', sans-serif" }}>
+        <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "transparent", padding: "20px 0 0 0", fontFamily: "'Google Sans', sans-serif" }}>
 
           {error && (
             <div style={{
@@ -555,7 +704,7 @@ export default function TravelList() {
             </div>
           )}
 
-          <div style={{ margin: "0 0 22px 0", width: "100%", flexShrink: 0, padding: "0 16px" }}>
+          <div style={{ margin: "0 0 22px 0", width: "100%", flexShrink: 0, padding: "0" }}>
             <div className="tt-header-wrap">
               <h1 className="tt-title" style={{ margin: 0, fontSize: 25, fontWeight: "600", color: "black", letterSpacing: -0.5 }}>
                 Travel Log
@@ -583,12 +732,135 @@ export default function TravelList() {
           </div>
 
           <div style={{ background: "#fff", borderRadius: "16px 16px 0 0", overflow: "hidden", boxShadow: "0 4px 24px rgba(0,0,0,0.08)", display: "flex", flexDirection: "column", flex: 1, minHeight: 0, width: "100%" }}>
-            <div className="scrollable-table-body" style={{ flex: 1, overflowY: "auto", overflowX: "auto", minHeight: 0 }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1200 }}>
+
+            {/* ── Mobile Card View ── */}
+            <div className="mobile-cards-wrapper">
+            <div className="mobile-cards">
+              {loading ? (
+                <div style={{ textAlign: "center", padding: "48px 16px", color: "#000" }}>
+                  <div style={{ fontSize: 28, marginBottom: 10 }}>⏳</div>
+                  <div style={{ fontWeight: 600, fontSize: 15 }}>Loading trips…</div>
+                </div>
+              ) : currentData.length === 0 ? (
+                <div style={{ textAlign: "center", padding: "48px 16px", color: "#000" }}>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}>🚗</div>
+                  <div style={{ fontWeight: 600, fontSize: 15 }}>No travel records found</div>
+                  <div style={{ fontSize: 13, marginTop: 4 }}>Add your first entry to get started</div>
+                </div>
+              ) : (
+                currentData.map((row, i) => (
+                  <div key={row.id} className="trip-card">
+                    {/* Card Header */}
+                    <div className="trip-card-header">
+                      <div className="trip-card-index">{startIndex + i + 1}</div>
+                      <div className="trip-card-vehicle">
+                        <div className="trip-card-vehicle-name">{row.vehicle || row.vehicle_name || "—"}</div>
+                        {(row.vehicleReg || row.registration_number) && (
+                          <div className="trip-card-vehicle-reg">{row.vehicleReg || row.registration_number}</div>
+                        )}
+                      </div>
+                      <span className={`trip-status-badge ${row.status === "completed" ? "trip-status-completed" : "trip-status-ongoing"}`}>
+                        {row.status === "completed" ? "✓ Completed" : "● Ongoing"}
+                      </span>
+                    </div>
+
+                    {/* Dates Row */}
+                    <div className="trip-card-row">
+                      <div className="trip-card-field">
+                        <div className="trip-card-field-label">🟢 Start</div>
+                        <div className="trip-card-field-value">
+                          {row.date ? new Date(row.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                        </div>
+                        <div className="trip-card-field-sub">{row.startTime || "—"}</div>
+                      </div>
+                      <div className="trip-card-field">
+                        <div className="trip-card-field-label">🔴 End</div>
+                        <div className="trip-card-field-value">
+                          {(row.endDate || row.end_date) ? new Date(row.endDate || row.end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                        </div>
+                        <div className="trip-card-field-sub">{row.endTime || "—"}</div>
+                      </div>
+                    </div>
+
+                    {/* Driver + Distance Row */}
+                    <div className="trip-card-row">
+                      <div className="trip-card-field">
+                        <div className="trip-card-field-label">👤 Driver</div>
+                        <div className="trip-card-field-value" style={{ fontSize: 11 }}>{row.traveledBy || loggedInUser}</div>
+                      </div>
+                      <div className="trip-card-field">
+                        <div className="trip-card-field-label">📍 Distance</div>
+                        <div className="trip-card-field-value">{row.distance || 0} km</div>
+                      </div>
+                    </div>
+
+                    {/* Purpose */}
+                    {row.purpose && (
+                      <button className="trip-card-purpose-btn" onClick={() => setPurposePopup(row.purpose)}>
+                        <PreviewOutlinedIcon style={{ fontSize: 13 }} /> View Purpose
+                      </button>
+                    )}
+
+                    {/* Fuel/Cost + Odometer Photos — single row */}
+                    <div className="trip-card-fuel-photos-row">
+                      {/* Fuel / Cost */}
+                      <div className="trip-card-fuel-box">
+                        <div className="trip-card-field-label">⛽ Fuel / Cost</div>
+                        <div className="trip-card-field-value">{row.fuel?.toFixed(1) || 0} L</div>
+                        <div className="trip-card-field-sub">₹{(row.cost || 0).toLocaleString()}</div>
+                      </div>
+                      {/* Odometer Photos */}
+                      <div className="trip-card-photos-box">
+                        <div className="trip-card-photos-label">📷 Odometer Photos</div>
+                        <div className="trip-card-photos">
+                          <ImageCard src={row.startImg} label="Start" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} odoValue={row.odoStart} />
+                          <div className="trip-photo-divider" />
+                          <ImageCard src={row.endImg} label="End" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} odoValue={row.odoEnd} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions */}
+                    <div className="trip-card-actions">
+                      <button
+                        onClick={() => setShowEndTripModal(row.id)}
+                        disabled={actionLoading || row.status === "completed"}
+                        style={{
+                          background: row.status === "completed" ? "#06771f" : "#f4b400",
+                          color: "#fff",
+                        }}
+                      >
+                        <StopCircleIcon style={{ fontSize: 14 }} />
+                        {row.status === "completed" ? "Completed" : "End Trip"}
+                      </button>
+                      <button onClick={() => setDeleteId(row.id)} disabled={actionLoading} style={{ background: "#d93025", color: "#fff" }}>
+                        <DeleteOutlineOutlinedIcon style={{ fontSize: 14 }} /> Delete
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>{/* end mobile-cards */}
+
+              {/* Mobile pagination */}
+              {!loading && totalPages > 1 && (
+                <div className="pagination-container" style={{ flexShrink: 0 }}>
+                  <button className="pagination-button" onClick={goToPreviousPage} disabled={currentPage === 1}>‹ Prev</button>
+                  {getVisiblePages().map(page => (
+                    <button key={page} className={`pagination-button ${currentPage === page ? 'active' : ''}`} onClick={() => goToPage(page)}>{page}</button>
+                  ))}
+                  <button className="pagination-button" onClick={goToNextPage} disabled={currentPage === totalPages}>Next ›</button>
+                </div>
+              )}
+            </div>{/* end mobile-cards-wrapper */}
+
+            {/* ── Desktop Table View ── */}
+            <div className="desktop-table scrollable-table-body" style={{ flex: 1, overflowY: "auto", overflowX: "auto", minHeight: 0 }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1400 }}>
                 <thead>
                   <tr>
                     {["Sl.No.", "Start Date", "Vehicle", "Traveled By", "Purpose", "Odometer Photos", "Distance", "Fuel & Cost", "End Date", "Action"].map((h) => (
-                      <th key={h} style={{ ...thStyle, textAlign: h === "Photos" ? "center" : "left" }}>
+                      <th key={h} style={{ ...thStyle, textAlign: h === "Action" ? "center" : "left" }}>
                         {h}
                       </th>
                     ))}
@@ -669,7 +941,7 @@ export default function TravelList() {
                         </td>
 
                         {/* Photos */}
-                        <td style={{ ...tdStyle, padding: "10px 16px" }}>
+                        <td style={tdStyle}>
                           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                             <div className="img-card-wrap" style={{ position: "relative" }}>
                               <ImageCard src={row.startImg} label="Start" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} odoValue={row.odoStart} />
@@ -708,74 +980,55 @@ export default function TravelList() {
                             <span style={{ fontSize: 11, color: "#b71c1c", paddingLeft: 18 }}>{row.endTime || "—"}</span>
                           </div>
                         </td>
-                        <td style={tdStyle}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <td style={{ ...tdStyle, minWidth: 220, textAlign: "center" }}>
+                          <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
                             <button
                               onClick={() => setShowEndTripModal(row.id)}
                               disabled={actionLoading || row.status === "completed"}
                               style={{
-                                padding: "5px 12px",
+                                padding: "6px 16px",
                                 borderRadius: 6,
                                 border: "none",
                                 background: row.status === "completed" ? "#06771f" : "#f4b400",
                                 color: "#fdfbfb",
-                                fontSize: 14,
+                                fontSize: 13,
                                 fontWeight: 600,
                                 cursor: row.status === "completed" ? "not-allowed" : "pointer",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",
-                                gap: 6,
+                                gap: 5,
                                 fontFamily: "'Google Sans', sans-serif",
-                                width: "100%",
+                                flex: 1,
+                                whiteSpace: "nowrap",
                               }}
                             >
-                              <StopCircleIcon style={{ fontSize: 14 }} />
+                              <StopCircleIcon style={{ fontSize: 13 }} />
                               {row.status === "completed" ? "Completed" : "End Trip"}
                             </button>
-                            <div style={{ display: "flex", gap: 6 }}>
-                              <button
-                                disabled={actionLoading}
-                                style={{
-                                  padding: "5px 12px",
-                                  borderRadius: 6,
-                                  border: "none",
-                                  background: "#1a73e8",
-                                  color: "#fff",
-                                  fontSize: 14,
-                                  fontWeight: 600,
-                                  cursor: "pointer",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                  fontFamily: "'Google Sans', sans-serif",
-                                  flex: 1,
-                                }}
-                              >
-                                <EditOutlinedIcon style={{ fontSize: 14 }} /> Edit
-                              </button>
-                              <button
-                                onClick={() => setDeleteId(row.id)}
-                                disabled={actionLoading}
-                                style={{
-                                  padding: "5px 12px",
-                                  borderRadius: 6,
-                                  border: "none",
-                                  background: "#d93025",
-                                  color: "#fff",
-                                  fontSize: 14,
-                                  fontWeight: 600,
-                                  cursor: "pointer",
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 4,
-                                  fontFamily: "'Google Sans', sans-serif",
-                                  flex: 1,
-                                }}
-                              >
-                                <DeleteOutlineOutlinedIcon style={{ fontSize: 14 }} /> Delete
-                              </button>
-                            </div>
+                            <button
+                              onClick={() => setDeleteId(row.id)}
+                              disabled={actionLoading}
+                              style={{
+                                padding: "6px 16px",
+                                borderRadius: 6,
+                                border: "none",
+                                background: "#d93025",
+                                color: "#fff",
+                                fontSize: 13,
+                                fontWeight: 600,
+                                cursor: "pointer",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                gap: 5,
+                                fontFamily: "'Google Sans', sans-serif",
+                                flex: 1,
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -783,8 +1036,8 @@ export default function TravelList() {
                   )}
                 </tbody>
               </table>
-            </div>
-            
+            </div>{/* end desktop-table */}
+
             {/* Pagination */}
             {!loading && totalPages > 1 && (
               <div className="pagination-container">

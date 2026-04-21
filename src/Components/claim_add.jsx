@@ -309,15 +309,27 @@ const RESPONSIVE_CSS = `
   @media (max-width: 640px) {
     .ca-page {
       padding: 0;
-      background: #f4f5f7;
+      background: #fff;
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      z-index: 1;
     }
     .ca-card {
       border-radius: 0;
       box-shadow: none;
       border: none;
-      min-height: 100dvh;
+      flex: 1;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+      width: 100%;
+      max-width: 100%;
+      height: 100%;
     }
     .ca-header {
       padding: 0;
@@ -326,6 +338,7 @@ const RESPONSIVE_CSS = `
       top: 0;
       z-index: 10;
       background: #fff;
+      flex-shrink: 0;
     }
     .ca-header-mobile-row {
       display: flex;
@@ -353,29 +366,32 @@ const RESPONSIVE_CSS = `
     .ca-api-banner {
       margin: 10px 16px 0;
       font-size: 12px;
+      flex-shrink: 0;
     }
     .ca-form-body {
-      padding: 16px 16px 24px;
+      padding: 16px 16px 20px;
       gap: 14px;
       flex: 1;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
     }
     .ca-row2 {
       grid-template-columns: 1fr;
-      gap: 14px;
+      gap: 12px;
     }
     .ca-label {
-      font-size: 13px;
+      font-size: 12px;
     }
     .ca-input {
-      font-size: 16px; /* prevents iOS zoom */
-      padding: 13px 14px;
+      font-size: 13px;
+      padding: 10px 10px;
       border-radius: 10px;
       background: #fff;
       border-color: #e2e8f0;
     }
     .ca-drop-zone {
       flex-direction: column;
-      padding: 20px 14px;
+      padding: 12px 8px;
       gap: 8px;
       justify-content: center;
     }
@@ -383,22 +399,26 @@ const RESPONSIVE_CSS = `
       font-size: 13px;
     }
     .ca-action-bar {
-      flex-direction: column-reverse;
+      flex-direction: row;
       gap: 10px;
+      flex-shrink: 0;
+      padding: 12px 16px 16px;
+      border-top: 1px solid #e5e7eb;
+      background: #fff;
+      box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
     }
     .ca-btn-cancel,
     .ca-btn-draft,
     .ca-btn-submit {
-      width: 100%;
+      flex: 1;
+      text-align: center;
       justify-content: center;
-      padding: 14px;
+      padding: 13px 10px;
       font-size: 14px;
-      border-radius: 12px;
-      min-height: 48px;
+      border-radius: 10px;
+      min-height: 46px;
     }
-    .ca-btn-submit {
-      order: -1; /* Submit on top on mobile */
-    }
+    .ca-divider { display: none; }
   }
 
   /* ── Tablet overrides (641 px – 900 px) ────────────────────────── */
@@ -419,7 +439,7 @@ const RESPONSIVE_CSS = `
       padding: 20px 24px 28px;
     }
     .ca-row2 {
-      grid-template-columns: 1fr;
+      grid-template-columns: 1fr 1fr;
       gap: 16px;
     }
     .ca-action-bar {
@@ -662,12 +682,7 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
         <div className="ca-header">
           {/* Mobile header row – hidden on desktop via CSS */}
           <div className="ca-header-mobile-row">
-            <button className="ca-header-icon-btn" onClick={() => onCancel?.()} aria-label="Back">
-              <ArrowBackIcon style={{ fontSize: 22 }} />
-            </button>
             <h1 className="ca-header-title">New Claim</h1>
-            {/* Spacer keeps title centered – parent modal owns the close button */}
-            <div style={{ width: 34 }} />
           </div>
           {/* Desktop title – hidden on mobile via CSS */}
           <h1 className="ca-header-title ca-header-desktop-title">Add New Claim</h1>

@@ -154,7 +154,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
       fontSize: 12, fontWeight: 700, color: 'var(--accent)',
     },
 
-    body: { flex: 1, overflowY: 'auto', padding: '16px' },
+    body: { flex: 1, overflowY: 'auto', padding: '16px', boxSizing: 'border-box', width: '100%' },
 
     card: {
       background: '#fff', borderRadius: 14,
@@ -232,9 +232,13 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
 
     // ── Odometer upload ──
     odometerBox: {
-      border: 'none', padding: 0,
-      display: 'flex', alignItems: 'center',
-      cursor: 'pointer', background: 'transparent',
+      borderRadius: 10, padding: '24px 16px',
+      display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      gap: 10, cursor: 'pointer', minHeight: 100,
+      border: '1.5px dashed #c8d8e8', background: '#f8fafc',
+      width: '100%', boxSizing: 'border-box',
+      transition: 'border-color 0.2s, background 0.2s',
     },
     odometerPreviewWrap: { position: 'relative', display: 'inline-block', marginTop: 4 },
     odometerPreviewImg: {
@@ -291,6 +295,12 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
           .et-grid3      { grid-template-columns: 1fr !important; }
           .et-grid2      { grid-template-columns: 1fr !important; }
           .et-cancel, .et-complete { flex: 1; justify-content: center; }
+          .et-body-scroll { padding: 10px !important; }
+          .et-card        { padding: 14px 12px !important; border-radius: 12px !important; }
+          .et-odometer-box { align-items: center !important; justify-content: center !important; padding: 24px 16px !important; }
+          .et-actions     { flex-direction: row !important; gap: 8px !important; }
+          .et-preview-wrap { flex-direction: column !important; align-items: flex-start !important; }
+          .et-odo-img     { max-width: 100% !important; max-height: 200px !important; }
         }
       `}</style>
 
@@ -298,8 +308,8 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
       
 
       {/* ── Body ── */}
-      <div style={S.body}>
-        <div style={S.card}>
+      <div style={S.body} className="et-body-scroll">
+        <div style={S.card} className="et-card">
          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
           <div style={S.headerLeft}>
            
@@ -524,15 +534,16 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
               }}>
                 <AddAPhotoOutlinedIcon style={{ fontSize: 26, color: '#1a73e8' }} />
               </div>
-              
+              <span style={{ fontSize: 12, color: '#9aa0a6', fontWeight: 500 }}>Tap to upload odometer photo</span>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }} className="et-preview-wrap">
               <div style={S.odometerPreviewWrap}>
                 <img
                   src={form.odometerImagePreview}
                   alt="Odometer End"
                   style={S.odometerPreviewImg}
+                  className="et-odo-img"
                 />
                 <button
                   type="button"
@@ -566,7 +577,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
           )}
 
           {/* ══ Actions ══ */}
-          <div style={S.actions}>
+          <div style={S.actions} className="et-actions">
             <button
               type="button"
               className="et-cancel"

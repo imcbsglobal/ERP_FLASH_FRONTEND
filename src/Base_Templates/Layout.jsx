@@ -564,7 +564,7 @@ export default function Layout({ children }) {
           )}
 
           {isVmTripsPage && (
-            <div className="page-full"><TravelList /></div>
+            <div className="page-full" style={{ padding: "0" }}><TravelList /></div>
           )}
 
           {isVmFuelPage && (
@@ -599,20 +599,11 @@ export default function Layout({ children }) {
           )}
 
           {isCol && (
-            <div className="page-full"><PaymentTable /></div>
+            <div className="page-full"><PaymentTable mode="my" /></div>
           )}
 
           {isColReportsPage && (
-            <div className="page">
-              <div className="page-head">
-                <div className="page-tag">Collection</div>
-                <h1 className="page-title">Collection Reports</h1>
-                <p className="page-desc">View and analyse collection reports and summaries.</p>
-              </div>
-              <div style={{ textAlign:"center", padding:"60px 20px", background:"#fff", border:"1px solid #e8eaed", borderRadius:10, color:"#5f6368", fontSize:14 }}>
-                📊 Collection Reports module coming soon.
-              </div>
-            </div>
+            <div className="page-full"><PaymentTable mode="all" /></div>
           )}
 
           {isClaimsPage && (

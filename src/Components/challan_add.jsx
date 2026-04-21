@@ -282,12 +282,20 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
         }
         
         .ctoast.show { transform:translateX(-50%) translateY(0); opacity:1; }
-      `}</style>
 
-      <div style={s.root}>
+        /* ── Mobile fit ── */
+        @media (max-width: 600px) {
+          .ca-root    { padding: 10px !important; }
+          .ca-card    { padding: 14px 12px !important; border-radius: 10px !important; }
+          .ca-actions { flex-direction: row !important; flex-wrap: wrap !important; }
+          .ca-actions button { flex: 1; min-width: 80px; justify-content: center; }
+          .ca-h4      { font-size: 17px !important; margin-bottom: 10px !important; }
+        }`}</style>
+
+      <div style={s.root} className="ca-root">
         <div style={s.container}>
-          <div style={s.card}>
-            <h4 style={{ textAlign:"left", fontSize:"20px", fontWeight:"bold", fontFamily:"'Google Sans', sans-serif" }}>
+          <div style={s.card} className="ca-card">
+            <h4 className="ca-h4" style={{ textAlign:"left", fontSize:"20px", fontWeight:"bold", fontFamily:"'Google Sans', sans-serif", marginBottom: 14 }}>
               {isEdit ? "Edit Challan" : "Add New Challan"}
             </h4>
             <Section title="Basic Information" />
@@ -418,7 +426,7 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
               </div>
             )}
 
-            <div style={s.actions}>
+            <div style={s.actions} className="ca-actions">
               <button type="button" className="cbtn-reset" onClick={handleReset} disabled={loading}>Reset</button>
               <button type="button" className="cbtn-cancel" onClick={onBack} disabled={loading}>Cancel</button>
               <button type="button" className="cbtn-submit" onClick={handleSubmit} disabled={loading}>
@@ -443,7 +451,7 @@ const s = {
     background:"#f0f4f8",
     fontFamily:"'Google Sans', sans-serif",
     color:"#1e293b",
-    padding:"28px 28px 40px",
+    padding:"16px",
     width:"100%",
     boxSizing:"border-box",
   },
@@ -451,13 +459,12 @@ const s = {
     maxWidth:820, 
     margin:"0 auto", 
     boxSizing:"border-box",
-    padding: "0 16px",
   },
   card: {
     background:"#ffffff",
     border:"1px solid #e2e8f0",
-    borderRadius:16,
-    padding:"28px 32px",
+    borderRadius:14,
+    padding:"20px 18px",
     boxShadow:"0 2px 12px rgba(0,0,0,.06)",
   },
   section: {
@@ -483,8 +490,8 @@ const s = {
   },
   inlineRow: {
     display:"grid",
-    gridTemplateColumns:"repeat(auto-fit, minmax(180px, 1fr))",
-    gap:"12px 20px",
+    gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))",
+    gap:"12px 16px",
     marginBottom:12,
     alignItems:"start",
   },
@@ -505,9 +512,9 @@ const s = {
   actions: {
     display:"flex",
     justifyContent:"flex-end",
-    gap:12,
-    marginTop:24,
-    paddingTop:20,
+    gap:10,
+    marginTop:20,
+    paddingTop:16,
     borderTop:"1px solid #e2e8f0",
     flexWrap:"wrap",
   },

@@ -176,8 +176,8 @@ const StartTrip = ({ onClose, onStart }) => {
 
   const S = {
     page: {
-      height: '100%', display: 'flex', flexDirection: 'column',
-      overflow: 'hidden', background: '#f8f9fa',
+      height: '100%', minHeight: '100dvh', display: 'flex', flexDirection: 'column',
+      overflow: 'hidden', background: '#f0f4f8',
       fontFamily: "'Google Sans', sans-serif",
     },
     header: {
@@ -190,31 +190,31 @@ const StartTrip = ({ onClose, onStart }) => {
       fontSize: 10, fontWeight: 700, letterSpacing: '1.6px',
       textTransform: 'uppercase', color: '#1a73e8', marginBottom: 2,
     },
-    title: { fontSize: 20, fontWeight: 700, color: '#202124', margin: 0, letterSpacing: '1.2px', lineHeight: 1.5 },
-    body:   { flex: 1, overflowY: 'auto', padding: '16px' },
+    title: { fontSize: 20, fontWeight: 700, color: '#202124', margin: '0 0 14px 0', letterSpacing: '0.5px', lineHeight: 1.3 },
+    body:   { flex: 1, overflowY: 'auto', padding: '12px', boxSizing: 'border-box', width: '100%', minHeight: 0, WebkitOverflowScrolling: 'touch' },
     card:   {
       background: '#fff', borderRadius: 14,
       boxShadow: '0 2px 12px rgba(0,0,0,0.07)',
-      padding: '20px 16px', maxWidth: 860, margin: '0 auto', width: '100%', boxSizing: 'border-box',
+      padding: '16px', maxWidth: 860, margin: '0 auto', width: '100%', boxSizing: 'border-box',
     },
     sectionLabel: {
-      fontSize: '15px', fontWeight:600, letterSpacing: '1.4px',
-      textTransform: 'capitalize', color: 'black',
-      marginBottom: 12, display: 'flex', alignItems: 'center', gap: 7,
-      borderBottom: '2px solid #e0e0e0',
+      fontSize: '13px', fontWeight: 700, letterSpacing: '1px',
+      textTransform: 'uppercase', color: '#1a73e8',
+      marginBottom: 10, marginTop: 4, display: 'flex', alignItems: 'center', gap: 6,
+      borderBottom: '1.5px solid #e8f0fe',
       paddingBottom: '6px',
     },
-    sectionDivider: { border: 'none', borderTop: '1.5px solid #f0f0f0', margin: '22px 0' },
-    grid2: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 },
-    grid3: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 },
-    formGroup: { display: 'flex', flexDirection: 'column' },
+    sectionDivider: { border: 'none', borderTop: '1px solid #f0f0f0', margin: '14px 0' },
+    grid2: { display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 },
+    grid3: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 },
+    formGroup: { display: 'flex', flexDirection: 'column', marginBottom: 4 },
     label: {
-      fontSize: '13px',fontWeight:600, color: '#000000',
-      marginBottom: 6, letterSpacing: '0.8px', textTransform: 'capitalize', textAlign: 'left',
+      fontSize: '12px', fontWeight: 600, color: '#374151',
+      marginBottom: 5, letterSpacing: '0.4px', textTransform: 'capitalize', textAlign: 'left',
     },
     required: { color: '#e74c3c', marginLeft: 3 },
     input: {
-      padding: '10px 13px', border: '1px solid #f0eeee', borderRadius: 8,
+      padding: '10px 12px', border: '1.5px solid #e5e7eb', borderRadius: 8,
       fontSize: 13, fontFamily: "'Google Sans', sans-serif",
       outline: 'none', width: '100%', boxSizing: 'border-box',
       background: '#fff', color: '#202124',
@@ -224,7 +224,7 @@ const StartTrip = ({ onClose, onStart }) => {
       background: '#f8f9fa', color: '#e1e4e6', cursor: 'default',
     },
     select: {
-      padding: '10px 13px', border: '1px solid #e0e0e0', borderRadius: 8,
+      padding: '10px 12px', border: '1.5px solid #e5e7eb', borderRadius: 8,
       fontSize: 13, fontFamily: "'Google Sans', sans-serif",
       background: '#fff', color: '#202124', outline: 'none',
       width: '100%', cursor: 'pointer', boxSizing: 'border-box',
@@ -232,24 +232,26 @@ const StartTrip = ({ onClose, onStart }) => {
     },
     inputError: { borderColor: '#d93025', boxShadow: '0 0 0 2px rgba(217,48,37,0.08)' },
     errorMsg:   { color: '#d93025', fontSize: 11, marginTop: 4 },
-    serviceGrid:  { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 },
+    serviceGrid:  { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 },
     serviceCard:  (checked) => ({
       display: 'flex', flexDirection: 'column', alignItems: 'center',
-      gap: 8, padding: '14px 10px', borderRadius: 10, cursor: 'pointer',
+      gap: 6, padding: '12px 8px', borderRadius: 10, cursor: 'pointer',
       border: `1.5px solid ${checked ? '#1a73e8' : '#e0e0e0'}`,
       background: checked ? '#e8f0fe' : '#fafafa',
       transition: 'all 0.18s', userSelect: 'none',
     }),
-    serviceIcon:  (checked) => ({ fontSize: 22, color: checked ? '#1a73e8' : '#9aa0a6' }),
+    serviceIcon:  (checked) => ({ fontSize: 20, color: checked ? '#1a73e8' : '#9aa0a6' }),
     serviceLabel: (checked) => ({
-      fontSize: 11, fontWeight: 700, letterSpacing: '0.5px',
+      fontSize: 10, fontWeight: 700, letterSpacing: '0.4px',
       color: checked ? '#1a73e8' : '#5f6368', textAlign: 'center',
     }),
     odometerBox: {
-      borderRadius: 10, padding: '20px',
-      display: 'flex', flexDirection: 'column', alignItems: 'left',
-      gap: 10, cursor: 'pointer',
+      borderRadius: 10, padding: '16px',
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      gap: 8, cursor: 'pointer', minHeight: 80,
+      border: '1.5px dashed #c8d8e8', background: '#f8fafc',
       transition: 'border-color 0.2s, background 0.2s',
+      width: '100%', boxSizing: 'border-box',
     },
     odometerPreviewWrap: { position: 'relative', display: 'inline-block', marginTop: 4 },
     odometerPreviewImg:  {
@@ -264,19 +266,20 @@ const StartTrip = ({ onClose, onStart }) => {
       cursor: 'pointer', fontSize: 13,
     },
     actions: {
-      display: 'flex', gap: 12, justifyContent: 'flex-end', flexWrap: 'wrap',
-      marginTop: 24, paddingTop: 20, borderTop: '1px solid #e8eaed',
+      display: 'flex', gap: 10, justifyContent: 'flex-end',
+      marginTop: 20, paddingTop: 14, borderTop: '1px solid #e8eaed',
     },
     cancelBtn: {
-      display: 'flex', alignItems: 'center', gap: 6,
-      padding: '10px 24px', borderRadius: 8,
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+      padding: '11px 20px', borderRadius: 8,
       border: '1px solid #e8eaed', background: '#fff',
       color: '#5f6368', fontWeight: 700, fontSize: 13, cursor: 'pointer',
       fontFamily: "'Google Sans', sans-serif", transition: 'all 0.18s',
+      whiteSpace: 'nowrap', minWidth: 100,
     },
     startBtn: {
-      display: 'flex', alignItems: 'center', gap: 6,
-      padding: '10px 28px', borderRadius: 8, border: 'none',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+      padding: '11px 24px', borderRadius: 8, border: 'none',
       background: loading ? '#93b8f4' : '#1a73e8',
       color: '#fff', fontWeight: 700, fontSize: 13,
       cursor: loading ? 'not-allowed' : 'pointer',
@@ -293,32 +296,103 @@ const StartTrip = ({ onClose, onStart }) => {
     <div style={S.page}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
+        * { box-sizing: border-box; }
         .st-input:focus  { border-color: #1a73e8 !important; box-shadow: 0 0 0 2px rgba(26,115,232,0.12) !important; }
         .st-select:focus { border-color: #1a73e8 !important; box-shadow: 0 0 0 2px rgba(26,115,232,0.12) !important; }
         .st-input::placeholder { color: #bdc1c6; font-size: 12px; }
         .st-cancel:hover { background: #f8f9fa !important; color: #202124 !important; }
-        .st-start:hover  { background: #1557b0 !important; transform: translateY(-1px); }
+        .st-start:hover  { background: #1557b0 !important; }
         .st-odometer-box:hover { border-color: #1a73e8 !important; }
-        @media (max-width: 600px) {
-          .st-grid3        { grid-template-columns: 1fr !important; }
-          .st-grid2        { grid-template-columns: 1fr !important; }
-          .st-service-grid { grid-template-columns: repeat(2, 1fr) !important; }
-          .st-cancel, .st-start { flex: 1; justify-content: center; }
-        }
-      `}</style>
-      <div style={S.body}>
-        <div style={S.card}>
+        /* Desktop: hide the new bottom bar, keep old inline actions */
+        .st-actions-bar { display: none; }
+
+        @media (max-width: 640px) {
+          /* Show bottom bar on mobile */
+          .st-actions-bar { display: flex !important; }
+          .st-actions     { display: none !important; }
+
+          /* Layout */
+          .st-body-scroll   { padding: 10px !important; }
+          .st-card          { padding: 14px 12px !important; border-radius: 12px !important; max-width: 100% !important; margin: 0 !important; box-shadow: none !important; border: 1px solid #e8eaed !important; }
+
+          /* Title */
+          .st-title         { font-size: 17px !important; margin-bottom: 12px !important; }
+
+          /* Section labels */
+          .st-section-label { font-size: 11px !important; margin-bottom: 8px !important; padding-bottom: 5px !important; letter-spacing: 0.8px !important; }
+
+          /* Dividers */
+          .st-divider       { margin: 12px 0 !important; }
+
+          /* Grids — all single column on mobile */
+          .st-grid3         { grid-template-columns: 1fr !important; gap: 10px !important; }
+          .st-grid2         { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+
+          /* Vehicle row full width */
+          .st-vehicle-row     { width: 100% !important; }
+
+          /* Form fields */
+          .st-input, .st-select { font-size: 13px !important; padding: 9px 10px !important; }
+          .st-form-group    { margin-bottom: 2px !important; }
+
+          /* Services — 2 per row on mobile */
+          .st-service-grid  { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+
+          /* Odometer */
+          .st-odometer-box  { padding: 14px !important; min-height: 72px !important; }
+          .st-odo-img       { max-width: 100% !important; max-height: 160px !important; }
+          .st-preview-wrap  { flex-direction: column !important; align-items: flex-start !important; }
+
+          /* Actions bar — outside scroll, pinned at bottom */
+          .st-actions-bar {
+            display: flex !important;
+            flex-direction: row !important;
+            gap: 10px !important;
+            padding: 12px 12px 16px !important;
+            background: #fff !important;
+            border-top: 1.5px solid #e8eaed !important;
+            flex-shrink: 0 !important;
+          }
+          .st-cancel {
+            flex: 1 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 5px !important;
+            padding: 13px 8px !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            border-radius: 8px !important;
+            min-width: 0 !important;
+            white-space: nowrap !important;
+          }
+          .st-start {
+            flex: 2 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            gap: 5px !important;
+            padding: 13px 8px !important;
+            font-size: 14px !important;
+            font-weight: 700 !important;
+            border-radius: 8px !important;
+            min-width: 0 !important;
+            white-space: nowrap !important;
+          }
+        }`}</style>
+      <div style={S.body} className="st-body-scroll">
+        <div style={S.card} className="st-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
             <div style={S.headerLeft}>
-              <h1 style={S.title}>Start New Trip</h1>
+              <h1 style={S.title} className='st-title'>Start New Trip</h1>
             </div>
           </div>
-          <div style={S.sectionLabel}>
+          <div style={S.sectionLabel} className='st-section-label'>
             <DirectionsCarOutlinedIcon style={{ fontSize: 16 }} />
             Basic Information
           </div>
-          <div className="st-grid3" style={S.grid3}>
-            <div style={S.formGroup}>
+          <div className="st-vehicle-row" style={{ marginBottom: 12 }}>
+            <div style={S.formGroup} className='st-form-group'>
               <label style={S.label}>
                 Vehicle <span style={S.required}>*</span>
               </label>
@@ -356,7 +430,9 @@ const StartTrip = ({ onClose, onStart }) => {
                 <span style={S.errorMsg}>{errors.vehicleId}</span>
               )}
             </div>
-            <div style={S.formGroup}>
+          </div>
+          <div className="st-grid2" style={{ ...S.grid2, marginBottom: 12 }}>
+            <div style={S.formGroup} className='st-form-group'>
               <label style={S.label}>
                 Date <span style={S.required}>*</span>
               </label>
@@ -370,7 +446,7 @@ const StartTrip = ({ onClose, onStart }) => {
               />
               {errors.date && <span style={S.errorMsg}>{errors.date}</span>}
             </div>
-            <div style={S.formGroup}>
+            <div style={S.formGroup} className='st-form-group'>
               <label style={S.label}>
                 Time <span style={S.required}>*</span>
               </label>
@@ -386,7 +462,7 @@ const StartTrip = ({ onClose, onStart }) => {
             </div>
           </div>
           <div className="st-grid3" style={{ ...S.grid3, marginTop: 16 }}>
-            <div style={S.formGroup}>
+            <div style={S.formGroup} className='st-form-group'>
               <label style={S.label}>
                 Purpose of Trip <span style={S.required}>*</span>
               </label>
@@ -401,7 +477,7 @@ const StartTrip = ({ onClose, onStart }) => {
               />
               {errors.purposeOfTrip && <span style={S.errorMsg}>{errors.purposeOfTrip}</span>}
             </div>
-            <div style={S.formGroup}>
+            <div style={S.formGroup} className='st-form-group'>
               <label style={S.label}>Maintenance Cost (₹)</label>
               <input
                 type="number"
@@ -416,7 +492,7 @@ const StartTrip = ({ onClose, onStart }) => {
               />
               {errors.maintenanceCost && <span style={S.errorMsg}>{errors.maintenanceCost}</span>}
             </div>
-            <div style={S.formGroup}>
+            <div style={S.formGroup} className='st-form-group'>
               <label style={S.label}>Odometer Start (km)</label>
               <input
                 type="number"
@@ -432,8 +508,8 @@ const StartTrip = ({ onClose, onStart }) => {
               {errors.odometerStart && <span style={S.errorMsg}>{errors.odometerStart}</span>}
             </div>
           </div>
-          <hr style={S.sectionDivider} />
-          <div style={S.sectionLabel}>
+          <hr style={S.sectionDivider} className='st-divider' />
+          <div style={S.sectionLabel} className='st-section-label'>
             <TuneOutlinedIcon style={{ fontSize: 16 }} />
             Select Services
           </div>
@@ -467,8 +543,8 @@ const StartTrip = ({ onClose, onStart }) => {
               );
             })}
           </div>
-          <hr style={S.sectionDivider} />
-          <div style={S.sectionLabel}>
+          <hr style={S.sectionDivider} className='st-divider' />
+          <div style={S.sectionLabel} className='st-section-label'>
             <SpeedOutlinedIcon style={{ fontSize: 16 }} />
             Odometer Reading Image
           </div>
@@ -491,14 +567,16 @@ const StartTrip = ({ onClose, onStart }) => {
               }}>
                 <AddAPhotoOutlinedIcon style={{ fontSize: 26, color: '#1a73e8' }} />
               </div>
+              <span style={{ fontSize: 12, color: '#9aa0a6', fontWeight: 500 }}>Tap to upload odometer photo</span>
             </div>
           ) : (
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }} className="st-preview-wrap">
               <div style={S.odometerPreviewWrap}>
                 <img
                   src={form.odometerImagePreview}
                   alt="Odometer"
                   style={S.odometerPreviewImg}
+                  className="st-odo-img"
                 />
                 <button
                   type="button"
@@ -529,29 +607,30 @@ const StartTrip = ({ onClose, onStart }) => {
               {errors.odometerImage}
             </span>
           )}
-          <div style={S.actions}>
-            <button
-              type="button"
-              className="st-cancel"
-              style={S.cancelBtn}
-              onClick={handleCancel}
-              disabled={loading}
-            >
-              <CloseOutlinedIcon style={{ fontSize: 16 }} />
-              Cancel
-            </button>
-            <button
-              type="button"
-              className="st-start"
-              style={S.startBtn}
-              onClick={handleStart}
-              disabled={loading}
-            >
-              <PlayArrowOutlinedIcon style={{ fontSize: 18 }} />
-              {loading ? 'Starting…' : 'Start Trip'}
-            </button>
-          </div>
         </div>
+      </div>
+      {/* ── Fixed bottom action bar ── */}
+      <div className="st-actions-bar">
+        <button
+          type="button"
+          className="st-cancel"
+          style={S.cancelBtn}
+          onClick={handleCancel}
+          disabled={loading}
+        >
+          <CloseOutlinedIcon style={{ fontSize: 16 }} />
+          Cancel
+        </button>
+        <button
+          type="button"
+          className="st-start"
+          style={S.startBtn}
+          onClick={handleStart}
+          disabled={loading}
+        >
+          <PlayArrowOutlinedIcon style={{ fontSize: 18 }} />
+          {loading ? 'Starting…' : 'Start Trip'}
+        </button>
       </div>
     </div>
   );

@@ -97,8 +97,177 @@ async function apiFetch(url, options = {}) {
   return data;
 }
 
+// ── Mobile Card Component ──────────────────────────────────────
+function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, onStatusUpdate, onEdit, onDelete, editLoading }) {
+  const [expanded, setExpanded] = React.useState(false);
+
+  const formatCurrency = (amount) =>
+    new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR',
+      minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+
+  const formatDate = (dateString) =>
+    new Date(dateString).toLocaleDateString('en-IN', {
+      day: '2-digit', month: 'short', year: 'numeric' });
+
+  const getStatusClass = (status) => {
+    switch ((status || '').toLowerCase()) {
+      case 'completed': return 'pill-green';
+      case 'pending':   return 'pill-amber';
+      case 'rejected':
+      case 'failed':    return 'pill-red';
+      default:          return 'pill-muted';
+    }
+  };
+
+  const statusDisplay = payment.status === 'Failed' ? 'Rejected' : payment.status;
+
+  return (
+    <div className="mobile-card" onClick={() => setExpanded(p => !p)}>
+      {/* Header */}
+      <div className="mc-head">
+        <div className="mc-left">
+          <div className="mc-serial">#{startIndex + index + 1}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="client-name">{payment.clientName}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 10px', marginTop: 4 }}>
+              {payment.place && (
+                <span className="client-place">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
+                    <circle cx="12" cy="9" r="2.5" />
+                  </svg>
+                  {payment.place}
+                </span>
+              )}
+              {payment.phoneNumber && (
+                <span className="client-phone">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
+                    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
+                  </svg>
+                  {payment.phoneNumber}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="mc-right">
+          <select
+            className={`status-select ${getStatusClass(payment.status)}`}
+            value={statusDisplay || 'Pending'}
+            disabled={updatingId === payment.id}
+            onClick={e => e.stopPropagation()}
+            onChange={e => { e.stopPropagation(); onStatusUpdate(payment, e.target.value); }}
+          >
+            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <span className={`mc-chevron${expanded ? ' open' : ''}`}>▼</span>
+        </div>
+      </div>
+
+      {/* Always-visible summary */}
+      <div className="mc-summary">
+        <div>
+          <div className="mc-lbl">Date</div>
+          <div className="mc-val">{formatDate(payment.date)}</div>
+          {(payment.createdByName || payment.created_by_name) && (
+            <div style={{
+              fontSize: 11, color: "#6b7280", marginTop: 3,
+              display: "flex", alignItems: "center", gap: 3, fontWeight: 500
+            }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10" style={{ flexShrink: 0 }}>
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+              </svg>
+              {payment.createdByName || payment.created_by_name}
+            </div>
+          )}
+        </div>
+        <div>
+          <div className="mc-lbl">Amount</div>
+          <div className="mc-val mc-val-blue">{formatCurrency(payment.amount)}</div>
+        </div>
+        <div>
+          <div className="mc-lbl">Branch</div>
+          <div className="mc-val">{payment.branch || '—'}</div>
+        </div>
+        <div>
+          <div className="mc-lbl">Type</div>
+          <div className="mc-val">{payment.collectionType || '—'}</div>
+        </div>
+      </div>
+
+      {/* Expanded details */}
+      {expanded && (
+        <div className="mc-detail" onClick={e => e.stopPropagation()}>
+          {payment.department && (
+            <div>
+              <div className="mc-lbl">Department</div>
+              <div className="mc-val">{payment.department}</div>
+            </div>
+          )}
+          {payment.paidFor && (
+            <div>
+              <div className="mc-lbl">Paid For</div>
+              <div className="mc-val">{payment.paidFor}</div>
+            </div>
+          )}
+          {payment.paymentProofUrl && (
+            <div>
+              <div className="mc-lbl">Proof</div>
+              <a className="file-link" href={payment.paymentProofUrl} target="_blank" rel="noopener noreferrer">
+                <VisibilityOutlinedIcon style={{ fontSize: 18 }} /> View
+              </a>
+            </div>
+          )}
+          <div className="mc-full mc-actions">
+            <button
+              onClick={() => onEdit(payment)}
+              style={{
+                flex: 1, padding: '8px 0', borderRadius: 7, border: 'none',
+                background: '#1a73e8', color: '#fff', fontSize: 13,
+                fontWeight: 600, cursor: 'pointer', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', gap: 6,
+                fontFamily: "'Google Sans', sans-serif",
+              }}
+            >
+              <EditOutlinedIcon style={{ fontSize: 15 }} /> Edit
+            </button>
+            <button
+              onClick={() => onDelete(payment.id)}
+              style={{
+                flex: 1, padding: '8px 0', borderRadius: 7, border: 'none',
+                background: '#d93025', color: '#fff', fontSize: 13,
+                fontWeight: 600, cursor: 'pointer', display: 'flex',
+                alignItems: 'center', justifyContent: 'center', gap: 6,
+                fontFamily: "'Google Sans', sans-serif",
+              }}
+            >
+              <DeleteOutlineOutlinedIcon style={{ fontSize: 15 }} /> Delete
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Component ──────────────────────────────────────────────────
-const PaymentTable = () => {
+const PaymentTable = ({ mode = 'all' }) => {
+  // Get logged-in user info
+  const getLoggedInUser = () => {
+    try {
+      const userJson = localStorage.getItem('user');
+      if (userJson) {
+        const user = JSON.parse(userJson);
+        return {
+          id:   user.id   || user.user_id  || null,
+          name: user.full_name || user.name || user.username || user.email || null,
+        };
+      }
+    } catch { /* ignore */ }
+    return { id: null, name: null };
+  };
+  const loggedInUser = getLoggedInUser();
   const [payments, setPayments]               = useState([]);
   const [loading, setLoading]                 = useState(true);
   const [error, setError]                     = useState(null);
@@ -136,6 +305,10 @@ const PaymentTable = () => {
       const params = new URLSearchParams();
       if (searchTerm)            params.append('search', searchTerm);
       if (filterType !== 'all') params.append('collection_type', filterType);
+      // "my" mode: server filters by the authenticated user via my_payments=true
+      if (mode === 'my') {
+        params.append('my_payments', 'true');
+      }
 
       const data = await apiFetch(
         `${BASE_URL}/payments/?${params}`,
@@ -155,7 +328,7 @@ const PaymentTable = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, filterType]);
+  }, [searchTerm, filterType, mode]);
 
   useEffect(() => { loadPayments(); }, [loadPayments]);
 
@@ -251,7 +424,17 @@ const PaymentTable = () => {
     const payDate = payment.date ? new Date(payment.date) : null;
     const matchesFrom = !dateFrom || (payDate && payDate >= new Date(dateFrom));
     const matchesTo   = !dateTo   || (payDate && payDate <= new Date(dateTo + 'T23:59:59'));
-    return matchesSearch && matchesType && matchesStatus && matchesFrom && matchesTo;
+    // "my" mode: server already filtered, but apply client-side guard using created_by
+    const matchesUser = mode !== 'my' ? true : (() => {
+      const uid = loggedInUser.id;
+      // Use the created_by field returned by the API (reliable server-side source)
+      if (uid && payment.created_by != null) {
+        return String(payment.created_by) === String(uid);
+      }
+      // Fallback: if API didn't return created_by, trust the server filtered correctly
+      return true;
+    })();
+    return matchesSearch && matchesType && matchesStatus && matchesFrom && matchesTo && matchesUser;
   });
 
   // Pagination calculations
@@ -445,10 +628,10 @@ const PaymentTable = () => {
         .pt-modal-close:hover { background: #f3f4f6; color: #111827; }
         .pt-modal-body { padding: 24px; }
         
-        .client-info { display: flex; flex-direction: column; gap: 4px; }
+        .client-info { display: flex; flex-direction: column; gap: 1px; }
         .client-name { font-weight: 600; color: #111827; font-size: 14px; }
-        .client-place { font-size: 13px; color: #0c0c0c; display: flex; align-items: center; gap: 4px; }
-        .client-phone { font-size: 13px; color: #0a0a0a; display: flex; align-items: center; gap: 4px; margin-top: 2px; }
+        .client-place { font-size: 13px; color: #0c0c0c; display: flex; align-items: center; gap: -1px; }
+        .client-phone { font-size: 13px; color: #0a0a0a; display: flex; align-items: center; gap: 0px; margin-top: 0; }
         .client-place svg, .client-phone svg { width: 11px; height: 11px; opacity: 0.7; flex-shrink: 0; }
         
         .department-badge {
@@ -616,6 +799,11 @@ const PaymentTable = () => {
           display: flex;
           align-items: flex-end;
         }
+        /* Row wrappers — transparent on desktop (flex children), grid on mobile */
+        .filter-row-2col,
+        .filter-row-dates {
+          display: contents;
+        }
         .page-header-bar {
           flex-shrink: 0;
           display: flex;
@@ -628,8 +816,61 @@ const PaymentTable = () => {
           gap: 0;
         }
 
+        /* ── Mobile Card styles ── */
+        .mobile-card-scroll-wrapper {
+          display: none;
+          flex-direction: column;
+          flex: 1;
+          min-height: 0;
+          overflow-y: auto;
+          overflow-x: hidden;
+          -webkit-overflow-scrolling: touch;
+          padding-bottom: 16px;
+        }
+        .mobile-card-list { display: flex; flex-direction: column; gap: 10px; }
+        .mobile-card {
+          background: #fff;
+          border: 1px solid #e8eaed;
+          border-radius: 14px;
+          padding: 14px 16px;
+          box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+          cursor: pointer;
+          transition: box-shadow 0.15s;
+        }
+        .mobile-card:hover { box-shadow: 0 4px 12px rgba(26,115,232,0.10); }
+        .mc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+        .mc-left { display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0; }
+        .mc-serial {
+          width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+          background: #e8f0fe; color: #1a73e8;
+          display: flex; align-items: center; justify-content: center;
+          font-size: 12px; font-weight: 700;
+        }
+        .mc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+        .mc-chevron { font-size: 11px; color: #9ca3af; transition: transform 0.2s; display: inline-block; }
+        .mc-chevron.open { transform: rotate(180deg); }
+        .mc-summary {
+          display: grid; grid-template-columns: 1fr 1fr;
+          gap: 8px 12px; margin-top: 12px;
+          padding-top: 12px; border-top: 1px solid #f3f4f6;
+        }
+        .mc-detail {
+          display: grid; grid-template-columns: 1fr 1fr;
+          gap: 8px 12px; margin-top: 10px;
+          padding-top: 10px; border-top: 1px dashed #e8eaed;
+          animation: mcFadeIn 0.15s ease;
+        }
+        .mc-detail .mc-full { grid-column: 1 / -1; }
+        .mc-lbl { font-size: 10px; color: #9aa0a6; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
+        .mc-val { font-size: 13px; font-weight: 600; color: #202124; }
+        .mc-val-blue { color: #1a73e8; font-weight: 700; }
+        .mc-actions { display: flex; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f3f4f6; }
+        @keyframes mcFadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+
         /* ── Mobile responsive ── */
         @media (max-width: 600px) {
+          .single-scroll-table-container { display: none !important; }
+          .mobile-card-scroll-wrapper { display: flex !important; }
           .page-header-bar {
             height: auto;
             padding: 12px 14px;
@@ -640,10 +881,40 @@ const PaymentTable = () => {
           }
           .filters-grid {
             flex-direction: column;
-            gap: 12px;
+            gap: 10px;
           }
-          .filter-item,
           .filter-item-search {
+            flex: unset;
+            width: 100%;
+            min-width: unset;
+          }
+          /* Payment Type + Status → side by side */
+          .filter-row-2col {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            width: 100%;
+          }
+          /* From Date + To Date → side by side */
+          .filter-row-dates {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            width: 100%;
+            min-width: 0;
+          }
+          .filter-row-dates .filter-item {
+            min-width: 0;
+            overflow: hidden;
+          }
+          .filter-row-dates .filter-item input[type="date"] {
+            width: 100% !important;
+            min-width: 0 !important;
+            box-sizing: border-box !important;
+            font-size: 11px !important;
+            padding: 9px 6px !important;
+          }
+          .filter-item {
             flex: unset;
             width: 100%;
             min-width: unset;
@@ -666,6 +937,32 @@ const PaymentTable = () => {
             gap: 6px;
           }
           .col-hide-mobile { display: none !important; }
+          /* Tighter filter section on mobile */
+          .filter-container { padding: 12px !important; margin-bottom: 12px !important; }
+          div[style*="flexShrink: 0"] { padding-top: 8px !important; }
+
+          /* ── Compact cards: ~2 visible on screen ── */
+          .mobile-card {
+            padding: 10px 12px !important;
+            border-radius: 10px !important;
+          }
+          .mc-serial {
+            width: 26px !important; height: 26px !important;
+            font-size: 11px !important;
+          }
+          .client-name { font-size: 13px !important; }
+          .client-place, .client-phone { font-size: 11px !important; }
+          .status-select { font-size: 11px !important; padding: 3px 7px !important; }
+          .mc-summary {
+            margin-top: 8px !important;
+            padding-top: 8px !important;
+            gap: 6px 10px !important;
+          }
+          .mc-lbl { font-size: 9px !important; }
+          .mc-val { font-size: 12px !important; }
+          .mc-chevron { font-size: 10px !important; }
+          .mobile-card-list { gap: 8px !important; }
+          .mobile-card-scroll-wrapper { padding-bottom: 10px !important; }
         }
       `}</style>
 
@@ -680,6 +977,7 @@ const PaymentTable = () => {
           </div>
 
           <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
+            {mode === 'my' && (
             <button 
               onClick={() => setShowPaymentForm(true)} 
               style={{ 
@@ -693,12 +991,13 @@ const PaymentTable = () => {
             >
               + New Payment
             </button>
+            )}
           </div>
         </div>
 
         {/* ── Filters Section (Always Visible) ── */}
         <div style={{ flexShrink: 0, padding: "12px 16px 0 16px" }}>
-          <div style={{ background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "18px 20px", marginBottom: 20 }}>
+          <div className="filter-container" style={{ background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "18px 20px", marginBottom: 20 }}>
             <div className="filters-grid">
               {/* Search */}
               <div className="filter-item-search">
@@ -712,6 +1011,8 @@ const PaymentTable = () => {
                 />
               </div>
 
+              {/* Payment Type + Status → one row on mobile */}
+              <div className="filter-row-2col">
               {/* Payment Type */}
               <div className="filter-item">
                 <label className="filter-label">Payment Type</label>
@@ -740,7 +1041,10 @@ const PaymentTable = () => {
                   <option value="Rejected">Rejected</option>
                 </select>
               </div>
+              </div>
 
+              {/* From Date + To Date → one row on mobile */}
+              <div className="filter-row-dates">
               {/* Date From */}
               <div className="filter-item">
                 <label className="filter-label">From Date</label>
@@ -759,6 +1063,7 @@ const PaymentTable = () => {
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
                 />
+              </div>
               </div>
 
               {/* Clear Filters Button */}
@@ -805,8 +1110,22 @@ const PaymentTable = () => {
                         {/* Sl. no. */}
                         <td style={{ ...tdStyle, color: "#9aa0a6", fontWeight: 600, width: 56 }}>{startIndex + index + 1}</td>
                         
-                        {/* Date */}
-                        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{formatDate(payment.date)}</td>
+                        {/* Date + Created By */}
+                        <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
+                          <div>{formatDate(payment.date)}</div>
+                          {(payment.createdByName || payment.created_by_name) && (
+                            <div style={{
+                              fontSize: 11, color: "#6b7280", marginTop: 3,
+                              display: "flex", alignItems: "center", gap: 3, fontWeight: 500
+                            }}>
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10" style={{ flexShrink: 0 }}>
+                                <circle cx="12" cy="8" r="4" />
+                                <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
+                              </svg>
+                              {payment.createdByName || payment.created_by_name}
+                            </div>
+                          )}
+                        </td>
                         
                         {/* Client Name with details */}
                         <td style={{ ...tdStyle, textAlign: 'left' }}>
@@ -967,6 +1286,36 @@ const PaymentTable = () => {
                   </button>
                 </div>
               )}
+
+              {/* ── Mobile Card List (hidden on desktop via CSS) ── */}
+              <div className="mobile-card-scroll-wrapper">
+                <div className="mobile-card-list">
+                {currentPayments.map((payment, index) => (
+                  <MobileCard
+                    key={payment.id}
+                    payment={payment}
+                    index={index}
+                    startIndex={startIndex}
+                    STATUS_OPTIONS={STATUS_OPTIONS}
+                    updatingId={updatingId}
+                    onStatusUpdate={handleStatusUpdate}
+                    onEdit={handleEditClick}
+                    onDelete={confirmDelete}
+                    editLoading={editLoading}
+                  />
+                ))}
+                {/* Mobile pagination */}
+                {totalPages > 1 && (
+                  <div className="pagination-container">
+                    <button className="pagination-button" onClick={goToPreviousPage} disabled={currentPage === 1}>‹ Prev</button>
+                    {getVisiblePages().map(page => (
+                      <button key={page} className={`pagination-button ${currentPage === page ? 'active' : ''}`} onClick={() => goToPage(page)}>{page}</button>
+                    ))}
+                    <button className="pagination-button" onClick={goToNextPage} disabled={currentPage === totalPages}>Next ›</button>
+                  </div>
+                )}
+                </div>
+              </div>
             </>
           ) : (
             <div style={{ textAlign: "left", padding: "60px 20px", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, color: "#5f6368", fontSize: 14, fontFamily: "'Google Sans', sans-serif" }}>

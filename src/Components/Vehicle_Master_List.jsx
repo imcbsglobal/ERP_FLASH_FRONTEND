@@ -239,93 +239,142 @@ function TableView({ vehicles, onEdit, onDelete }) {
   const headers = ["Sl. no.", "Photo", "Reg. no.", "Vehicle", "Ownership", "Type", "Insurance Expiry", "Days Left", "Pollution Expiry", "Status", "Action"];
 
   return (
-    <div style={{ background: "#fff", borderRadius: 10, border: "1px solid #e8eaed", overflow: "hidden" }}>
-      <div style={{ overflowY: "auto", maxHeight: "calc(100vh - 280px)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
-            <tr>
-              {headers.map(h => (
-                <th key={h} style={thStyle}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {vehicles.map((v, index) => {
-              const insDays = daysLeft(v.insurance_expiry);
-              return (
-                <tr key={v.id}
-                  onMouseEnter={e => e.currentTarget.style.background = "#f8f9fa"}
-                  onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                  {/* Sl. no. */}
-                  <td style={{ ...tdStyle, color: "#9aa0a6", fontWeight: 600, width: 56 }}>{index + 1}</td>
-                  {/* Photo */}
-                  <td style={{ ...tdStyle, width: 64, padding: "8px 14px" }}>
-                    {v.image ? (
-                      <img
-                        src={v.image}
-                        alt={v.name}
-                        onClick={() => window.open(v.image, "_blank")}
-                        title="Click to enlarge"
-                        style={{
-                          width: 48, height: 36, objectFit: "cover",
-                          borderRadius: 6, border: "1.5px solid #e8eaed",
-                          cursor: "zoom-in", display: "block",
-                          boxShadow: "0 1px 4px rgba(0,0,0,0.10)",
-                        }}
-                        onError={e => { e.currentTarget.style.display = "none"; }}
-                      />
-                    ) : (
-                      <div style={{
-                        width: 48, height: 36, borderRadius: 6,
-                        border: "1.5px dashed #d0d0d0", background: "#f8f9fa",
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 16, color: "#c5cad3",
-                      }}>🚗</div>
-                    )}
-                  </td>
-                  {/* Reg. no. */}
-                  <td style={{ ...tdStyle, fontWeight: 700, letterSpacing: "0.5px" }}>{v.reg}</td>
-                  {/* Vehicle */}
-                  <td style={{ ...tdStyle, fontWeight: 600 }}>{v.name}</td>
-                  {/* Ownership */}
-                  <td style={tdStyle}>{v.ownership}</td>
-                  {/* Type */}
-                  <td style={tdStyle}>{v.type}</td>
-                  {/* Insurance Expiry */}
-                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{v.insurance_expiry || "—"}</td>
-                  {/* Days Left */}
-                  <td style={tdStyle}><DaysLeftBadge days={insDays} /></td>
-                  {/* Pollution Expiry */}
-                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{v.pollution_expiry || "—"}</td>
-                  {/* Status */}
-                  <td style={tdStyle}>
-                    <span style={{
-                      padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600,
-                      background: v.status === "Active" ? "#188038" : "#d93025",
-                      color: v.status === "Active" ? "#fbfdfc" : "#fffcfc",
-                      fontFamily: "'Google Sans', sans-serif",
-                    }}>
-                      {v.status}
-                    </span>
-                  </td>
-                  {/* Action */}
-                  <td style={tdStyle}>
-                    <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => onEdit(v)} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}>
-                        <EditOutlinedIcon style={{ fontSize: 13 }} /> Edit
-                      </button>
-                      <button onClick={() => onDelete(v.id)} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#d93025", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}>
-                        <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+    <>
+      {/* ── Mobile Card View (shown only on mobile) ── */}
+      <div className="vm-mobile-cards" style={{ display: "none" }}>
+        {vehicles.map((v, index) => {
+          const insDays = daysLeft(v.insurance_expiry);
+          return (
+            <div key={v.id} className="vm-card">
+              {/* Top: photo + name + status */}
+              <div className="vm-card-top">
+                {v.image ? (
+                  <img
+                    src={v.image}
+                    alt={v.name}
+                    className="vm-card-img"
+                    onError={e => { e.currentTarget.style.display = "none"; }}
+                  />
+                ) : (
+                  <div className="vm-card-img-placeholder">🚗</div>
+                )}
+                <div className="vm-card-title">
+                  <div className="vm-card-name">{v.name}</div>
+                  <div className="vm-card-reg">{v.reg}</div>
+                </div>
+                <span className={`vm-card-status ${v.status === "Active" ? "vm-card-status-active" : "vm-card-status-inactive"}`}>
+                  {v.status}
+                </span>
+              </div>
+
+              {/* Fields grid */}
+              <div className="vm-card-fields">
+                <div className="vm-card-field">
+                  <div className="vm-card-field-label">🏢 Ownership</div>
+                  <div className="vm-card-field-value">{v.ownership}</div>
+                </div>
+                <div className="vm-card-field">
+                  <div className="vm-card-field-label">🚘 Type</div>
+                  <div className="vm-card-field-value">{v.type}</div>
+                </div>
+                <div className="vm-card-field">
+                  <div className="vm-card-field-label">⛽ Fuel</div>
+                  <div className="vm-card-field-value">{v.fuel}</div>
+                </div>
+                <div className="vm-card-field">
+                  <div className="vm-card-field-label">🏭 Company</div>
+                  <div className="vm-card-field-value">{v.company}</div>
+                </div>
+                <div className="vm-card-field">
+                  <div className="vm-card-field-label">🛡 Insurance</div>
+                  <div className="vm-card-field-value" style={{ fontSize: 11 }}>{v.insurance_expiry || "N/A"}</div>
+                </div>
+                <div className="vm-card-field">
+                  <div className="vm-card-field-label">⏱ Days Left</div>
+                  <div className="vm-card-field-value"><DaysLeftBadge days={insDays} /></div>
+                </div>
+                <div className="vm-card-field">
+                  <div className="vm-card-field-label">🌿 Pollution</div>
+                  <div className="vm-card-field-value" style={{ fontSize: 11 }}>{v.pollution_expiry || "N/A"}</div>
+                </div>
+                <div className="vm-card-field">
+                  <div className="vm-card-field-label">📍 Odometer</div>
+                  <div className="vm-card-field-value">{Number(v.odometer).toLocaleString()} KM</div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="vm-card-actions">
+                <button onClick={() => onEdit(v)} style={{ background: "#1a73e8", color: "#fff" }}>
+                  <EditOutlinedIcon style={{ fontSize: 14 }} /> Edit
+                </button>
+                <button onClick={() => onDelete(v.id)} style={{ background: "#d93025", color: "#fff" }}>
+                  <DeleteOutlineOutlinedIcon style={{ fontSize: 14 }} /> Delete
+                </button>
+              </div>
+            </div>
+          );
+        })}
       </div>
-    </div>
+
+      {/* ── Desktop Table View (hidden on mobile) ── */}
+      <div className="vm-desktop-table" style={{ background: "#fff", borderRadius: 10, border: "1px solid #e8eaed", overflow: "hidden" }}>
+        <div style={{ overflowY: "auto", maxHeight: "calc(100vh - 280px)" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
+              <tr>
+                {headers.map(h => (
+                  <th key={h} style={thStyle}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {vehicles.map((v, index) => {
+                const insDays = daysLeft(v.insurance_expiry);
+                return (
+                  <tr key={v.id}
+                    onMouseEnter={e => e.currentTarget.style.background = "#f8f9fa"}
+                    onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+                    <td style={{ ...tdStyle, color: "#9aa0a6", fontWeight: 600, width: 56 }}>{index + 1}</td>
+                    <td style={{ ...tdStyle, width: 64, padding: "8px 14px" }}>
+                      {v.image ? (
+                        <img src={v.image} alt={v.name} onClick={() => window.open(v.image, "_blank")} title="Click to enlarge"
+                          style={{ width: 48, height: 36, objectFit: "cover", borderRadius: 6, border: "1.5px solid #e8eaed", cursor: "zoom-in", display: "block", boxShadow: "0 1px 4px rgba(0,0,0,0.10)" }}
+                          onError={e => { e.currentTarget.style.display = "none"; }} />
+                      ) : (
+                        <div style={{ width: 48, height: 36, borderRadius: 6, border: "1.5px dashed #d0d0d0", background: "#f8f9fa", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#c5cad3" }}>🚗</div>
+                      )}
+                    </td>
+                    <td style={{ ...tdStyle, fontWeight: 700, letterSpacing: "0.5px" }}>{v.reg}</td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{v.name}</td>
+                    <td style={tdStyle}>{v.ownership}</td>
+                    <td style={tdStyle}>{v.type}</td>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{v.insurance_expiry || "—"}</td>
+                    <td style={tdStyle}><DaysLeftBadge days={insDays} /></td>
+                    <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{v.pollution_expiry || "—"}</td>
+                    <td style={tdStyle}>
+                      <span style={{ padding: "5px 12px", borderRadius: 6, fontSize: 11, fontWeight: 600, background: v.status === "Active" ? "#188038" : "#d93025", color: v.status === "Active" ? "#fbfdfc" : "#fffcfc", fontFamily: "'Google Sans', sans-serif" }}>
+                        {v.status}
+                      </span>
+                    </td>
+                    <td style={tdStyle}>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <button onClick={() => onEdit(v)} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}>
+                          <EditOutlinedIcon style={{ fontSize: 13 }} /> Edit
+                        </button>
+                        <button onClick={() => onDelete(v.id)} style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#d93025", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}>
+                          <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -717,7 +766,7 @@ export default function VehicleMasterList({ onVehicleSaved }) {
   const selectStyle = { padding: "9px 12px", border: "1px solid #e8eaed", borderRadius: 7, fontSize: 13, background: "#fff", color: "#202124", cursor: "pointer", fontFamily: "'Google Sans', sans-serif", outline: "none", minWidth: 160 };
 
   return (
-    <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
         * { font-family: 'Google Sans', sans-serif; }
@@ -728,8 +777,116 @@ export default function VehicleMasterList({ onVehicleSaved }) {
         @media (max-width: 600px) {
           .vml-header { height: auto !important; padding: 10px 16px !important; }
           .vml-view-label { display: none; }
-          .vml-filters > * { width: 100% !important; }
-          .vml-filters select { width: 100% !important; min-width: unset !important; }
+
+          /* ── Filters: 2×2 grid ── */
+          .vml-filters {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 10px 8px !important;
+            align-items: end !important;
+          }
+          /* All children fill their cell */
+          .vml-filters > div { width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; flex: unset !important; }
+          .vml-filters select { width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; }
+          .vml-filters input  { width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; }
+          /* Row 2: Status (3rd child) + Buttons (4th child) */
+          .vml-filters > div:nth-child(3) { grid-column: 1 !important; }
+          .vml-filters > div:nth-child(4) { grid-column: 2 !important; display: flex !important; flex-direction: column !important; gap: 6px !important; }
+          .vml-filters > div:nth-child(4) button { width: 100% !important; justify-content: center !important; padding: 9px 4px !important; font-size: 12px !important; white-space: nowrap !important; }
+
+          /* ── Table → Cards on mobile ── */
+          .vm-desktop-table { display: none !important; }
+          .vm-mobile-cards  { display: flex !important; flex-direction: column !important; gap: 12px !important; }
+
+          .vm-card {
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid #e8eaed;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.07);
+            overflow: hidden;
+            position: relative;
+          }
+          .vm-card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 4px;
+            background: linear-gradient(180deg, #0982fc, #1557b0);
+            border-radius: 4px 0 0 4px;
+          }
+          .vm-card-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px 10px 18px;
+          }
+          .vm-card-img {
+            width: 56px; height: 42px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 1.5px solid #e8eaed;
+            flex-shrink: 0;
+          }
+          .vm-card-img-placeholder {
+            width: 56px; height: 42px;
+            border-radius: 8px;
+            border: 1.5px dashed #d0d0d0;
+            background: #f8f9fa;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; flex-shrink: 0;
+          }
+          .vm-card-title { flex: 1; min-width: 0; }
+          .vm-card-name {
+            font-size: 15px; font-weight: 700; color: #202124;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+          }
+          .vm-card-reg {
+            font-size: 12px; font-weight: 600; color: #1a73e8;
+            letter-spacing: 0.4px; margin-top: 2px;
+          }
+          .vm-card-status {
+            padding: 3px 10px; border-radius: 6px;
+            font-size: 11px; font-weight: 700;
+            flex-shrink: 0;
+          }
+          .vm-card-status-active   { background: #188038; color: #fff; }
+          .vm-card-status-inactive { background: #d93025; color: #fff; }
+
+          .vm-card-fields {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 10px;
+            padding: 0 14px 12px 18px;
+          }
+          .vm-card-field {
+            background: #f8fafc;
+            border-radius: 8px;
+            padding: 7px 10px;
+          }
+          .vm-card-field-label {
+            font-size: 10px; font-weight: 600; color: #9aa0a6;
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 2px;
+          }
+          .vm-card-field-value {
+            font-size: 12px; font-weight: 600; color: #202124;
+          }
+          .vm-card-actions {
+            display: flex; gap: 8px;
+            padding: 10px 14px 12px 18px;
+            border-top: 1px solid #f1f3f4;
+          }
+          .vm-card-actions button {
+            flex: 1; padding: 8px 0;
+            border-radius: 8px; border: none;
+            font-size: 13px; font-weight: 600;
+            cursor: pointer; display: flex;
+            align-items: center; justify-content: center; gap: 5px;
+            font-family: 'Google Sans', sans-serif;
+          }
+        }
+        @media (min-width: 601px) {
+          .vm-desktop-table { display: block !important; }
+          .vm-mobile-cards  { display: none !important; }
         }
       `}</style>
 
@@ -764,7 +921,7 @@ export default function VehicleMasterList({ onVehicleSaved }) {
       </div>
 
       {/* ── Scrollable Body ── */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "12px 16px" }}>
+      <div style={{ flex: 1, overflowY: "auto", WebkitOverflowScrolling: "touch", padding: "12px 16px" }}>
 
         {/* ── Fetch error banner ── */}
         {fetchError && (

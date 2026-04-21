@@ -16,7 +16,7 @@ function authHeaders(extra = {}) {
   }
   return headers;
 }
-
+   
 async function refreshAccessToken() {
   const refreshToken = localStorage.getItem('refresh_token');
   if (!refreshToken) return null;
@@ -363,21 +363,9 @@ function RecentTripsSection() {
     })();
   }, []);
 
-  const thStyle = {
-    fontSize: 11, fontWeight: 700, color: '#6b7280',
-    padding: '10px 16px', background: '#f7f8fa',
-    borderBottom: '1px solid #eaecef', textAlign: 'left',
-    whiteSpace: 'nowrap', textTransform: 'uppercase', letterSpacing: '0.5px',
-  };
-  const tdStyle = {
-    padding: '11px 16px', fontSize: 13,
-    borderBottom: '1px solid #f3f4f6',
-    color: '#374151', verticalAlign: 'middle', textAlign: 'left',
-  };
-
   return (
-    <div style={{ maxWidth: 1280, margin: '20px auto 0' }}>
-      <div style={card}>
+    <div style={{ maxWidth: 1280, margin: '16px auto 0' }}>
+      <div style={{ ...card, padding: '16px' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <div>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#1f2937' }}>Active Trips</h2>
@@ -405,80 +393,99 @@ function RecentTripsSection() {
             </div>
           );
           return (
-            <div style={{ overflowX: 'auto', borderRadius: 10, border: '1px solid #eaecef' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr>
-                    <th style={thStyle}>Sl.No</th>
-                    <th style={thStyle}>Date</th>
-                    <th style={thStyle}>Vehicle</th>
-                    <th style={thStyle}>Created By</th>
-                    <th style={thStyle}>Start Time</th>
-                    <th style={thStyle}>End Time</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {ongoing.map((row, idx) => {
-                    const dateFmt = row.date
-                      ? new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                      : '—';
-                    const hasEnd = row.endTime || row.end_time;
-                    const initial = (row.traveledBy || row.traveled_by || '?')[0]?.toUpperCase();
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {ongoing.map((row, idx) => {
+                const dateFmt = row.date
+                  ? new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                  : '—';
+                const hasEnd = row.endTime || row.end_time;
+                const initial = (row.traveledBy || row.traveled_by || '?')[0]?.toUpperCase();
+                const vehicleName = row.vehicle || row.vehicle_name || '—';
+                const regNo = row.vehicleReg || row.registration_number;
+                const driver = row.traveledBy || row.traveled_by || '—';
+                const startTime = row.startTime || row.start_time || '—';
+                const endTime = row.endTime || row.end_time;
 
-                    return (
-                      <tr key={row.id || idx}
-                        onMouseEnter={e => e.currentTarget.style.background = '#f7f8fa'}
-                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                        style={{ transition: 'background 0.15s' }}>
-                        <td style={{ ...tdStyle, color: '#9ca3af', fontWeight: 600, width: 48, textAlign: 'left' }}>{idx + 1}</td>
-                        <td style={{ ...tdStyle, textAlign: 'left' }}>
-                          <span style={{ fontWeight: 600, color: '#1f2937' }}>{dateFmt}</span>
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: 'left' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <span style={{ fontWeight: 700, color: '#1f2937', fontSize: 13 }}>
-                              {row.vehicle || row.vehicle_name || '—'}
-                            </span>
-                            {(row.vehicleReg || row.registration_number) && (
-                              <span style={{ color: '#1a6fdb', fontSize: 11, fontWeight: 600, letterSpacing: '0.4px' }}>
-                                {row.vehicleReg || row.registration_number}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: 'left' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <div style={{
-                              width: 28, height: 28, borderRadius: '50%',
-                              background: '#e8f0fe', color: '#1a6fdb',
-                              display: 'flex', alignItems: 'center', justifyContent: 'center',
-                              fontSize: 12, fontWeight: 700, flexShrink: 0,
-                            }}>{initial}</div>
-                            <span style={{ fontWeight: 600, color: '#1f2937' }}>
-                              {row.traveledBy || row.traveled_by || '—'}
-                            </span>
-                          </div>
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: 'left' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#2e7d32', fontWeight: 600 }}>
-                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#2e7d32', flexShrink: 0, display: 'inline-block' }} />
-                            {row.startTime || row.start_time || '—'}
-                          </span>
-                        </td>
-                        <td style={{ ...tdStyle, textAlign: 'left' }}>
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: hasEnd ? '#b71c1c' : '#9ca3af', fontWeight: hasEnd ? 600 : 400, fontStyle: hasEnd ? 'normal' : 'italic' }}>
-                            {hasEnd
-                              ? <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#b71c1c', flexShrink: 0, display: 'inline-block' }} />
-                              : <span style={{ width: 8, height: 8, borderRadius: '50%', border: '2px solid #9ca3af', flexShrink: 0, display: 'inline-block' }} />
-                            }
-                            {hasEnd ? (row.endTime || row.end_time) : 'Ongoing'}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                return (
+                  <div key={row.id || idx} style={{
+                    background: '#fff',
+                    border: '1px solid #eaecef',
+                    borderRadius: 14,
+                    padding: '14px 16px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  }}>
+                    {/* Card Header: serial + vehicle + status badge */}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{
+                          width: 32, height: 32, borderRadius: 8,
+                          background: '#e8f0fe', color: '#1a6fdb',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 12, fontWeight: 700, flexShrink: 0,
+                        }}>#{idx + 1}</div>
+                        <div>
+                          <div style={{ fontWeight: 700, color: '#1f2937', fontSize: 14 }}>{vehicleName}</div>
+                          {regNo && (
+                            <div style={{ color: '#1a6fdb', fontSize: 11, fontWeight: 600, letterSpacing: '0.4px', marginTop: 1 }}>{regNo}</div>
+                          )}
+                        </div>
+                      </div>
+                      {/* Status pill */}
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 5,
+                        background: hasEnd ? '#fdecea' : '#e8f5e9',
+                        color: hasEnd ? '#b71c1c' : '#2e7d32',
+                        padding: '3px 10px', borderRadius: 20,
+                        fontSize: 11, fontWeight: 600, flexShrink: 0,
+                      }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: hasEnd ? '#b71c1c' : '#2e7d32', display: 'inline-block' }} />
+                        {hasEnd ? 'Ending' : 'Ongoing'}
+                      </span>
+                    </div>
+
+                    {/* Card body: 2-col info grid */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
+                      {/* Date */}
+                      <div>
+                        <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Date</div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{dateFmt}</div>
+                      </div>
+                      {/* Driver */}
+                      <div>
+                        <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Driver</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <div style={{
+                            width: 22, height: 22, borderRadius: '50%',
+                            background: '#e8f0fe', color: '#1a6fdb',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: 10, fontWeight: 700, flexShrink: 0,
+                          }}>{initial}</div>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{driver}</span>
+                        </div>
+                      </div>
+                      {/* Start Time */}
+                      <div>
+                        <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Start Time</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#2e7d32', fontWeight: 600, fontSize: 13 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#2e7d32', display: 'inline-block', flexShrink: 0 }} />
+                          {startTime}
+                        </div>
+                      </div>
+                      {/* End Time */}
+                      <div>
+                        <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>End Time</div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: hasEnd ? '#b71c1c' : '#9ca3af', fontWeight: hasEnd ? 600 : 400, fontStyle: hasEnd ? 'normal' : 'italic', fontSize: 13 }}>
+                          {hasEnd
+                            ? <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#b71c1c', display: 'inline-block', flexShrink: 0 }} />
+                            : <span style={{ width: 7, height: 7, borderRadius: '50%', border: '2px solid #9ca3af', display: 'inline-block', flexShrink: 0 }} />
+                          }
+                          {hasEnd ? endTime : 'Ongoing'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           );
         })()}
@@ -633,23 +640,25 @@ export default function Dashboard() {
   const yoyChange = prevYear && currYear ? ((currYear.value - prevYear.value) / prevYear.value * 100).toFixed(0) : 0;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f8fa', fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif", padding: '28px 32px' }}>
+    <div style={{ minHeight: '100vh', background: '#f7f8fa', fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif", padding: '16px' }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
         * { box-sizing: border-box; }
-        .dash-select { appearance: none; -webkit-appearance: none; background: #f0f4f8; border: 1px solid #dde3ea; border-radius: 8px; padding: 6px 28px 6px 12px; font-size: 13px; font-weight: 500; color: #374151; cursor: pointer; outline: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; font-family: inherit; }
+        .dash-select { appearance: none; -webkit-appearance: none; background: #f0f4f8; border: 1px solid #dde3ea; border-radius: 8px; padding: 6px 28px 6px 12px; font-size: 13px; font-weight: 500; color: #374151; cursor: pointer; outline: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; font-family: inherit; max-width: 100%; }
         .dash-select:hover { border-color: #4a90d9; }
         .stat-badge-up { display: inline-flex; align-items: center; gap: 3px; background: #e8f5e9; color: #2e7d32; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
         .stat-badge-down { display: inline-flex; align-items: center; gap: 3px; background: #fdecea; color: #c62828; padding: 2px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
         .icon-circle { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
         .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+        @media (max-width: 640px) {
+          .dash-grid { grid-template-columns: 1fr !important; }
+          .dash-right-stack { flex-direction: row !important; flex-wrap: wrap; }
+          .dash-right-stack > div { flex: 1 1 calc(50% - 8px); min-width: 140px; }
+        }
       `}</style>
 
-      {/* Debug info - remove in production */}
-     
-
       {/* ── Main 2-column Grid ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, maxWidth: 1280, margin: '0 auto' }}>
+      <div className="dash-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 16, maxWidth: 1280, margin: '0 auto' }}>
 
         {/* ── LEFT: Sales Overview ── */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
@@ -681,7 +690,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── RIGHT: Stacked cards ── */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div className="dash-right-stack" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
           {/* Yearly Breakup */}
           <div style={card}>

@@ -465,43 +465,133 @@ export default function ChallanList({ onAdd, onEdit }) {
         @media (max-width: 600px) {
           .cl-header-bar {
             height: auto;
-            padding: 12px 14px;
-            gap: 10px;
+            padding: 10px 12px;
+            gap: 8px;
           }
-          .cl-header-bar h1 { font-size: 20px !important; }
+          .cl-header-bar h1 { font-size: 18px !important; }
           .cl-add-btn {
             width: 100%;
             justify-content: center;
-            padding: 10px 18px;
+            padding: 9px 18px;
           }
+          /* Search + Status → single row */
           .cl-filters-wrap {
-            flex-direction: column;
-            gap: 12px;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 8px;
+            align-items: flex-end;
           }
-          .cl-filter-search,
+          .cl-filter-search {
+            flex: 1 1 0;
+            min-width: 0;
+          }
           .cl-filter-item {
-            width: 100%;
-            min-width: unset;
-            flex: unset;
+            flex: 0 0 110px;
+            min-width: 0;
           }
+          .cl-filter-search input,
           .cl-filter-item select,
           .status-select {
             width: 100% !important;
+            font-size: 12px !important;
+            padding: 8px 8px !important;
+            box-sizing: border-box !important;
           }
-          .summary-cards {
-            gap: 10px;
-          }
-          .summary-card {
-            min-width: calc(50% - 5px);
-            padding: 12px 14px;
-          }
-          .summary-card-value { font-size: 22px; }
+          .cl-filter-label { font-size: 11px !important; margin-bottom: 4px !important; }
+          /* Tighter filter container */
+          .cl-filters-wrap-container { padding: 10px 12px !important; margin-bottom: 10px !important; }
+          .summary-cards { gap: 8px; }
+          .summary-card { min-width: calc(50% - 4px); padding: 10px 12px; }
+          .summary-card-value { font-size: 20px; }
           .pagination-container {
             flex-wrap: wrap;
             justify-content: center;
             gap: 6px;
           }
           .col-hide-mobile { display: none !important; }
+
+          /* ── Mobile Card Scroll Wrapper ── */
+          .cl-desktop-table { display: none !important; }
+          .cl-mobile-scroll-wrapper {
+            display: flex !important;
+            flex-direction: column;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+          }
+          .cl-mobile-cards { display: flex; flex-direction: column; gap: 8px; padding: 4px 0; }
+
+          /* ── Compact Challan Card ── */
+          .challan-card {
+            background: #fff;
+            border-radius: 10px;
+            border: 1px solid #e8eaed;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.06);
+            padding: 10px 12px 10px 16px;
+            position: relative;
+            overflow: hidden;
+          }
+          .challan-card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 4px;
+            background: linear-gradient(180deg, #0b81f8, #1557b0);
+            border-radius: 4px 0 0 4px;
+          }
+          .challan-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 7px;
+            gap: 8px;
+          }
+          .challan-card-index {
+            width: 22px; height: 22px;
+            background: linear-gradient(135deg, #0b81f8, #1557b0);
+            color: #fff; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 10px; font-weight: 700; flex-shrink: 0;
+          }
+          .challan-card-vehicle { flex: 1; min-width: 0; }
+          .challan-card-vehicle-name { font-size: 13px; font-weight: 700; color: #1a73e8; }
+          .challan-card-vehicle-reg { font-size: 11px; font-weight: 500; color: #1e293b; margin-top: 1px; }
+          .challan-card-row {
+            display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: nowrap;
+          }
+          .challan-card-field {
+            flex: 1; min-width: 0;
+            background: #f8fafc; border-radius: 7px; padding: 5px 7px;
+          }
+          .challan-card-field-label {
+            font-size: 9px; font-weight: 600; color: #9aa0a6;
+            text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px;
+          }
+          .challan-card-field-value { font-size: 12px; font-weight: 600; color: #202124; }
+          .challan-card-actions { display: flex; gap: 6px; margin-top: 7px; }
+          .challan-card-actions button {
+            flex: 1; padding: 6px 8px; border-radius: 6px; border: none;
+            font-size: 11px; font-weight: 600; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 4px;
+            font-family: 'Google Sans', sans-serif;
+          }
+          .challan-card-docs {
+            display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;
+          }
+          .challan-card-doc-link {
+            display: inline-flex; align-items: center; gap: 3px;
+            font-size: 10px; font-weight: 600; color: #1a73e8;
+            text-decoration: none; background: #e8f0fe; border-radius: 5px;
+            padding: 3px 8px;
+          }
+        }
+
+        /* Desktop: always show table, hide cards */
+        @media (min-width: 601px) {
+          .cl-desktop-table { display: block !important; }
+          .cl-mobile-scroll-wrapper { display: none !important; }
         }
       `}</style>
 
@@ -522,7 +612,7 @@ export default function ChallanList({ onAdd, onEdit }) {
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "12px 16px" }}>
 
           {/* ── Filters Section ── */}
-          <div style={{ background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "18px 20px", marginBottom: 20, flexShrink: 0 }}>
+          <div className="cl-filters-wrap-container" style={{ background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "18px 20px", marginBottom: 20, flexShrink: 0 }}>
             <div className="cl-filters-wrap">
               {/* Search */}
               <div className="cl-filter-search">
@@ -564,7 +654,129 @@ export default function ChallanList({ onAdd, onEdit }) {
           {/* ── Table with Scrollable Container (Only Table Scrolls) ── */}
           {filtered.length > 0 ? (
             <>
-              <div className="scrollable-table-container">
+              {/* ── Mobile Card View ── */}
+              <div className="cl-mobile-scroll-wrapper">
+              <div className="cl-mobile-cards">
+                {currentData.map((row, index) => {
+                  const { number, name } = formatVehicleDisplay(row.vehicle_display || row.vehicle);
+                  const statusStyle = STATUS_STYLES[row.payment_status] || STATUS_STYLES["Pending"];
+                  return (
+                    <div key={row.id} className="challan-card">
+                      {/* Header: index + vehicle + status */}
+                      <div className="challan-card-header">
+                        <div className="challan-card-index">{startIndex + index + 1}</div>
+                        <div className="challan-card-vehicle">
+                          {name && <div className="challan-card-vehicle-name">{name}</div>}
+                          {number && <div className="challan-card-vehicle-reg">{number}</div>}
+                          {!name && !number && <div className="challan-card-vehicle-reg">—</div>}
+                        </div>
+                        <select
+                          value={row.payment_status || "Pending"}
+                          onChange={(e) => handleStatusChange(row.id, e.target.value)}
+                          disabled={updatingStatusId === row.id}
+                          style={{
+                            padding: "3px 6px", borderRadius: 6, border: "none",
+                            background: statusStyle.background, color: statusStyle.color,
+                            fontFamily: "'Google Sans', sans-serif", fontSize: 8,
+                            fontWeight: 700, cursor: "pointer", outline: "none",
+                            flexShrink: 0,
+                            opacity: updatingStatusId === row.id ? 0.7 : 1,
+                          }}
+                        >
+                          <option value="Pending" style={{ background: "#fff", color: "#202124" }}>Pending</option>
+                          <option value="Paid" style={{ background: "#fff", color: "#202124" }}>Paid</option>
+                        </select>
+                      </div>
+
+                      {/* Row 1: Default Date + Challan No */}
+                      <div className="challan-card-row">
+                        <div className="challan-card-field">
+                          <div className="challan-card-field-label">📅 Default Date</div>
+                          <div className="challan-card-field-value">{row.date || row.default_date || "—"}</div>
+                        </div>
+                        <div className="challan-card-field">
+                          <div className="challan-card-field-label">🔖 Challan No</div>
+                          <div className="challan-card-field-value" style={{ color: "#1a73e8" }}>{row.challan_no || "—"}</div>
+                        </div>
+                      </div>
+
+                      {/* Row 2: Challan Date + Fine Amount */}
+                      <div className="challan-card-row">
+                        <div className="challan-card-field">
+                          <div className="challan-card-field-label">🗓 Challan Date</div>
+                          <div className="challan-card-field-value">{row.challan_date || "—"}</div>
+                        </div>
+                        <div className="challan-card-field">
+                          <div className="challan-card-field-label">💰 Fine Amount</div>
+                          <div className="challan-card-field-value" style={{ color: "#d93025" }}>₹{parseFloat(row.fine_amount || 0).toLocaleString()}</div>
+                        </div>
+                      </div>
+
+                      {/* Row 3: Offence + Location */}
+                      <div className="challan-card-row">
+                        <div className="challan-card-field">
+                          <div className="challan-card-field-label">⚠️ Offence</div>
+                          <div className="challan-card-field-value" style={{ fontSize: 12 }}>{row.offence_type || "—"}</div>
+                        </div>
+                        <div className="challan-card-field">
+                          <div className="challan-card-field-label">📍 Location</div>
+                          <div className="challan-card-field-value" style={{ fontSize: 12 }}>{row.location || "—"}</div>
+                        </div>
+                      </div>
+
+                      {/* Documents */}
+                      {(row.challan_doc_url || row.payment_receipt_url || row.remark) && (
+                        <div className="challan-card-docs">
+                          {row.challan_doc_url && (
+                            <a className="challan-card-doc-link" href={row.challan_doc_url} target="_blank" rel="noreferrer">
+                              <VisibilityOutlinedIcon style={{ fontSize: 13 }} /> Challan Doc
+                            </a>
+                          )}
+                          {row.payment_receipt_url && (
+                            <a className="challan-card-doc-link" href={row.payment_receipt_url} target="_blank" rel="noreferrer">
+                              <VisibilityOutlinedIcon style={{ fontSize: 13 }} /> Receipt
+                            </a>
+                          )}
+                          {row.remark && (
+                            <button
+                              onClick={() => setRemarkPopup(row.remark)}
+                              className="challan-card-doc-link"
+                              style={{ background: "#fff8e1", color: "#e65100", border: "none", cursor: "pointer" }}
+                            >
+                              <EditNotificationsOutlinedIcon style={{ fontSize: 13 }} /> Remark
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Actions */}
+                      <div className="challan-card-actions">
+                        <button onClick={() => setEditRow(row)} style={{ background: "#1a73e8", color: "#fff" }}>
+                          <EditOutlinedIcon style={{ fontSize: 13 }} /> Edit
+                        </button>
+                        <button onClick={() => confirmDelete(row.id)} style={{ background: "#d93025", color: "#fff" }}>
+                          <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>{/* end cl-mobile-cards */}
+
+                {/* Mobile pagination */}
+                {totalPages > 1 && (
+                  <div className="pagination-container" style={{ flexShrink: 0 }}>
+                    <button className="pagination-button" onClick={goToPreviousPage} disabled={currentPage === 1}>‹ Prev</button>
+                    {getVisiblePages().map(page => (
+                      <button key={page} className={`pagination-button ${currentPage === page ? 'active' : ''}`} onClick={() => goToPage(page)}>{page}</button>
+                    ))}
+                    <button className="pagination-button" onClick={goToNextPage} disabled={currentPage === totalPages}>Next ›</button>
+                  </div>
+                )}
+              </div>{/* end cl-mobile-scroll-wrapper */}
+
+              {/* ── Desktop Table View ── */}
+              <div className="cl-desktop-table scrollable-table-container">
                 <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr>
@@ -589,7 +801,7 @@ export default function ChallanList({ onAdd, onEdit }) {
                             return (
                               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                 {name && (
-                                  <span style={{ fontSize: 13, fontWeight: 700, color: "#1a73e8", letterSpacing: 0.4 }}>
+                                  <span style={{ fontSize: 13, fontWeight: 600, color: "#1a73e8", letterSpacing: 0.4 }}>
                                     {name}
                                   </span>
                                 )}
@@ -721,7 +933,7 @@ export default function ChallanList({ onAdd, onEdit }) {
                     ))}
                   </tbody>
                 </table>
-              </div>
+              </div>{/* end cl-desktop-table */}
 
               {/* ── Pagination ── */}
               {totalPages > 1 && (

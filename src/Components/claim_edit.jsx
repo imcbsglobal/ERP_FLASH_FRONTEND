@@ -16,8 +16,11 @@ const expenseTypes = [
 const DEPARTMENTS_API_URL = "https://flasherp.imcbs.com/api/departments/";
 
 // Inject responsive CSS once
-const STYLE_ID = "claims-edit-responsive";
-if (typeof document !== "undefined" && !document.getElementById(STYLE_ID)) {
+const STYLE_ID = "claims-edit-responsive-v2";
+if (typeof document !== "undefined") {
+  // Remove any stale version before injecting fresh styles
+  const existing = document.getElementById(STYLE_ID);
+  if (existing) existing.remove();
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
@@ -189,21 +192,33 @@ if (typeof document !== "undefined" && !document.getElementById(STYLE_ID)) {
     @media (max-width: 600px) {
       .ce-page {
         padding: 0;
-        background: transparent;
+        background: #fff;
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        z-index: 1;
       }
 
-      /* Card becomes a bottom-sheet: rounded top corners, fills width */
       .ce-card {
-        border-radius: 20px 20px 16px 16px;
+        border-radius: 0;
         box-shadow: none;
         border: none;
-        /* Let the modal/parent cap the height; card will flex inside it */
         width: 100%;
         max-width: 100%;
+        flex: 1;
+        height: 100%;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
       }
 
       .ce-header {
-        padding: 18px 20px 14px;
+        padding: 16px 20px 14px;
+        flex-shrink: 0;
       }
       .ce-header-title {
         font-size: 20px;
@@ -213,44 +228,51 @@ if (typeof document !== "undefined" && !document.getElementById(STYLE_ID)) {
       .ce-api-banner {
         margin: 10px 16px 0;
         font-size: 12px;
+        flex-shrink: 0;
       }
 
       .ce-form-body {
-        padding: 18px 20px 16px;
-        gap: 16px;
+        padding: 16px 16px 12px;
+        gap: 14px;
+        flex: 1;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
       }
 
       .ce-row2 {
         grid-template-columns: 1fr;
-        gap: 16px;
-      }
-
-      /* Action bar: full-width side-by-side buttons, no fixed positioning */
-      .ce-action-bar {
-        padding: 14px 20px 18px;
         gap: 12px;
-        justify-content: stretch;
-        box-shadow: 0 -2px 12px rgba(0,0,0,0.05);
       }
 
-      /* Both buttons share equal width */
+      .ce-action-bar {
+        padding: 12px 16px 16px;
+        gap: 10px;
+        justify-content: stretch;
+        flex-shrink: 0;
+        box-shadow: 0 -2px 12px rgba(0,0,0,0.06);
+        background: #fff;
+      }
+
       .ce-cancel-btn,
       .ce-submit-btn {
         flex: 1;
         text-align: center;
-        padding: 14px 12px;
-        font-size: 15px;
+        padding: 13px 12px;
+        font-size: 14px;
         font-weight: 700;
-        border-radius: 60px;
+        border-radius: 10px;
+        min-height: 46px;
       }
 
       .ce-drop-zone {
         flex-wrap: wrap;
-        padding: 14px 12px;
+        padding: 16px 12px;
+        flex-direction: column;
+        justify-content: center;
+        gap: 8px;
       }
       .ce-receipt-card { flex-wrap: wrap; }
 
-      /* Prevent iOS zoom on focus */
       input, select, textarea { font-size: 16px !important; }
     }
 
