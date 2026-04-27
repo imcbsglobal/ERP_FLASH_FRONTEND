@@ -1,7 +1,6 @@
 // claim_add.jsx – Fully mobile-responsive (single unified layout + CSS media queries)
 import { useState, useRef, useEffect } from "react";
 import CameraswitchOutlinedIcon from "@mui/icons-material/CameraswitchOutlined";
-import { createClaim, saveDraftClaim } from "../service/claims";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CloseIcon from "@mui/icons-material/Close"; // used in receipt remove button
 
@@ -17,8 +16,8 @@ const expenseTypes = [
   { value: "toll", label: "Toll Expense" },
 ];
 
-const BASE_URL = "http://localhost:8000/api";
-const DEPARTMENTS_API_URL = `${BASE_URL}/claims/departments/`;
+import { createClaim, saveDraftClaim, ENDPOINTS, authHeaders, apiFetch } from '../service/Api';
+const DEPARTMENTS_API_URL = ENDPOINTS.claimDepartments;
 
 const initialForm = {
   expenseType: "",
@@ -83,12 +82,15 @@ const RESPONSIVE_CSS = `
     flex-direction: column;
     gap: 5px;
     width: 100%;
+    align-items: flex-start;
   }
   .ca-label {
     font-size: 14px;
     font-weight: 600;
     color: #1e293b;
     letter-spacing: 0.2px;
+    text-align: left;
+    display: block;
   }
   .ca-required {
     color: #e11d48;
@@ -381,6 +383,10 @@ const RESPONSIVE_CSS = `
     }
     .ca-label {
       font-size: 12px;
+      text-align: left;
+    }
+    .ca-field-wrap {
+      align-items: flex-start;
     }
     .ca-input {
       font-size: 13px;
@@ -500,17 +506,14 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
   useEffect(() => {
     async function loadDepartments() {
       try {
-        const token = localStorage.getItem("access_token");
-        const res = await fetch(DEPARTMENTS_API_URL, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        const data = await apiFetch(DEPARTMENTS_API_URL, {
+          headers: authHeaders(),
         });
-        if (!res.ok) throw new Error("Failed to fetch departments");
-        const data = await res.json();
         const results = data?.results ?? data;
         if (Array.isArray(results)) {
           setDepartments([
             { value: "", label: "Select Department" },
-            ...results.map((d) => ({ value: d.department, label: d.department })),
+            ...results.map((d) => ({ value: d.department_id, label: d.department })),
           ]);
         }
       } catch (err) {

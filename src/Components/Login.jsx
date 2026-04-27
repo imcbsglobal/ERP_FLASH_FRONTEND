@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Eye, EyeOff, ArrowRight, User, Lock } from 'lucide-react';
 import logo from '../assets/logo.png';
 import whitelogo from '../assets/whitelogo.png';
-import { authService } from '../service/log';
-import { getUserPermissions } from '../service/useracess';
+import { authService, getUserPermissions } from '../service/Api';
 
 /* ─── Inline SVG hero: company operations scene ─── */
 const OperationsHero = () => (
@@ -555,7 +554,7 @@ export default function LoginPage() {
           <div style={styles.leftBlobBottom} />
 
           <div style={{ zIndex: 1, marginBottom: '1rem' }}>
-            <img src={whitelogo} alt="Brand" style={{ height: '2rem', width: 'auto', objectFit: 'contain' }} />
+            <img src={whitelogo} alt="Brand" style={{ height: '4rem', width: 'auto', objectFit: 'contain' }} />
           </div>
 
           <div style={styles.leftContent}>

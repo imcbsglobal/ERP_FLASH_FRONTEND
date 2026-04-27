@@ -1,14 +1,15 @@
-// Dashboard.jsx - Updated version with better data handling
+// Dashboard.jsx - Updated version with improved authentication handling
+// Active Trips now displays as TABLE on desktop and CARDS on mobile
+// All th/td cells properly aligned to the left
 
 import { useState, useEffect } from "react";
-import { fetchPayments, normalizePayment } from '../service/payment';
-import { fetchTrips } from '../service/vehiclemanagement';
+import { fetchPayments, normalizePayment, fetchTrips } from '../service/Api';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://flasherp.in/api';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 // ── Auth helpers ────────────────────────────────────────────────
 function authHeaders(extra = {}) {
-  const token = localStorage.getItem('access_token');
+  const token = localStorage.getItem('access') || localStorage.getItem('access_token');
   const headers = { 'Accept': 'application/json', ...extra };
   if (token) {
     const rawToken = token.replace(/^Bearer\s+/i, '');
@@ -16,31 +17,55 @@ function authHeaders(extra = {}) {
   }
   return headers;
 }
-   
+
 async function refreshAccessToken() {
-  const refreshToken = localStorage.getItem('refresh_token');
+  const refreshToken = localStorage.getItem('refresh') || localStorage.getItem('refresh_token');
   if (!refreshToken) return null;
+  
   try {
     const response = await fetch(`${BASE_URL}/auth/token/refresh/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refresh: refreshToken }),
     });
+    
     if (response.ok) {
       const data = await response.json();
+      localStorage.setItem('access', data.access);
       localStorage.setItem('access_token', data.access);
-      if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
+      if (data.refresh) {
+        localStorage.setItem('refresh', data.refresh);
+        localStorage.setItem('refresh_token', data.refresh);
+      }
       return data.access;
     }
+    
     if (response.status === 401 || response.status === 403) {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
+      clearAuthTokens();
       return null;
     }
-    throw new Error(`Token refresh server error (${response.status}).`);
-  } catch (error) {
-    if (error.message.startsWith('Token refresh server error')) throw error;
+    
+    console.warn(`Token refresh failed with status ${response.status}`);
     return null;
+  } catch (error) {
+    console.warn('Token refresh network error:', error.message);
+    return null;
+  }
+}
+
+function clearAuthTokens() {
+  ['access', 'access_token', 'refresh', 'refresh_token'].forEach(k => localStorage.removeItem(k));
+}
+
+function isTokenExpired() {
+  const token = localStorage.getItem('access') || localStorage.getItem('access_token');
+  if (!token) return true;
+  
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp * 1000 < Date.now();
+  } catch (e) {
+    return true;
   }
 }
 
@@ -53,16 +78,31 @@ class AuthError extends Error {
 
 async function apiFetch(url, options = {}) {
   let res = await fetch(url, options);
+  
   if (res.status === 401) {
     let newToken = null;
-    try { newToken = await refreshAccessToken(); } catch (e) { throw new Error(e.message); }
+    try { 
+      newToken = await refreshAccessToken(); 
+    } catch (e) { 
+      throw new Error(e.message); 
+    }
+    
     if (newToken) {
-      res = await fetch(url, { ...options, headers: { ...options.headers, 'Authorization': `Bearer ${newToken}` } });
+      const newOptions = {
+        ...options,
+        headers: {
+          ...options.headers,
+          'Authorization': `Bearer ${newToken}`
+        }
+      };
+      res = await fetch(url, newOptions);
     } else {
       throw new AuthError('Session expired. Please log in again.');
     }
   }
+  
   if (res.status === 204) return null;
+  
   const data = await res.json();
   if (!res.ok) {
     if (res.status === 401) throw new AuthError('Session expired. Please log in again.');
@@ -88,7 +128,6 @@ function processPaymentData(payments) {
 
   const yearlyMap = new Map();
   const monthlyMap = new Map();
-  const allMonthlyArray = [];
 
   payments.forEach(p => {
     if (!p.date) return;
@@ -98,11 +137,9 @@ function processPaymentData(payments) {
     const monthName = date.toLocaleString('default', { month: 'short' });
     const amount = p.amount || 0;
 
-    // Yearly aggregation
     if (!yearlyMap.has(year)) yearlyMap.set(year, { total: 0, year });
     yearlyMap.get(year).total += amount;
 
-    // Monthly aggregation
     if (!monthlyMap.has(yearMonth)) {
       monthlyMap.set(yearMonth, { 
         total: 0, 
@@ -115,23 +152,19 @@ function processPaymentData(payments) {
     monthlyMap.get(yearMonth).total += amount;
   });
 
-  // Convert yearly data
   const yearlyData = Array.from(yearlyMap.values())
     .sort((a, b) => a.year - b.year)
     .map(y => ({ label: y.year.toString(), value: Math.round(y.total) }));
 
-  // Convert monthly data
   const allMonthly = Array.from(monthlyMap.values())
     .sort((a, b) => a.year !== b.year ? a.year - b.year : a.month - b.month);
 
-  // Last 6 months for sparkline
   const monthlyData = allMonthly.slice(-6).map(m => ({ 
     label: m.monthName, 
     value: Math.round(m.total),
     yearMonth: m.yearMonth
   }));
 
-  // Sales overview data (last 8 months for grouped display)
   const salesOverviewData = allMonthly.slice(-8).map(m => ({ 
     label: m.monthName, 
     value: Math.round(m.total),
@@ -150,7 +183,6 @@ function processPaymentData(payments) {
 
 // ── Build daily totals for a specific "Mon YYYY" month ──────────
 function buildDailyData(payments, selectedMonth) {
-  // Parse "Jan 2026" / "March 2026" → { year, monthIndex }
   const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
   const monthNamesFull = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
   
@@ -170,9 +202,8 @@ function buildDailyData(payments, selectedMonth) {
   }
 
   const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
-
-  // Build day→total map
   const dayMap = {};
+  
   payments.forEach(p => {
     if (!p.date) return;
     const d = new Date(p.date);
@@ -182,7 +213,6 @@ function buildDailyData(payments, selectedMonth) {
     }
   });
 
-  // Every day of month (fill 0 for days with no payment)
   return Array.from({ length: daysInMonth }, (_, i) => ({
     label: String(i + 1),
     value: Math.round(dayMap[i + 1] || 0),
@@ -213,7 +243,6 @@ function LineChart({ data }) {
   const xPos = (i) => padL + (i / (data.length - 1)) * chartW;
   const yPos = (v) => padT + chartH - (v / max) * chartH;
 
-  // Only show every 5th day label to avoid crowding
   const showLabel = (label) => {
     const n = parseInt(label);
     return n === 1 || n % 5 === 0;
@@ -233,7 +262,6 @@ function LineChart({ data }) {
         </linearGradient>
       </defs>
 
-      {/* Horizontal grid lines */}
       {[0, 0.25, 0.5, 0.75, 1].map((t, i) => (
         <line key={i}
           x1={padL} y1={padT + chartH - t * chartH}
@@ -241,10 +269,8 @@ function LineChart({ data }) {
           stroke="#f0f0f0" strokeWidth={1} />
       ))}
 
-      {/* Filled area under line */}
       <polygon points={areaPoints} fill="url(#lineGrad)" />
 
-      {/* Line */}
       <polyline
         points={points}
         fill="none"
@@ -254,7 +280,6 @@ function LineChart({ data }) {
         strokeLinejoin="round"
       />
 
-      {/* Dots only on days with a value */}
       {data.map((d, i) => d.value > 0 && (
         <circle key={i}
           cx={xPos(i)} cy={yPos(d.value)}
@@ -265,9 +290,6 @@ function LineChart({ data }) {
         />
       ))}
 
-     
-
-      {/* X-axis day labels */}
       {data.map((d, i) => showLabel(d.label) && (
         <text key={i}
           x={xPos(i)} y={H - 4}
@@ -343,14 +365,20 @@ function Sparkline({ data, color = '#4a90d9' }) {
   );
 }
 
-// ── Recent Trips Section ── (same as before)
+// ── Recent Trips Section (UPDATED: Table on Desktop, Cards on Mobile, All Left-Aligned) ──
 function RecentTripsSection() {
-  const [trips, setTrips]   = useState([]);
+  const [trips, setTrips] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError]   = useState(null);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     (async () => {
+      const token = localStorage.getItem('access') || localStorage.getItem('access_token');
+      if (!token) {
+        setError('Not authenticated.');
+        setLoading(false);
+        return;
+      }
       try {
         const data = await fetchTrips();
         const list = Array.isArray(data) ? data : (data.results || []);
@@ -363,6 +391,20 @@ function RecentTripsSection() {
     })();
   }, []);
 
+  // Converts "HH:MM" or "HH:MM:SS" to "h:MM AM/PM"
+  const formatTime = (time) => {
+    if (!time || time === '—') return '—';
+    const [hStr, mStr] = time.split(':');
+    const h = parseInt(hStr, 10);
+    const m = mStr || '00';
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${m} ${ampm}`;
+  };
+
+  // Filter only active (ongoing) trips
+  const ongoingTrips = trips.filter(t => t.status !== 'completed');
+
   return (
     <div style={{ maxWidth: 1280, margin: '16px auto 0' }}>
       <div style={{ ...card, padding: '16px' }}>
@@ -370,6 +412,9 @@ function RecentTripsSection() {
           <div>
             <h2 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: '#1f2937' }}>Active Trips</h2>
             <p style={{ margin: 0, fontSize: 11, color: '#9ca3af' }}>Currently ongoing trips</p>
+          </div>
+          <div style={{ fontSize: 12, fontWeight: 500, background: '#e8f0fe', padding: '4px 10px', borderRadius: 20, color: '#1a6fdb' }}>
+            {ongoingTrips.length} active
           </div>
         </div>
 
@@ -379,117 +424,198 @@ function RecentTripsSection() {
         {error && (
           <div style={{ background: '#fdecea', border: '1px solid #fca5a5', borderRadius: 8, padding: '10px 14px', color: '#c62828', fontSize: 13 }}>⚠️ {error}</div>
         )}
-        {!loading && !error && trips.length === 0 && (
+        {!loading && !error && ongoingTrips.length === 0 && (
           <div style={{ textAlign: 'center', padding: '36px 0', color: '#9ca3af', fontSize: 13 }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🚗</div>No trips recorded yet.
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🚗</div>
+            No active trips at the moment.
           </div>
         )}
 
-        {!loading && !error && trips.length > 0 && (() => {
-          const ongoing = trips.filter(t => t.status !== 'completed');
-          if (ongoing.length === 0) return (
-            <div style={{ textAlign: 'center', padding: '36px 0', color: '#9ca3af', fontSize: 13 }}>
-              <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>No ongoing trips right now.
+        {!loading && !error && ongoingTrips.length > 0 && (
+          <>
+            {/* DESKTOP VIEW: Table format (visible on screens >= 768px) - ALL CELLS LEFT-ALIGNED */}
+            <div className="trips-table-container">
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #eaecef', background: '#f8f9fa' }}>
+                    <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: '#5f6b7a' }}>#</th>
+                    <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: '#5f6b7a' }}>Vehicle</th>
+                    <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: '#5f6b7a' }}>Reg No.</th>
+                    <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: '#5f6b7a' }}>Driver</th>
+                    <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: '#5f6b7a' }}>Date</th>
+                    <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: '#5f6b7a' }}>Start Time</th>
+                    <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: '#5f6b7a' }}>End Time</th>
+                    <th style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: '#5f6b7a' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ongoingTrips.map((trip, idx) => {
+                    const dateFmt = trip.date
+                      ? new Date(trip.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                      : '—';
+                    const hasEnd = trip.endTime || trip.end_time;
+                    const vehicleName = trip.vehicle || trip.vehicle_name || '—';
+                    const regNo = trip.vehicleReg || trip.registration_number || '—';
+                    const driver = trip.traveledBy || trip.traveled_by || '—';
+                    const startTime = formatTime(trip.startTime || trip.start_time);
+                    const endTime = hasEnd ? formatTime(trip.endTime || trip.end_time) : null;
+                    
+                    return (
+                      <tr key={trip.id || idx} style={{ borderBottom: '1px solid #f0f2f5', transition: 'background 0.2s' }} onMouseEnter={e => e.currentTarget.style.background = '#fafbfc'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <td style={{ textAlign: 'left', padding: '12px 8px', color: '#6c757d', fontWeight: 500 }}>#{idx + 1}</td>
+                        <td style={{ textAlign: 'left', padding: '12px 8px', fontWeight: 600, color: '#1f2937' }}>{vehicleName}</td>
+                        <td style={{ textAlign: 'left', padding: '12px 8px', color: '#1a6fdb', fontWeight: 500 }}>{regNo}</td>
+                        <td style={{ textAlign: 'left', padding: '12px 8px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{
+                              width: 28, height: 28, borderRadius: '50%',
+                              background: '#e8f0fe', color: '#1a6fdb',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 11, fontWeight: 700
+                            }}>
+                              {(driver !== '—' ? driver[0] : '?').toUpperCase()}
+                            </div>
+                            <span>{driver}</span>
+                          </div>
+                        </td>
+                        <td style={{ textAlign: 'left', padding: '12px 8px', color: '#4b5563' }}>{dateFmt}</td>
+                        <td style={{ textAlign: 'left', padding: '12px 8px', color: '#2e7d32', fontWeight: 500 }}>🕘 {startTime}</td>
+                        <td style={{ textAlign: 'left', padding: '12px 8px', color: hasEnd ? '#b71c1c' : '#9ca3af', fontStyle: hasEnd ? 'normal' : 'italic' }}>
+                          {hasEnd ? `⏱️ ${endTime}` : '—'}
+                        </td>
+                        <td style={{ textAlign: 'left', padding: '12px 8px' }}>
+                          <span style={{
+                            display: 'inline-block',
+                            background: hasEnd ? '#fdecea' : '#e8f5e9',
+                            color: hasEnd ? '#b71c1c' : '#2e7d32',
+                            padding: '4px 12px',
+                            borderRadius: 30,
+                            fontSize: 11,
+                            fontWeight: 600
+                          }}>
+                            {hasEnd ? 'Ending' : 'Active'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+               </table>
             </div>
-          );
-          return (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-              {ongoing.map((row, idx) => {
-                const dateFmt = row.date
-                  ? new Date(row.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-                  : '—';
-                const hasEnd = row.endTime || row.end_time;
-                const initial = (row.traveledBy || row.traveled_by || '?')[0]?.toUpperCase();
-                const vehicleName = row.vehicle || row.vehicle_name || '—';
-                const regNo = row.vehicleReg || row.registration_number;
-                const driver = row.traveledBy || row.traveled_by || '—';
-                const startTime = row.startTime || row.start_time || '—';
-                const endTime = row.endTime || row.end_time;
 
-                return (
-                  <div key={row.id || idx} style={{
-                    background: '#fff',
-                    border: '1px solid #eaecef',
-                    borderRadius: 14,
-                    padding: '14px 16px',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
-                  }}>
-                    {/* Card Header: serial + vehicle + status badge */}
-                    <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                        <div style={{
-                          width: 32, height: 32, borderRadius: 8,
-                          background: '#e8f0fe', color: '#1a6fdb',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                          fontSize: 12, fontWeight: 700, flexShrink: 0,
-                        }}>#{idx + 1}</div>
-                        <div>
-                          <div style={{ fontWeight: 700, color: '#1f2937', fontSize: 14 }}>{vehicleName}</div>
-                          {regNo && (
-                            <div style={{ color: '#1a6fdb', fontSize: 11, fontWeight: 600, letterSpacing: '0.4px', marginTop: 1 }}>{regNo}</div>
-                          )}
-                        </div>
-                      </div>
-                      {/* Status pill */}
-                      <span style={{
-                        display: 'inline-flex', alignItems: 'center', gap: 5,
-                        background: hasEnd ? '#fdecea' : '#e8f5e9',
-                        color: hasEnd ? '#b71c1c' : '#2e7d32',
-                        padding: '3px 10px', borderRadius: 20,
-                        fontSize: 11, fontWeight: 600, flexShrink: 0,
-                      }}>
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: hasEnd ? '#b71c1c' : '#2e7d32', display: 'inline-block' }} />
-                        {hasEnd ? 'Ending' : 'Ongoing'}
-                      </span>
-                    </div>
+            {/* MOBILE VIEW: Card format (visible on screens < 768px) */}
+            <div className="trips-cards-container">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {ongoingTrips.map((trip, idx) => {
+                  const dateFmt = trip.date
+                    ? new Date(trip.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                    : '—';
+                  const hasEnd = trip.endTime || trip.end_time;
+                  const vehicleName = trip.vehicle || trip.vehicle_name || '—';
+                  const regNo = trip.vehicleReg || trip.registration_number;
+                  const driver = trip.traveledBy || trip.traveled_by || '—';
+                  const startTime = formatTime(trip.startTime || trip.start_time);
+                  const endTime = hasEnd ? formatTime(trip.endTime || trip.end_time) : null;
+                  const initial = (driver !== '—' ? driver[0] : '?').toUpperCase();
 
-                    {/* Card body: 2-col info grid */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
-                      {/* Date */}
-                      <div>
-                        <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Date</div>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{dateFmt}</div>
-                      </div>
-                      {/* Driver */}
-                      <div>
-                        <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Driver</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  return (
+                    <div key={trip.id || idx} style={{
+                      background: '#fff',
+                      border: '1px solid #eaecef',
+                      borderRadius: 14,
+                      padding: '14px 16px',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                           <div style={{
-                            width: 22, height: 22, borderRadius: '50%',
+                            width: 32, height: 32, borderRadius: 8,
                             background: '#e8f0fe', color: '#1a6fdb',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 10, fontWeight: 700, flexShrink: 0,
-                          }}>{initial}</div>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{driver}</span>
+                            fontSize: 12, fontWeight: 700, flexShrink: 0,
+                          }}>#{idx + 1}</div>
+                          <div>
+                            <div style={{ fontWeight: 700, color: '#1f2937', fontSize: 14 }}>{vehicleName}</div>
+                            {regNo && (
+                              <div style={{ color: '#1a6fdb', fontSize: 11, fontWeight: 600, letterSpacing: '0.4px', marginTop: 1 }}>{regNo}</div>
+                            )}
+                          </div>
                         </div>
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          background: hasEnd ? '#fdecea' : '#e8f5e9',
+                          color: hasEnd ? '#b71c1c' : '#2e7d32',
+                          padding: '3px 10px', borderRadius: 20,
+                          fontSize: 11, fontWeight: 600, flexShrink: 0,
+                        }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: hasEnd ? '#b71c1c' : '#2e7d32', display: 'inline-block' }} />
+                          {hasEnd ? 'Ending' : 'Active'}
+                        </span>
                       </div>
-                      {/* Start Time */}
-                      <div>
-                        <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Start Time</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#2e7d32', fontWeight: 600, fontSize: 13 }}>
-                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#2e7d32', display: 'inline-block', flexShrink: 0 }} />
-                          {startTime}
+
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 12px' }}>
+                        <div>
+                          <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Date</div>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{dateFmt}</div>
                         </div>
-                      </div>
-                      {/* End Time */}
-                      <div>
-                        <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>End Time</div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: hasEnd ? '#b71c1c' : '#9ca3af', fontWeight: hasEnd ? 600 : 400, fontStyle: hasEnd ? 'normal' : 'italic', fontSize: 13 }}>
-                          {hasEnd
-                            ? <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#b71c1c', display: 'inline-block', flexShrink: 0 }} />
-                            : <span style={{ width: 7, height: 7, borderRadius: '50%', border: '2px solid #9ca3af', display: 'inline-block', flexShrink: 0 }} />
-                          }
-                          {hasEnd ? endTime : 'Ongoing'}
+                        <div>
+                          <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Driver</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <div style={{
+                              width: 22, height: 22, borderRadius: '50%',
+                              background: '#e8f0fe', color: '#1a6fdb',
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: 10, fontWeight: 700, flexShrink: 0,
+                            }}>{initial}</div>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: '#1f2937' }}>{driver}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>Start Time</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: '#2e7d32', fontWeight: 600, fontSize: 13 }}>
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#2e7d32', display: 'inline-block', flexShrink: 0 }} />
+                            {startTime}
+                          </div>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.4px', marginBottom: 2 }}>End Time</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, color: hasEnd ? '#b71c1c' : '#9ca3af', fontWeight: hasEnd ? 600 : 400, fontStyle: hasEnd ? 'normal' : 'italic', fontSize: 13 }}>
+                            {hasEnd
+                              ? <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#b71c1c', display: 'inline-block', flexShrink: 0 }} />
+                              : <span style={{ width: 7, height: 7, borderRadius: '50%', border: '2px solid #9ca3af', display: 'inline-block', flexShrink: 0 }} />
+                            }
+                            {hasEnd ? endTime : 'Ongoing'}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          );
-        })()}
+          </>
+        )}
       </div>
+
+      {/* Responsive CSS: Hide table on mobile, hide cards on desktop */}
+      <style>{`
+        @media (max-width: 767px) {
+          .trips-table-container {
+            display: none !important;
+          }
+          .trips-cards-container {
+            display: block !important;
+          }
+        }
+        @media (min-width: 768px) {
+          .trips-table-container {
+            display: block !important;
+          }
+          .trips-cards-container {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
@@ -537,7 +663,9 @@ export default function Dashboard() {
   })();
 
   const loadPayments = async () => {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem('access') || localStorage.getItem('access_token');
+    
+    // Check if token exists
     if (!token) { 
       setLoading(false); 
       setIsAuthError(true); 
@@ -545,27 +673,33 @@ export default function Dashboard() {
       return; 
     }
     
+    // Check if token is expired
+    if (isTokenExpired()) {
+      console.log('Token expired, attempting refresh...');
+      const newToken = await refreshAccessToken();
+      if (!newToken) {
+        setLoading(false);
+        setIsAuthError(true);
+        setError('Session expired. Please log in again.');
+        return;
+      }
+    }
+    
     setLoading(true); 
     setError(null); 
     setIsAuthError(false);
     
     try {
-      // Fetch payments with proper filtering
       const params = new URLSearchParams();
-      // You can add pagination or other params here if needed
-      // params.append('page_size', 1000);
-      
       const data = await apiFetch(`${BASE_URL}/payments/?${params}`, { 
         headers: authHeaders({ Accept: 'application/json' }) 
       });
       
       const list = Array.isArray(data) ? data : (data.results ?? []);
       console.log('Raw payments fetched:', list.length);
-      console.log('Sample payment:', list[0]);
       
       const normalizedList = list.map(normalizePayment);
       console.log('Normalized payments:', normalizedList.length);
-      console.log('Sample normalized payment:', normalizedList[0]);
       
       setPayments(normalizedList);
       const processedStats = processPaymentData(normalizedList);
@@ -574,9 +708,11 @@ export default function Dashboard() {
       console.error('Error loading payments:', err);
       if (err.name === 'AuthError') { 
         setIsAuthError(true); 
-        setError(err.message); 
+        setError(err.message);
+        clearAuthTokens();
+      } else {
+        setError(err.message || 'Failed to load payments.');
       }
-      else setError(err.message || 'Failed to load payments.');
     } finally {
       setLoading(false);
     }
@@ -586,14 +722,20 @@ export default function Dashboard() {
     loadPayments(); 
   }, []);
 
-  // Debug logging
+  // Auto-refresh token every 10 minutes if user is active
   useEffect(() => {
-    console.log('Dashboard state updated:', { 
-      paymentsCount: payments.length, 
-      stats,
-      selectedMonth 
-    });
-  }, [payments, stats, selectedMonth]);
+    const interval = setInterval(async () => {
+      if (!isTokenExpired()) {
+        const newToken = await refreshAccessToken();
+        if (!newToken && !isAuthError) {
+          setIsAuthError(true);
+          setError('Session expired. Please log in again.');
+        }
+      }
+    }, 10 * 60 * 1000); // 10 minutes
+    
+    return () => clearInterval(interval);
+  }, [isAuthError]);
 
   // ── Loading ──
   if (loading) return (
@@ -606,13 +748,33 @@ export default function Dashboard() {
     </div>
   );
 
-  // ── Error ──
+  // ── Error with better logout handling ──
   if (error) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif", background: '#f7f8fa' }}>
       <div style={{ textAlign: 'center', padding: 28, background: '#fff1f1', borderRadius: 14, border: '1px solid #fecaca', maxWidth: 360 }}>
-        <p style={{ color: '#dc2626', marginBottom: 14, fontSize: 14 }}>{error}</p>
+        <div style={{ fontSize: 48, marginBottom: 12 }}>🔐</div>
+        <p style={{ color: '#dc2626', marginBottom: 14, fontSize: 14, fontWeight: 500 }}>{error}</p>
         {isAuthError ? (
-          <button style={btnStyle('#4a90d9')} onClick={() => { localStorage.removeItem('access_token'); localStorage.removeItem('refresh_token'); window.location.href = '/login'; }}>Go to Login</button>
+          <>
+            <button 
+              style={btnStyle('#4a90d9')} 
+              onClick={() => {
+                clearAuthTokens();
+                window.location.href = '/login';
+              }}
+            >
+              Go to Login
+            </button>
+            <button 
+              style={{ ...btnStyle('#6b7280'), marginLeft: 10 }} 
+              onClick={() => {
+                clearAuthTokens();
+                window.location.reload();
+              }}
+            >
+              Clear & Retry
+            </button>
+          </>
         ) : (
           <button style={btnStyle('#4a90d9')} onClick={loadPayments}>Retry</button>
         )}
@@ -620,7 +782,7 @@ export default function Dashboard() {
     </div>
   );
 
-  // ── Empty State with Debug Info ──
+  // ── Empty State ──
   if (payments.length === 0) return (
     <div style={{ minHeight: '100vh', background: '#f7f8fa', fontFamily: "'DM Sans', sans-serif", display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center', background: '#fff', borderRadius: 20, padding: '48px 40px', maxWidth: 440, border: '1px solid #eaecef' }}>
@@ -632,9 +794,8 @@ export default function Dashboard() {
     </div>
   );
 
-  const { yearlyData, monthlyData, salesOverviewData, totalYearly, avgMonthly, lastMonthEarning } = stats;
+  const { yearlyData, monthlyData, totalYearly, avgMonthly, lastMonthEarning } = stats;
   
-  // Calculate year-over-year change
   const prevYear = yearlyData.length > 1 ? yearlyData[yearlyData.length - 2] : null;
   const currYear = yearlyData.length > 0 ? yearlyData[yearlyData.length - 1] : null;
   const yoyChange = prevYear && currYear ? ((currYear.value - prevYear.value) / prevYear.value * 100).toFixed(0) : 0;
@@ -669,7 +830,6 @@ export default function Dashboard() {
             </select>
           </div>
 
-          {/* Line chart — daily totals for selected month */}
           <div style={{ flex: 1, minHeight: 180 }}>
             {(() => {
               const dailyData = buildDailyData(payments, selectedMonth);
@@ -703,7 +863,7 @@ export default function Dashboard() {
                 {yoyChange !== 0 && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
                     <span className={yoyChange >= 0 ? "stat-badge-up" : "stat-badge-down"}>
-                      {yoyChange >= 0 ? "▲" : "▼"} +{Math.abs(yoyChange)}%
+                      {yoyChange >= 0 ? "▲" : "▼"} {Math.abs(yoyChange)}%
                     </span>
                     <span style={{ fontSize: 11, color: '#9ca3af' }}>vs last year</span>
                   </div>
@@ -712,7 +872,6 @@ export default function Dashboard() {
               <DonutChart yearlyData={yearlyData} />
             </div>
 
-            {/* Legend */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 5, marginTop: 8 }}>
               {yearlyData.slice(-2).map((y, i) => (
                 <div key={y.label} style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
@@ -745,7 +904,6 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Sparkline */}
             <div style={{ marginTop: 10, marginLeft: -22, marginRight: -22, marginBottom: -20 }}>
               <Sparkline data={monthlyData} color="#4a90d9" />
             </div>
@@ -754,7 +912,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* ── Recent Trips ── */}
+      {/* ── Active Trips Section ── */}
       <RecentTripsSection />
 
     </div>

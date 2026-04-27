@@ -1,57 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import PaymentForm from './collection';
-import { fetchPayments, fetchPaymentById, deletePayment, updatePaymentStatus, updatePayment, normalizePayment } from '../service/payment';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import { Bold } from 'lucide-react';
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://flasherp.in/api';
-
-// ── Auth helpers ───────────────────────────────────────────────
-function authHeaders(extra = {}) {
-  const token = localStorage.getItem('access_token');
-  const headers = { 'Accept': 'application/json', ...extra };
-  if (token) {
-    const rawToken = token.replace(/^Bearer\s+/i, '');
-    headers['Authorization'] = `Bearer ${rawToken}`;
-  }
-  return headers;
-}
-
-async function refreshAccessToken() {
-  const refreshToken = localStorage.getItem('refresh_token');
-  if (!refreshToken) return null;
-
-  try {
-    const response = await fetch(`${BASE_URL}/auth/token/refresh/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh: refreshToken }),
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      localStorage.setItem('access_token', data.access);
-      if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
-      return data.access;
-    }
-
-    if (response.status === 401 || response.status === 403) {
-      console.warn(`Token refresh rejected (${response.status}). Clearing auth state.`);
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      return null;
-    }
-
-    throw new Error(`Token refresh server error (${response.status}). Try again shortly.`);
-
-  } catch (error) {
-    if (error.message.startsWith('Token refresh server error')) throw error;
-    console.error('Token refresh network error:', error);
-    return null;
-  }
-}
+import { fetchPayments, fetchPaymentById, deletePayment, updatePaymentStatus, updatePayment, normalizePayment, ENDPOINTS, authHeaders, apiFetch } from '../service/Api';
 
 class AuthError extends Error {
   constructor(message) {
@@ -60,45 +13,8 @@ class AuthError extends Error {
   }
 }
 
-async function apiFetch(url, options = {}) {
-  let res = await fetch(url, options);
-
-  if (res.status === 401) {
-    let newToken = null;
-    try {
-      newToken = await refreshAccessToken();
-    } catch (refreshErr) {
-      throw new Error(refreshErr.message);
-    }
-
-    if (newToken) {
-      const newOptions = {
-        ...options,
-        headers: { ...options.headers, 'Authorization': `Bearer ${newToken}` },
-      };
-      res = await fetch(url, newOptions);
-    } else {
-      throw new AuthError('Session expired. Please log in again.');
-    }
-  }
-
-  if (res.status === 204) return null;
-
-  const data = await res.json();
-  if (!res.ok) {
-    if (res.status === 401) throw new AuthError('Session expired. Please log in again.');
-    const msg =
-      data?.detail ||
-      Object.entries(data)
-        .map(([f, e]) => `${f}: ${Array.isArray(e) ? e.join(', ') : e}`)
-        .join(' | ');
-    throw new Error(msg || `Error ${res.status}`);
-  }
-  return data;
-}
-
 // ── Mobile Card Component ──────────────────────────────────────
-function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, onStatusUpdate, onEdit, onDelete, editLoading }) {
+function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, onStatusUpdate, onEdit, onDelete, editLoading, mode, isAdmin }) {
   const [expanded, setExpanded] = React.useState(false);
 
   const formatCurrency = (amount) =>
@@ -120,6 +36,8 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
   };
 
   const statusDisplay = payment.status === 'Failed' ? 'Rejected' : payment.status;
+  const canEditDelete = mode === 'my' || isAdmin;
+  const statusDisabled = updatingId === payment.id || (mode === 'all' && !isAdmin);
 
   return (
     <div className="mobile-card" onClick={() => setExpanded(p => !p)}>
@@ -154,7 +72,7 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
           <select
             className={`status-select ${getStatusClass(payment.status)}`}
             value={statusDisplay || 'Pending'}
-            disabled={updatingId === payment.id}
+            disabled={statusDisabled}
             onClick={e => e.stopPropagation()}
             onChange={e => { e.stopPropagation(); onStatusUpdate(payment, e.target.value); }}
           >
@@ -169,9 +87,10 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
         <div>
           <div className="mc-lbl">Date</div>
           <div className="mc-val">{formatDate(payment.date)}</div>
-          {(payment.createdByName || payment.created_by_name) && (
+          {/* Show creator name only in admin (all) mode on mobile cards */}
+          {mode === 'all' && (payment.createdByName || payment.created_by_name) && (
             <div style={{
-              fontSize: 11, color: "#6b7280", marginTop: 3,
+              fontSize: 12, color: "#000000", marginTop: 3,
               display: "flex", alignItems: "center", gap: 3, fontWeight: 500
             }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10" style={{ flexShrink: 0 }}>
@@ -219,32 +138,34 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
               </a>
             </div>
           )}
-          <div className="mc-full mc-actions">
-            <button
-              onClick={() => onEdit(payment)}
-              style={{
-                flex: 1, padding: '8px 0', borderRadius: 7, border: 'none',
-                background: '#1a73e8', color: '#fff', fontSize: 13,
-                fontWeight: 600, cursor: 'pointer', display: 'flex',
-                alignItems: 'center', justifyContent: 'center', gap: 6,
-                fontFamily: "'Google Sans', sans-serif",
-              }}
-            >
-              <EditOutlinedIcon style={{ fontSize: 15 }} /> Edit
-            </button>
-            <button
-              onClick={() => onDelete(payment.id)}
-              style={{
-                flex: 1, padding: '8px 0', borderRadius: 7, border: 'none',
-                background: '#d93025', color: '#fff', fontSize: 13,
-                fontWeight: 600, cursor: 'pointer', display: 'flex',
-                alignItems: 'center', justifyContent: 'center', gap: 6,
-                fontFamily: "'Google Sans', sans-serif",
-              }}
-            >
-              <DeleteOutlineOutlinedIcon style={{ fontSize: 15 }} /> Delete
-            </button>
-          </div>
+          {canEditDelete && (
+            <div className="mc-full mc-actions">
+              <button
+                onClick={() => onEdit(payment)}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 7, border: 'none',
+                  background: '#1a73e8', color: '#fff', fontSize: 13,
+                  fontWeight: 600, cursor: 'pointer', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', gap: 6,
+                  fontFamily: "'Google Sans', sans-serif",
+                }}
+              >
+                <EditOutlinedIcon style={{ fontSize: 15 }} /> Edit
+              </button>
+              <button
+                onClick={() => onDelete(payment.id)}
+                style={{
+                  flex: 1, padding: '8px 0', borderRadius: 7, border: 'none',
+                  background: '#d93025', color: '#fff', fontSize: 13,
+                  fontWeight: 600, cursor: 'pointer', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center', gap: 6,
+                  fontFamily: "'Google Sans', sans-serif",
+                }}
+              >
+                <DeleteOutlineOutlinedIcon style={{ fontSize: 15 }} /> Delete
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -268,6 +189,12 @@ const PaymentTable = ({ mode = 'all' }) => {
     return { id: null, name: null };
   };
   const loggedInUser = getLoggedInUser();
+  const isAdmin = (() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      return u?.role === 'Admin' || u?.is_staff === true;
+    } catch { return false; }
+  })();
   const [payments, setPayments]               = useState([]);
   const [loading, setLoading]                 = useState(true);
   const [error, setError]                     = useState(null);
@@ -311,7 +238,7 @@ const PaymentTable = ({ mode = 'all' }) => {
       }
 
       const data = await apiFetch(
-        `${BASE_URL}/payments/?${params}`,
+        `${ENDPOINTS.payments}?${params}`,
         { headers: authHeaders({ Accept: 'application/json' }) }
       );
 
@@ -333,9 +260,9 @@ const PaymentTable = ({ mode = 'all' }) => {
   useEffect(() => { loadPayments(); }, [loadPayments]);
 
   // ── Add new payment from PaymentForm ──────────────────────────
-  const handleNewPayment = (normalizedPayment) => {
-    setPayments(prev => [normalizedPayment, ...prev]);
+  const handleNewPayment = async (normalizedPayment) => {
     setShowPaymentForm(false);
+    await loadPayments();
   };
 
   // ── Edit ───────────────────────────────────────────────────────
@@ -366,7 +293,7 @@ const PaymentTable = ({ mode = 'all' }) => {
   const handleDelete = async (id) => {
     setDeletingId(id);
     try {
-      await apiFetch(`${BASE_URL}/payments/${id}/`, {
+      await apiFetch(ENDPOINTS.payment(id), {
         method: 'DELETE',
         headers: authHeaders(),
       });
@@ -390,7 +317,7 @@ const PaymentTable = ({ mode = 'all' }) => {
     if (nextStatus === payment.status) return;
     setUpdatingId(payment.id);
     try {
-      const updated = await apiFetch(`${BASE_URL}/payments/${payment.id}/status/`, {
+      const updated = await apiFetch(ENDPOINTS.paymentStatus(payment.id), {
         method: 'PATCH',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ status: nextStatus }),
@@ -412,13 +339,14 @@ const PaymentTable = ({ mode = 'all' }) => {
 
   // ── Client-side filter ─────────────────────────────────────────
   const filteredPayments = payments.filter(payment => {
+    const search = searchTerm.toLowerCase();
     const matchesSearch =
-      payment.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.branch.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payment.paidFor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (payment.department && payment.department.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (payment.place && payment.place.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (payment.phoneNumber && payment.phoneNumber.includes(searchTerm));
+      (payment.clientName  || '').toLowerCase().includes(search) ||
+      (payment.branch      || '').toLowerCase().includes(search) ||
+      (payment.paidFor     || '').toLowerCase().includes(search) ||
+      (payment.department  || '').toLowerCase().includes(search) ||
+      (payment.place       || '').toLowerCase().includes(search) ||
+      (payment.phoneNumber || '').includes(searchTerm);
     const matchesType   = filterType === 'all' || payment.collectionType === filterType;
     const matchesStatus = filterStatus === 'all' || (payment.status || '').toLowerCase() === filterStatus.toLowerCase();
     const payDate = payment.date ? new Date(payment.date) : null;
@@ -427,9 +355,10 @@ const PaymentTable = ({ mode = 'all' }) => {
     // "my" mode: server already filtered, but apply client-side guard using created_by
     const matchesUser = mode !== 'my' ? true : (() => {
       const uid = loggedInUser.id;
-      // Use the created_by field returned by the API (reliable server-side source)
-      if (uid && payment.created_by != null) {
-        return String(payment.created_by) === String(uid);
+      // Check both created_by and created_by_id since API response field name may vary
+      const createdBy = payment.created_by != null ? payment.created_by : (payment.created_by_id != null ? payment.created_by_id : null);
+      if (uid && createdBy != null) {
+        return String(createdBy) === String(uid);
       }
       // Fallback: if API didn't return created_by, trust the server filtered correctly
       return true;
@@ -499,10 +428,7 @@ const PaymentTable = ({ mode = 'all' }) => {
   const collectionTypes = ['all', 'Cash', 'Cheque', 'Bank Transfer', 'Credit Card', 'Debit Card', 'Online Payment'];
 
   // Table headers
-  const headers = [
-    "Sl. no.", "Date", "Client Name", "Branch", "Department", "Payment Type", 
-    "Amount", "Paid For", "Status", "Proof", "Action"
-  ];
+  const headers = ["Sl. no.", "Date", "Client Name", "Branch", "Department", "Payment Type", "Amount", "Paid For", "Status", "Proof", "Action"];
 
   // Table styles - th font size set to 20
   const thStyle = { 
@@ -511,7 +437,7 @@ const PaymentTable = ({ mode = 'all' }) => {
     letterSpacing: "0.4px", 
     color: "#fcfbfb", 
     textAlign: "left", 
-    padding: "11px 14px", 
+    padding: "7px 14px", 
     background: "#017efc", 
     borderBottom: "1px solid #e8eaed", 
     fontFamily: "'Google Sans', sans-serif", 
@@ -523,7 +449,7 @@ const PaymentTable = ({ mode = 'all' }) => {
   };
   
   const tdStyle = { 
-    padding: "12px 14px", 
+    padding: "5px 14px", 
     fontSize: 14, 
     borderBottom: "1px solid #e8eaed", 
     fontFamily: "'Google Sans', sans-serif", 
@@ -679,8 +605,8 @@ const PaymentTable = ({ mode = 'all' }) => {
           justify-content: flex-end;
           align-items: center;
           gap: 8px;
-          margin-top: 16px;
-          padding: 12px 0;
+          margin-top: 8px;
+          padding: 6px 0;
           flex-shrink: 0;
         }
         
@@ -739,7 +665,7 @@ const PaymentTable = ({ mode = 'all' }) => {
         /* ── Filter grid layout ── */
         .filters-grid {
           display: flex;
-          gap: 14px;
+          gap: 8px;
           flex-wrap: wrap;
           align-items: flex-end;
         }
@@ -755,7 +681,7 @@ const PaymentTable = ({ mode = 'all' }) => {
         .filter-item input,
         .filter-item-search input {
           width: 100%;
-          padding: 9px 12px;
+          padding: 6px 12px;
           border: 1px solid #e8eaed;
           border-radius: 7px;
           font-size: 13px;
@@ -776,7 +702,7 @@ const PaymentTable = ({ mode = 'all' }) => {
           font-weight: 600;
           color: #070707;
           display: block;
-          margin-bottom: 6px;
+          margin-bottom: 3px;
           text-align: left;
           letter-spacing: 0.8px;
           font-family: 'Google Sans', sans-serif;
@@ -810,7 +736,7 @@ const PaymentTable = ({ mode = 'all' }) => {
           align-items: center;
           justify-content: space-between;
           padding: 0 16px;
-          height: 56px;
+          height: 46px;
           border-bottom: 1px solid #e8eaed;
           flex-wrap: wrap;
           gap: 0;
@@ -972,7 +898,7 @@ const PaymentTable = ({ mode = 'all' }) => {
         <div className="page-header-bar">
           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <h1 style={{ fontSize: 25, fontWeight: "600", color: "#050505", margin: 5, letterSpacing: "0.10px", lineHeight: 1.2 }}>
-              Collections
+              {mode === 'my' ? 'My Collections' : 'Collection Report'}
             </h1>
           </div>
 
@@ -996,8 +922,8 @@ const PaymentTable = ({ mode = 'all' }) => {
         </div>
 
         {/* ── Filters Section (Always Visible) ── */}
-        <div style={{ flexShrink: 0, padding: "12px 16px 0 16px" }}>
-          <div className="filter-container" style={{ background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "18px 20px", marginBottom: 20 }}>
+        <div style={{ flexShrink: 0, padding: "8px 16px 0 16px" }}>
+          <div className="filter-container" style={{ background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
             <div className="filters-grid">
               {/* Search */}
               <div className="filter-item-search">
@@ -1082,7 +1008,7 @@ const PaymentTable = ({ mode = 'all' }) => {
         </div>
 
         {/* ── Single Scrollable Table Body Only ── */}
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 16px 16px 16px" }}>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 16px 8px 16px" }}>
           
           {/* ── Count and Pagination Info ── */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
@@ -1110,13 +1036,13 @@ const PaymentTable = ({ mode = 'all' }) => {
                         {/* Sl. no. */}
                         <td style={{ ...tdStyle, color: "#9aa0a6", fontWeight: 600, width: 56 }}>{startIndex + index + 1}</td>
                         
-                        {/* Date + Created By */}
+                        {/* Date */}
                         <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
-                          <div>{formatDate(payment.date)}</div>
+                          <div style={{ fontWeight: 500 }}>{formatDate(payment.date)}</div>
                           {(payment.createdByName || payment.created_by_name) && (
                             <div style={{
-                              fontSize: 11, color: "#6b7280", marginTop: 3,
-                              display: "flex", alignItems: "center", gap: 3, fontWeight: 500
+                              display: "flex", alignItems: "center", gap: 4,
+                              marginTop: 2, fontSize: 12, color: "#0a0a0a", fontWeight: 500
                             }}>
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10" style={{ flexShrink: 0 }}>
                                 <circle cx="12" cy="8" r="4" />
@@ -1173,13 +1099,14 @@ const PaymentTable = ({ mode = 'all' }) => {
                         
                         {/* Paid For */}
                         <td className="paidfor-cell col-hide-mobile" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 160 }}>{payment.paidFor}</td>
-                        
+
+
                         {/* Status */}
                         <td style={tdStyle}>
                           <select
                             className={`status-select ${getStatusClass(payment.status)}`}
                             value={(payment.status === 'Failed' ? 'Rejected' : payment.status) || 'Pending'}
-                            disabled={updatingId === payment.id}
+                            disabled={updatingId === payment.id || (mode === 'all' && !isAdmin)}
                             onChange={(e) => handleStatusUpdate(payment, e.target.value)}
                           >
                             {STATUS_OPTIONS.map(s => (
@@ -1201,30 +1128,34 @@ const PaymentTable = ({ mode = 'all' }) => {
 
                         {/* Actions */}
                         <td style={{ ...tdStyle, textAlign: "left" }}>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <button 
-                              onClick={() => handleEditClick(payment)} 
-                              style={{ 
-                                padding: "5px 12px", borderRadius: 6, border: "none", 
-                                background: "#1a73e8", color: "#fff", fontSize: 12, 
-                                fontWeight: 600, cursor: "pointer", display: "flex", 
-                                alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" 
-                              }}
-                            >
-                              <EditOutlinedIcon style={{ fontSize: 13 }} />
-                            </button>
-                            <button 
-                              onClick={() => confirmDelete(payment.id)} 
-                              style={{ 
-                                padding: "5px 12px", borderRadius: 6, border: "none", 
-                                background: "#d93025", color: "#fff", fontSize: 12, 
-                                fontWeight: 600, cursor: "pointer", display: "flex", 
-                                alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" 
-                              }}
-                            >
-                              <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} />
-                            </button>
-                          </div>
+                          {(mode === 'my' || isAdmin) ? (
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <button 
+                                onClick={() => handleEditClick(payment)} 
+                                style={{ 
+                                  padding: "5px 12px", borderRadius: 6, border: "none", 
+                                  background: "#1a73e8", color: "#fff", fontSize: 12, 
+                                  fontWeight: 600, cursor: "pointer", display: "flex", 
+                                  alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" 
+                                }}
+                              >
+                                <EditOutlinedIcon style={{ fontSize: 13 }} />
+                              </button>
+                              <button 
+                                onClick={() => confirmDelete(payment.id)} 
+                                style={{ 
+                                  padding: "5px 12px", borderRadius: 6, border: "none", 
+                                  background: "#d93025", color: "#fff", fontSize: 12, 
+                                  fontWeight: 600, cursor: "pointer", display: "flex", 
+                                  alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" 
+                                }}
+                              >
+                                <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} />
+                              </button>
+                            </div>
+                          ) : (
+                            <span style={{ color: "#9ca3af", fontSize: 12 }}>—</span>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1302,6 +1233,8 @@ const PaymentTable = ({ mode = 'all' }) => {
                     onEdit={handleEditClick}
                     onDelete={confirmDelete}
                     editLoading={editLoading}
+                    mode={mode}
+                    isAdmin={isAdmin}
                   />
                 ))}
                 {/* Mobile pagination */}

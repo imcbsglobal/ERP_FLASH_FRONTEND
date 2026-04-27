@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getChallans, deleteChallan, updateChallan } from "../service/challan";
+import { getChallans, deleteChallan, updateChallan } from "../service/Api";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
@@ -8,7 +8,7 @@ import ChallanAdd from "./challan_add";
 
 const STATUS_STYLES = {
   Paid:    { background: "#188038", color: "#ffffff" },
-  Pending: { background: "#f49333", color: "#ffffff" },
+  Pending: { background: "rgb(247,170,4) ", color: "#ffffff" },
 };
 
 // Table headers matching Vehicle Master style
@@ -27,10 +27,16 @@ export default function ChallanList({ onAdd, onEdit }) {
   const [editRow, setEditRow]         = useState(null);
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const [remarkPopup, setRemarkPopup] = useState(null);
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+
+  // Read logged-in user from localStorage (set by authService.login)
+  const currentUser = (() => {
+    try { return JSON.parse(localStorage.getItem("user")) || {}; } catch { return {}; }
+  })();
+  const isAdmin = currentUser?.role === "Admin";
 
   const fetchChallans = async () => {
     try {
@@ -51,7 +57,16 @@ export default function ChallanList({ onAdd, onEdit }) {
   useEffect(() => { fetchChallans(); }, []);
 
   /* ── filter ── */
-  const filtered = data.filter(r => {
+  // Non-admins only see challans they created (matched by created_by_username)
+  const visibleData = isAdmin
+    ? data
+    : data.filter(
+        (r) =>
+          (r.created_by_username || "").toLowerCase() ===
+          (currentUser?.username || "").toLowerCase()
+      );
+
+  const filtered = visibleData.filter(r => {
     const q = search.toLowerCase();
     const matchSearch =
       (r.vehicle_display || "").toLowerCase().includes(q) ||
@@ -583,7 +598,7 @@ export default function ChallanList({ onAdd, onEdit }) {
           .challan-card-doc-link {
             display: inline-flex; align-items: center; gap: 3px;
             font-size: 10px; font-weight: 600; color: #1a73e8;
-            text-decoration: none; background: #e8f0fe; border-radius: 5px;
+            text-decoration: none; background: #fdfdfd; border-radius: 5px;
             padding: 3px 8px;
           }
         }
@@ -677,7 +692,7 @@ export default function ChallanList({ onAdd, onEdit }) {
                           style={{
                             padding: "3px 6px", borderRadius: 6, border: "none",
                             background: statusStyle.background, color: statusStyle.color,
-                            fontFamily: "'Google Sans', sans-serif", fontSize: 8,
+                            fontFamily: "'Google Sans', sans-serif", fontSize: 7,
                             fontWeight: 700, cursor: "pointer", outline: "none",
                             flexShrink: 0,
                             opacity: updatingStatusId === row.id ? 0.7 : 1,
@@ -691,11 +706,11 @@ export default function ChallanList({ onAdd, onEdit }) {
                       {/* Row 1: Default Date + Challan No */}
                       <div className="challan-card-row">
                         <div className="challan-card-field">
-                          <div className="challan-card-field-label">📅 Default Date</div>
+                          <div className="challan-card-field-label">Default Date</div>
                           <div className="challan-card-field-value">{row.date || row.default_date || "—"}</div>
                         </div>
                         <div className="challan-card-field">
-                          <div className="challan-card-field-label">🔖 Challan No</div>
+                          <div className="challan-card-field-label"> Challan No</div>
                           <div className="challan-card-field-value" style={{ color: "#1a73e8" }}>{row.challan_no || "—"}</div>
                         </div>
                       </div>
@@ -703,11 +718,11 @@ export default function ChallanList({ onAdd, onEdit }) {
                       {/* Row 2: Challan Date + Fine Amount */}
                       <div className="challan-card-row">
                         <div className="challan-card-field">
-                          <div className="challan-card-field-label">🗓 Challan Date</div>
+                          <div className="challan-card-field-label">Challan Date</div>
                           <div className="challan-card-field-value">{row.challan_date || "—"}</div>
                         </div>
                         <div className="challan-card-field">
-                          <div className="challan-card-field-label">💰 Fine Amount</div>
+                          <div className="challan-card-field-label"> Fine Amount</div>
                           <div className="challan-card-field-value" style={{ color: "#d93025" }}>₹{parseFloat(row.fine_amount || 0).toLocaleString()}</div>
                         </div>
                       </div>
@@ -715,11 +730,11 @@ export default function ChallanList({ onAdd, onEdit }) {
                       {/* Row 3: Offence + Location */}
                       <div className="challan-card-row">
                         <div className="challan-card-field">
-                          <div className="challan-card-field-label">⚠️ Offence</div>
+                          <div className="challan-card-field-label"> Offence</div>
                           <div className="challan-card-field-value" style={{ fontSize: 12 }}>{row.offence_type || "—"}</div>
                         </div>
                         <div className="challan-card-field">
-                          <div className="challan-card-field-label">📍 Location</div>
+                          <div className="challan-card-field-label">Location</div>
                           <div className="challan-card-field-value" style={{ fontSize: 12 }}>{row.location || "—"}</div>
                         </div>
                       </div>
@@ -741,7 +756,7 @@ export default function ChallanList({ onAdd, onEdit }) {
                             <button
                               onClick={() => setRemarkPopup(row.remark)}
                               className="challan-card-doc-link"
-                              style={{ background: "#fff8e1", color: "#e65100", border: "none", cursor: "pointer" }}
+                              style={{ background: "#ffffff", color: "#e65100", border: "none", cursor: "pointer" }}
                             >
                               <EditNotificationsOutlinedIcon style={{ fontSize: 13 }} /> Remark
                             </button>

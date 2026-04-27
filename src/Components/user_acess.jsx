@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-
-const API_BASE = import.meta.env.VITE_API_URL || "https://flasherp.in/api";
+import { ENDPOINTS, authHeaders, apiFetch } from '../service/Api';
 
 // NOTE: We do NOT import saveUserPermissions from useracess.js because
 // that service only sends 4 keys. We handle the full 7-key PATCH directly here.
@@ -16,13 +15,14 @@ import DirectionsCarOutlinedIcon from '@mui/icons-material/DirectionsCarOutlined
 import AirportShuttleOutlinedIcon from '@mui/icons-material/AirportShuttleOutlined';
 import PlaylistAddCheckOutlinedIcon from '@mui/icons-material/PlaylistAddCheckOutlined';
 import DriveEtaOutlinedIcon from '@mui/icons-material/DriveEtaOutlined';
+import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import EmergencyOutlinedIcon from '@mui/icons-material/EmergencyOutlined';
 
 // ── Static config ─────────────────────────────────────────────────────────────
 const ROLES = ["Admin", "Manager", "Operator", "Viewer", "Support", "Auditor"];
 
 // All permission keys — mirrors Layout.jsx NAV exactly
-const ALL_PERM_KEYS = ["dashboard", "col_reports", "vm_trips", "vm_service", "cl_list", "um_users", "um_roles", "mm_vehicle"];
+const ALL_PERM_KEYS = ["dashboard", "col_reports", "col_reports_view", "vm_trips", "vm_service", "cl_list", "um_users", "um_roles", "mm_vehicle"];
 
 const MENU_GROUPS = [
   {
@@ -36,7 +36,8 @@ const MENU_GROUPS = [
     group: "Collection",
     icon: <CategoryOutlinedIcon style={{ width: 18, height: 18 }} />,
     items: [
-      { key: "col_reports", label: "Reports", icon: <GradingOutlinedIcon style={{ width: 16, height: 16 }} /> },
+      { key: "col_reports",      label: "Add Collection",    icon: <GradingOutlinedIcon style={{ width: 16, height: 16 }} /> },
+      { key: "col_reports_view", label: "Collection Report", icon: <AssessmentOutlinedIcon style={{ width: 16, height: 16 }} /> },
     ],
   },
   {
@@ -103,34 +104,15 @@ function normalizePerms(apiData) {
 
 // ── Direct save — sends ALL keys so nothing gets dropped ────────────────────
 async function saveAllPermissions(userId, perms) {
-  const token = localStorage.getItem("access_token");
-
   const payload = {};
   ALL_PERM_KEYS.forEach(k => { payload[k] = !!perms[k]; });
 
-  console.log(`[UserControl] Saving all permissions for user ${userId}:`, payload);
-
-  const res = await fetch(`${API_BASE}/users/${userId}/permissions/`, {
+  // apiFetch throws on non-OK responses and returns parsed JSON on success
+  return await apiFetch(ENDPOINTS.userPermissions(userId), {
     method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
+    headers: authHeaders({ "Content-Type": "application/json" }),
     body: JSON.stringify(payload),
   });
-
-  if (!res.ok) {
-    let errBody;
-    try { errBody = await res.json(); }
-    catch { errBody = { error: res.statusText }; }
-    const msg = errBody?.error || errBody?.detail || JSON.stringify(errBody) || "Failed to save.";
-    const err = new Error(msg);
-    err.detail = errBody;
-    err.status  = res.status;
-    throw err;
-  }
-
-  return res.json();
 }
 
 // ── Skeletons ─────────────────────────────────────────────────────────────────
@@ -244,40 +226,21 @@ export default function RoleAccess() {
   const fetchUsers = useCallback(async () => {
     setUsersLoading(true);
     try {
-      const token = localStorage.getItem("access_token");
-      // Fetch from /users/ endpoint instead of /users/login-users/
-      const res = await fetch(`${API_BASE}/users/`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+      // apiFetch returns parsed JSON directly and throws on non-OK responses
+      const data = await apiFetch(ENDPOINTS.users, {
+        headers: authHeaders({ "Content-Type": "application/json" }),
       });
-      if (!res.ok) throw new Error("Failed to fetch users");
-      const data = await res.json();
-      const list = data.results || data || [];
-      
-      // Filter to show only users that were created via user_list.jsx
-      // Get created users from localStorage
-      const createdUserIds = JSON.parse(localStorage.getItem("created_users") || "[]");
-      
-      // If there are created users in localStorage, filter them
-      // Otherwise, show all users from the /users/ endpoint
-      let filteredList = list;
-      if (createdUserIds.length > 0) {
-        filteredList = list.filter(user => createdUserIds.includes(user.id));
-      }
-      
-      console.log("Filtered users (only created in user_list):", filteredList);
-      setUsers(filteredList);
+      const list = Array.isArray(data) ? data : (data.results || []);
+
+      setUsers(list);
 
       const initialPerms = {};
-      filteredList.forEach(u => {
-        console.log(`User ${u.id} (${u.username}) has permissions:`, u.menu_permissions);
+      list.forEach(u => {
         initialPerms[u.id] = normalizePerms(u.menu_permissions ?? null);
       });
       setPerms(initialPerms);
 
-      if (filteredList.length > 0) setSelectedUser(filteredList[0]);
+      if (list.length > 0) setSelectedUser(list[0]);
     } catch (e) {
       console.error("Failed to load users", e);
     } finally {
@@ -291,24 +254,14 @@ export default function RoleAccess() {
   const fetchPermissionsForUser = useCallback(async (userId) => {
     setPermLoading(true);
     try {
-      const token = localStorage.getItem("access_token");
-      const response = await fetch(`${API_BASE}/users/${userId}/permissions/`, {
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
+      // apiFetch returns parsed JSON directly and throws on non-OK responses
+      const data = await apiFetch(ENDPOINTS.userPermissions(userId), {
+        headers: authHeaders({ "Content-Type": "application/json" }),
       });
-
-      if (response.ok) {
-        const data = await response.json();
-        console.log(`Loaded fresh permissions for user ${userId}:`, data);
-        setPerms(p => ({ ...p, [userId]: normalizePerms(data) }));
-        setUsers(prev =>
-          prev.map(u => u.id === userId ? { ...u, menu_permissions: data } : u)
-        );
-      } else {
-        console.error("Failed to load permissions for user", userId);
-      }
+      setPerms(p => ({ ...p, [userId]: normalizePerms(data) }));
+      setUsers(prev =>
+        prev.map(u => u.id === userId ? { ...u, menu_permissions: data } : u)
+      );
     } catch (error) {
       console.error("Error loading permissions:", error);
     } finally {

@@ -1,7 +1,11 @@
+// claim_edit.jsx - Fixed version
 import { useState, useRef, useEffect } from "react";
 import CameraswitchOutlinedIcon from "@mui/icons-material/CameraswitchOutlined";
-import { updateClaim, fetchClaim } from "../service/claims";
+import { updateClaim, fetchClaim, ENDPOINTS, authHeaders, apiFetch } from '../service/Api';
 
+const DEPARTMENTS_API_URL = ENDPOINTS.claimDepartments;
+
+// Fixed: Properly defined expenseTypes array
 const expenseTypes = [
   { value: "", label: "Select Expense Type" },
   { value: "self_expense", label: "Self Expense" },
@@ -13,10 +17,8 @@ const expenseTypes = [
   { value: "toll", label: "Toll Expense" },
 ];
 
-const DEPARTMENTS_API_URL = "https://flasherp.imcbs.com/api/departments/";
+const STYLE_ID = "claim-edit-styles";
 
-// Inject responsive CSS once
-const STYLE_ID = "claims-edit-responsive-v2";
 if (typeof document !== "undefined") {
   // Remove any stale version before injecting fresh styles
   const existing = document.getElementById(STYLE_ID);
@@ -329,14 +331,13 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
 
   // Fetch departments
   useEffect(() => {
-    fetch(DEPARTMENTS_API_URL)
-      .then((r) => r.json())
+    apiFetch(DEPARTMENTS_API_URL, { headers: authHeaders() })
       .then((data) => {
         const results = data?.results ?? data;
         if (Array.isArray(results)) {
           setDepartments([
             { value: "", label: "Select Department" },
-            ...results.map((d) => ({ value: d.department, label: d.department })),
+            ...results.map((d) => ({ value: d.department_id, label: d.department })),
           ]);
         }
       })
@@ -349,9 +350,11 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
     const loadClaimData = async () => {
       try {
         const fullClaim = await fetchClaim(claim.id);
+        // Always use the raw department_id stored in DB for the select value
+        const deptId = fullClaim._raw?.department || claim.department || "";
         setForm({
           expenseType: fullClaim._raw?.expense_type || claim.expense_type || "",
-          department: fullClaim._raw?.department || claim.department || "",
+          department: deptId,
           clientName: fullClaim.clientName || claim.clientName || "",
           purpose: fullClaim._raw?.purpose || "",
           amount: fullClaim.amount || claim.amount || "",

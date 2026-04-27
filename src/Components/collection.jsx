@@ -1,8 +1,36 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { createPayment, updatePayment, normalizePayment } from '../service/payment';
-import { getBranches } from '../service/user';
+import { createPayment, updatePayment, normalizePayment, getBranches, ENDPOINTS, authHeaders, apiFetch } from '../service/Api';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://flasherp.in/api';
+// ── WhatsApp Notification ─────────────────────────────────────
+const WHATSAPP_NOTIFY_NUMBER = '8157831029';
+
+const sendWhatsAppNotification = async (formData) => {
+  try {
+    const templateName = 'BUZWAP'; // Update this to your actual template name
+    const message = encodeURIComponent(
+      `New Collection Recorded!\n` +
+      `Client: ${formData.clientName}\n` +
+      `Amount: ₹${formData.amount}\n` +
+      `Type: ${formData.collectionType}\n` +
+      `Branch: ${formData.branch}\n` +
+      `Paid For: ${formData.paidFor}`
+    );
+    const url =
+      `https://bhashsms.com/api/sendmsg.php` +
+      `?user=innovations` +
+      `&pass=********` +
+      `&sender=BUZWAP` +
+      `&phone=${WHATSAPP_NOTIFY_NUMBER}` +
+      `&text=${message}` +
+      `&priority=wa` +
+      `&stype=normal`;
+
+    await fetch(url, { method: 'GET', mode: 'no-cors' });
+  } catch (err) {
+    // Notification failure should not block the form flow
+    console.warn('WhatsApp notification failed:', err);
+  }
+};
 
 // ── Component ──────────────────────────────────────────────────
 const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
@@ -89,8 +117,8 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
   }, [departments]);
 
   // ── Proxy route on YOUR Django backend (fixes CORS) ──────────
-  const DEBTORS_API = `${BASE_URL}/payments/flasherp/debtors/`;
-  const DEPARTMENTS_API = `${BASE_URL}/payments/flasherp/departments/`;
+  const DEBTORS_API = ENDPOINTS.debtors;
+  const DEPARTMENTS_API = ENDPOINTS.departments;
 
   // ── Fetch departments from FlashERP on mount ──────────────────
   useEffect(() => {
@@ -101,28 +129,10 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
       setDepartmentsError('');
 
       try {
-        const token = localStorage.getItem('access_token');
-        const headers = { 'Accept': 'application/json' };
-        if (token) {
-          headers['Authorization'] = `Bearer ${token.replace(/^Bearer\s+/i, '')}`;
-        }
-
-        const response = await fetch(DEPARTMENTS_API, { method: 'GET', headers });
-
-        if (response.status === 401) {
-          throw new Error('Authentication failed. Please log in again.');
-        }
-        if (response.status === 403) {
-          throw new Error('Access denied. You do not have permission to view departments.');
-        }
-        if (!response.ok) {
-          throw new Error(`Server error: ${response.status} ${response.statusText}`);
-        }
-
-        const data = await response.json();
+        const data = await apiFetch(DEPARTMENTS_API, { method: 'GET', headers: authHeaders() });
         if (cancelled) return;
 
-        const departmentsList = data.results || [];
+        const departmentsList = Array.isArray(data) ? data : (data.results || []);
         setDepartments(departmentsList);
 
       } catch (err) {
@@ -153,48 +163,22 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
             ? DEBTORS_API
             : `${DEBTORS_API}?next=${encodeURIComponent(url)}`;
 
-          const token = localStorage.getItem('access_token');
-          const headers = { 'Accept': 'application/json' };
-          if (token) {
-            headers['Authorization'] = `Bearer ${token.replace(/^Bearer\s+/i, '')}`;
-          }
-
-          let r;
+          let data;
           try {
-            r = await fetch(proxyUrl, { method: 'GET', headers });
+            data = await apiFetch(proxyUrl, { method: 'GET', headers: authHeaders() });
           } catch (networkErr) {
             throw new Error(
-              'Network error: Cannot reach the server. ' +
-              'Please check your internet connection.'
+              networkErr.message?.includes('401')
+                ? 'Authentication failed (401): Your session may have expired. Please log out and log in again.'
+                : networkErr.message?.includes('403')
+                ? 'Access denied (403): You do not have permission to view client data.'
+                : networkErr.message?.includes('502')
+                ? 'Cannot reach FlashERP server (502). Please check your internet connection.'
+                : networkErr.message?.includes('504')
+                ? 'FlashERP server timed out (504). Please try again.'
+                : 'Network error: Cannot reach the server. Please check your internet connection.'
             );
           }
-
-          if (r.status === 401) {
-            throw new Error(
-              'Authentication failed (401): Your session may have expired. ' +
-              'Please log out and log in again.'
-            );
-          }
-          if (r.status === 403) {
-            throw new Error(
-              'Access denied (403): You do not have permission to view client data.'
-            );
-          }
-          if (r.status === 502) {
-            throw new Error(
-              'Cannot reach FlashERP server (502). Please check your internet connection.'
-            );
-          }
-          if (r.status === 504) {
-            throw new Error(
-              'FlashERP server timed out (504). Please try again.'
-            );
-          }
-          if (!r.ok) {
-            throw new Error(`Server error: ${r.status} ${r.statusText}`);
-          }
-
-          const data = await r.json();
 
           if (Array.isArray(data)) {
             allResults.push(...data);
@@ -416,7 +400,11 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
         type: 'success',
         message: isEdit ? 'Payment updated successfully!' : 'Payment submitted successfully!',
       });
-      if (!isEdit) resetForm();
+      // Send WhatsApp notification only on new payment creation
+      if (!isEdit) {
+        sendWhatsAppNotification(formData);
+        resetForm();
+      }
       if (typeof onSuccess === 'function') onSuccess(normalized);
     } catch (error) {
       console.error('Submission error:', error);
@@ -449,88 +437,187 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
   return (
     <div className="payment-form-container">
       <style>{`
+        *, *::before, *::after { box-sizing: border-box; }
         * { font-family: 'Google Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important; }
-        label {
-          display: block; text-align: left;
-          font-size: 14px !important; font-weight: bold !important; margin-bottom: 4px;
-        }
-        .btn { padding: 8px 16px; font-size: 14px; border-radius: 4px; cursor: pointer; transition: all 0.2s; }
-        .btn-primary { background-color: var(--accent); color: white; border: none; min-width: 120px; }
-        .btn-primary:hover:not(:disabled) { opacity: 0.88; }
-        .btn-secondary { background-color: #f9fbfd; color: black; border: none; }
-        .btn-secondary:hover:not(:disabled) { background-color: #f3f7fa; }
-        .btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        .debtor-input {
-          width: 100%; padding: 8px 12px; border: 1px solid var(--border, #d1d5db);
-          border-radius: 6px; background: #fff; font-size: 14px; color: #111827;
-          text-align: left; min-height: 38px; box-sizing: border-box; outline: none;
+        /* ── Container ── */
+        .payment-form-container {
+          width: 100%;
+          max-width: 100%;
+          padding: 12px 16px 24px;
+        }
+        .payment-form-container h2 {
+          color: var(--accent);
+          font-size: 22px;
+          font-weight: 600;
+          margin: 0 0 16px;
+        }
+        .payment-form { width: 100%; }
+
+        /* ── Labels ── */
+        label {
+          display: block;
+          font-size: 13px !important;
+          font-weight: 600 !important;
+          color: #374151;
+          margin-bottom: 5px;
+          text-align: left;
+        }
+
+        /* ── Inputs ── */
+        input, select, textarea {
+          width: 100%;
+          padding: 10px 12px;
+          border: 1px solid #d1d5db;
+          border-radius: 8px;
+          font-size: 15px;
+          color: #111827;
+          background: #fff;
+          appearance: none;
+          -webkit-appearance: none;
           transition: border-color 0.15s, box-shadow 0.15s;
         }
+        input:focus, select:focus, textarea:focus {
+          outline: none;
+          border-color: #266648;
+          box-shadow: 0 0 0 3px rgba(38,102,72,0.12);
+        }
+        input.error, select.error, textarea.error { border-color: #ef4444; }
+        .error-message { color: #ef4444; font-size: 12px; margin-top: 4px; display: block; }
+
+        /* ── Amount input ── */
+        .amount-input { position: relative; display: flex; align-items: center; }
+        .currency-symbol { position: absolute; left: 12px; color: #6b7280; font-size: 15px; pointer-events: none; }
+        .amount-input input { padding-left: 26px; }
+
+        /* ── Form layout — mobile-first single column ── */
+        .form-group { margin-bottom: 14px; width: 100%; }
+        .form-row {
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+          margin-bottom: 0;
+        }
+        .form-row > * { width: 100%; margin-bottom: 14px; }
+
+        /* ── Two-column on tablet+ ── */
+        @media (min-width: 600px) {
+          .payment-form-container { padding: 16px 20px 28px; }
+          .payment-form-container h2 { font-size: 26px; }
+          .form-row { flex-direction: row; gap: 16px; margin-bottom: 4px; align-items: flex-start; }
+          .form-row > * { flex: 1; margin-bottom: 14px; }
+          .form-row .flex-15 { flex: 1.5; }
+          input, select, textarea { font-size: 14px; }
+        }
+
+        /* ── Buttons ── */
+        .btn {
+          padding: 11px 18px; font-size: 14px; font-weight: 600;
+          border-radius: 8px; cursor: pointer; transition: all 0.2s;
+          border: none; touch-action: manipulation;
+        }
+        .btn-primary { background-color: var(--accent, #266648); color: #fff; min-width: 130px; }
+        .btn-primary:hover:not(:disabled) { opacity: 0.88; }
+        .btn-secondary { background-color: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+        .btn-secondary:hover:not(:disabled) { background-color: #e5e7eb; }
+        .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+        .form-actions {
+          display: flex; gap: 10px; justify-content: flex-end;
+          margin-top: 20px; flex-wrap: wrap;
+        }
+        @media (max-width: 599px) {
+          .form-actions { flex-direction: column-reverse; gap: 8px; }
+          .form-actions .btn { width: 100%; text-align: center; min-width: unset; padding: 13px; }
+        }
+
+        /* ── Client search (debtor) input ── */
+        .debtor-input {
+          width: 100%; padding: 10px 12px;
+          border: 1px solid #d1d5db; border-radius: 8px;
+          background: #fff; font-size: 15px; color: #111827;
+          text-align: left; min-height: 42px; outline: none;
+          transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        @media (min-width: 600px) { .debtor-input { font-size: 14px; min-height: 38px; } }
         .debtor-input::placeholder { color: #9ca3af; }
         .debtor-input:hover { border-color: #266648; }
         .debtor-input:focus { border-color: #266648; box-shadow: 0 0 0 3px rgba(38,102,72,0.12); }
-        .debtor-input.dd-error { border-color: var(--red, #ef4444); }
+        .debtor-input.dd-error { border-color: #ef4444; }
         .debtor-input.dd-open {
           border-color: #266648;
           border-bottom-left-radius: 0;
           border-bottom-right-radius: 0;
           box-shadow: 0 0 0 3px rgba(38,102,72,0.1);
         }
+
+        /* ── Spinner ── */
         .dd-spinner {
           position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-          width: 13px; height: 13px;
+          width: 14px; height: 14px;
           border: 2px solid #d1d5db; border-top-color: #266648;
-          border-radius: 50%; animation: spin 0.7s linear infinite;
+          border-radius: 50%; animation: spin 0.7s linear infinite; pointer-events: none;
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* ── Dropdown panel ── */
         .debtor-panel {
           position: absolute; z-index: 9999; left: 0; right: 0; top: 100%;
           background: #fff; border: 1px solid #266648; border-top: none;
-          border-bottom-left-radius: 8px;
-          border-bottom-right-radius: 8px;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.13);
+          border-bottom-left-radius: 10px; border-bottom-right-radius: 10px;
+          box-shadow: 0 8px 28px rgba(0,0,0,0.14);
           animation: panelIn 0.12s ease; overflow: hidden;
         }
         @keyframes panelIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        @media (max-width: 599px) {
+          .debtor-panel {
+            position: fixed !important;
+            left: 12px !important; right: 12px !important; top: auto !important;
+            max-height: 50vh; overflow-y: auto; z-index: 99999 !important;
+            border-radius: 10px; border-top: 1px solid #266648;
+          }
+        }
 
-        .dd-list { list-style: none; margin: 0; padding: 4px 0; max-height: 240px; overflow-y: auto; }
+        /* ── Dropdown list ── */
+        .dd-list { list-style: none; margin: 0; padding: 4px 0; max-height: 220px; overflow-y: auto; }
+        @media (max-width: 599px) { .dd-list { max-height: 200px !important; } }
         .dd-list::-webkit-scrollbar { width: 4px; }
         .dd-list::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
         .dd-item {
-          padding: 10px 14px; cursor: pointer; display: flex; flex-direction: column;
-          gap: 3px; text-align: left; border-left: 3px solid transparent; transition: background 0.1s;
+          padding: 11px 14px; cursor: pointer; display: flex; flex-direction: column;
+          gap: 2px; text-align: left; border-left: 3px solid transparent; transition: background 0.1s;
         }
         .dd-item:hover, .dd-item.dd-active { background: #f0faf5; border-left-color: #266648; }
-        .dd-item-name { font-size: 13px; font-weight: 600; color: #111827; text-align: left; }
-        .dd-item-meta { font-size: 11px; color: #6b7280; text-align: left; }
+        .dd-item-name { font-size: 13px; font-weight: 600; color: #111827; }
+        .dd-item-meta { font-size: 11px; color: #6b7280; }
         .dd-empty { padding: 14px 16px; text-align: left; font-size: 13px; color: #9ca3af; }
         .dd-footer {
           padding: 6px 14px; font-size: 11px; color: #9ca3af;
           border-top: 1px solid #f0f0f0; background: #fafafa; text-align: left;
         }
 
+        /* ── Error / info cards ── */
         .debtor-api-error {
-          margin-top: 6px; padding: 8px 12px; font-size: 12px; color: #b91c1c;
-          background: #fef2f2; border: 1px solid #fecaca; border-radius: 5px;
+          margin-top: 6px; padding: 9px 12px; font-size: 12px; color: #b91c1c;
+          background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px;
           display: flex; align-items: flex-start; gap: 8px; line-height: 1.4;
         }
         .debtor-api-error button {
-          margin-left: auto; flex-shrink: 0; font-size: 11px; padding: 2px 8px;
-          border: 1px solid #fca5a5; border-radius: 4px; background: #fff;
+          margin-left: auto; flex-shrink: 0; font-size: 11px; padding: 3px 10px;
+          border: 1px solid #fca5a5; border-radius: 5px; background: #fff;
           color: #b91c1c; cursor: pointer;
         }
         .debtor-api-error button:hover { background: #fee2e2; }
 
         .client-detail-card {
           margin-top: 6px; padding: 8px 12px;
-          background: #f0faf5; border: 1px solid #a7f3d0; border-radius: 6px;
-          display: flex; gap: 16px; flex-wrap: wrap;
+          background: #f0faf5; border: 1px solid #a7f3d0; border-radius: 8px;
+          display: flex; gap: 14px; flex-wrap: wrap;
         }
         .client-detail-item { display: flex; flex-direction: column; gap: 1px; }
         .client-detail-label { font-size: 10px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
         .client-detail-value { font-size: 13px; color: #111827; font-weight: 500; }
+        @media (max-width: 599px) { .client-detail-card { flex-direction: column; gap: 8px; } }
+
         .client-count-badge {
           display: inline-block; font-size: 11px; color: #266648;
           background: #f0faf5; border: 1px solid #a7f3d0;
@@ -540,127 +627,6 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
           display: inline-block; font-size: 11px; color: #266648;
           background: #e8f5e9; border-radius: 12px; padding: 4px 10px;
           margin-bottom: 8px; font-weight: 500;
-        }
-
-        input, select, textarea {
-          width: 100%;
-          padding: 8px 12px;
-          border: 1px solid var(--border, #d1d5db);
-          border-radius: 6px;
-          font-size: 14px;
-          box-sizing: border-box;
-        }
-        .error-message {
-          color: #ef4444;
-          font-size: 12px;
-          margin-top: 4px;
-          display: block;
-        }
-        input.error, select.error, textarea.error {
-          border-color: #ef4444;
-        }
-        .amount-input {
-          position: relative;
-          display: flex;
-          align-items: center;
-        }
-        .currency-symbol {
-          position: absolute;
-          left: 12px;
-          color: #6b7280;
-        }
-        .amount-input input {
-          padding-left: 28px;
-        }
-
-        /* ── Payment form container base ── */
-        .payment-form-container {
-          padding: 8px 4px;
-          width: 100%;
-          box-sizing: border-box;
-          font-family: 'Google Sans', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        }
-        .payment-form {
-          width: 100%;
-        }
-        .form-group {
-          margin-bottom: 14px;
-          width: 100%;
-          box-sizing: border-box;
-        }
-
-        /* ── Mobile-responsive form rows ── */
-        .form-row {
-          display: flex;
-          gap: 20px;
-          margin-bottom: 18px;
-          align-items: flex-start;
-        }
-        .form-row > * {
-          flex: 1;
-          margin-bottom: 0 !important;
-        }
-        .form-row .flex-15 {
-          flex: 1.5;
-        }
-
-        .form-actions {
-          display: flex;
-          gap: 12px;
-          justify-content: flex-end;
-          margin-top: 20px;
-          flex-wrap: wrap;
-        }
-
-        @media (max-width: 600px) {
-          .payment-form-container {
-            padding: 4px 0 !important;
-          }
-          .payment-form-container h2 {
-            font-size: 18px !important;
-            margin-bottom: 14px !important;
-          }
-          .form-row {
-            flex-direction: column;
-            gap: 0;
-            margin-bottom: 0;
-          }
-          .form-row > * {
-            flex: unset !important;
-            width: 100%;
-            margin-bottom: 14px !important;
-          }
-          .form-group {
-            margin-bottom: 14px;
-          }
-          .form-actions {
-            justify-content: stretch;
-            gap: 8px;
-          }
-          .form-actions .btn {
-            flex: 1;
-            text-align: center;
-            min-width: unset;
-          }
-          .debtor-panel {
-            position: fixed !important;
-            left: 8px !important;
-            right: 8px !important;
-            top: auto !important;
-            max-height: 45vh;
-            overflow-y: auto;
-            z-index: 99999 !important;
-          }
-          .dd-list {
-            max-height: 180px !important;
-          }
-          .client-detail-card {
-            flex-direction: column;
-            gap: 8px;
-          }
-          input, select, textarea {
-            font-size: 16px !important; /* prevents iOS zoom */
-          }
         }
       `}</style>
 
@@ -777,12 +743,15 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
                             {[d._place, d._phone].filter(Boolean).join(' · ')}
                           </span>
                         )}
-                        {/* Show department info */}
-                        {d.openingdepartment && (
-                          <span className="dd-item-meta" style={{ fontSize: '10px', color: '#266648' }}>
-                            Dept ID: {d.openingdepartment}
-                          </span>
-                        )}
+                        {d.openingdepartment && (() => {
+                          const deptObj = departments.find(dept => dept.department_id === d.openingdepartment);
+                          const deptLabel = deptObj ? deptObj.department : d.openingdepartment;
+                          return (
+                            <span className="dd-item-meta" style={{ fontSize: '10px', color: '#266648' }}>
+                              {deptLabel}
+                            </span>
+                          );
+                        })()}
                       </li>
                     ))}
                   </ul>

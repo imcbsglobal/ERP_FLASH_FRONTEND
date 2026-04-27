@@ -14,7 +14,7 @@ import NavigateNextOutlinedIcon from "@mui/icons-material/NavigateNextOutlined";
 import FirstPageOutlinedIcon from "@mui/icons-material/FirstPageOutlined";
 import LastPageOutlinedIcon from "@mui/icons-material/LastPageOutlined";
 import VehicleForm from "./Vehicle_Master_Add";
-import { getVehicles, deleteVehicle } from "../service/vehiclemaster";
+import { getVehicles, deleteVehicle, ENDPOINTS } from "../service/Api";
 
 const VEHICLE_TYPES  = ["All Types", "Car", "Bike", "Truck", "Van", "Bus", "Other"];
 const STATUS_OPTIONS = ["All", "Active", "Inactive"];
@@ -22,12 +22,7 @@ const PAGE_SIZE = 10; // Items per page
 
 /* ─── Resolve image URL (handles relative /media/... paths) ── */
 function resolveImageUrl(raw) {
-  if (!raw) return null;
-  if (raw.startsWith("http://") || raw.startsWith("https://")) return raw;
-  const base = (typeof import.meta !== "undefined" && import.meta.env?.VITE_API_BASE_URL)
-    ? import.meta.env.VITE_API_BASE_URL.replace(/\/$/, "")
-    : window.location.origin;
-  return `${base}${raw.startsWith("/") ? "" : "/"}${raw}`;
+  return ENDPOINTS.mediaUrl(raw);
 }
 
 /* ─── Normalise API response → UI shape ──────────────────── */

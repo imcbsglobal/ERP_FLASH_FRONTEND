@@ -19,13 +19,14 @@ import EvStationOutlinedIcon from '@mui/icons-material/EvStationOutlined';
 import PlaylistAddCheckOutlinedIcon from '@mui/icons-material/PlaylistAddCheckOutlined';
 import DriveEtaOutlinedIcon from '@mui/icons-material/DriveEtaOutlined';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
+import CameraAltOutlinedIcon from '@mui/icons-material/CameraAltOutlined';
 
-// ── NEW: Claims icon + components ─────────────────────────────────────────────
 import EmergencyOutlinedIcon from '@mui/icons-material/EmergencyOutlined';
 import ClaimsList from "../Components/claim_list.jsx";
 import ClaimsAdd from "../Components/claim_add.jsx";
-// ─────────────────────────────────────────────────────────────────────────────
 
+import ImageCaptureLinkGenerator from "../Components/Image_link.jsx";
+import ImageCaptureList from "../Components/imgcapture_list.jsx";
 import TravelList from "../Components/Travel_Trip.jsx";
 import ChallanList from "../Components/challan_list.jsx";
 import ChallanAdd from "../Components/challan_add.jsx";
@@ -52,11 +53,10 @@ const NAV = [
       {
         id: "col_reports_view",
         permKey: "col_reports_view",
-        label: "Reports",
+        label: "Collection Report",
         icon: <AssessmentOutlinedIcon style={{ width: 18, height: 18 }} />
       }
     ],
-    
   },
   {
     section: "Vehicle Management",
@@ -78,18 +78,22 @@ const NAV = [
     ],
   },
 
+  // ── Claims: single item, no children (same pattern as Image Capture) ───────
   {
     section: "Claims",
     icon: <EmergencyOutlinedIcon style={{ width: 18, height: 18 }} />,
-    id: "claimsmenu",
-    children: [
-      {
-        id: "cl_list",
-        permKey: "cl_list",
-        label: "Claims",
-        icon: <EmergencyOutlinedIcon style={{ width: 18, height: 18 }} />
-      },
-    ],
+    id: "cl_list",
+    permKey: "cl_list",
+    children: null
+  },
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  {
+    section: "Image Capture",
+    icon: <CameraAltOutlinedIcon style={{ width: 18, height: 18 }} />,
+    id: "image_capture",
+    permKey: "image_capture",
+    children: null
   },
 
   {
@@ -125,10 +129,6 @@ const NAV = [
       },
     ],
   },
-
-  // ── NEW: Claims section ────────────────────────────────────────────────────
-  
-  // ──────────────────────────────────────────────────────────────────────────
 ];
 
 const PAGE_META = {
@@ -142,8 +142,8 @@ const PAGE_META = {
   vm_service:  { title: "Service & Maintenance",tag: "Vehicle Management",  desc: "Schedule and track vehicle service and maintenance history." },
   col_reports: { title: "",                     tag: "",                    desc: "" },
   col_reports_view: { title: "Collection Reports", tag: "Collection",        desc: "View and analyse collection reports and summaries." },
-  // ── NEW ──
   cl_list:     { title: "Claims List",          tag: "Claims",              desc: "Track, review and manage all expense claims." },
+  image_capture: { title: "Image Capture",      tag: "Image Capture",       desc: "Generate secure image capture links for customers." },
 };
 
 function pillClass(val) {
@@ -183,12 +183,12 @@ export default function Layout({ children }) {
     collection: false,
     mastermenu: false,
     vehiclemgmt: false,
-    claimsmenu: false,   // ── NEW
   });
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [challanView, setChallanView] = useState("list");
   const [claimsView, setClaimsView] = useState("list");
+  const [imageCaptureView, setImageCaptureView] = useState("list");
 
   const storedUser = localStorage.getItem("user");
   const user = storedUser ? JSON.parse(storedUser) : null;
@@ -254,6 +254,7 @@ export default function Layout({ children }) {
     if (parentId) setOpen(p => ({ ...p, [parentId]: true }));
     if (id !== "vm_service") setChallanView("list");
     if (id !== "cl_list") setClaimsView("list");
+    if (id !== "image_capture") setImageCaptureView("list");
   };
 
   const meta = PAGE_META[active] || {};
@@ -266,7 +267,8 @@ export default function Layout({ children }) {
   const isVmTripsPage  = active === "vm_trips";
   const isVmFuelPage   = active === "vm_fuel";
   const isVmServicePage = active === "vm_service";
-  const isClaimsPage   = active === "cl_list";   // ── NEW
+  const isClaimsPage   = active === "cl_list";
+  const isImageCapturePage = active === "image_capture";
 
   const sidebarWidth = isCollapsed ? "72px" : "256px";
 
@@ -336,80 +338,26 @@ export default function Layout({ children }) {
         .logout-btn:hover .logout-icon { transform:rotate(90deg); }
         .logout-text { font-size:13px; font-weight:500; color:#202124; }
         .main { flex:1; min-width:0; display:flex; flex-direction:column; height:100vh; overflow:hidden; background:var(--bg); }
-
-        /* ── Mobile hamburger ── */
-        .mobile-topbar {
-          display: none;
-          align-items: center;
-          gap: 12px;
-          padding: 0 16px;
-          height: 52px;
-          background: #fff;
-          border-bottom: 1px solid #e8eaed;
-          flex-shrink: 0;
-          position: sticky;
-          top: 0;
-          z-index: 100;
-        }
-        .hamburger-btn {
-          display: flex; align-items: center; justify-content: center;
-          width: 36px; height: 36px;
-          border: none; background: none; cursor: pointer;
-          border-radius: 8px; padding: 6px;
-          transition: background 0.15s;
-        }
+        .mobile-topbar { display: none; align-items: center; gap: 12px; padding: 0 16px; height: 52px; background: #fff; border-bottom: 1px solid #e8eaed; flex-shrink: 0; position: sticky; top: 0; z-index: 100; }
+        .hamburger-btn { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: none; background: none; cursor: pointer; border-radius: 8px; padding: 6px; transition: background 0.15s; }
         .hamburger-btn:hover { background: #f1f3f4; }
         .mobile-topbar-logo { height: 28px; object-fit: contain; }
-
-        /* ── Overlay backdrop ── */
-        .sb-overlay {
-          display: none;
-          position: fixed; inset: 0;
-          background: rgba(0,0,0,0.35);
-          z-index: 200;
-          animation: fadeIn 0.2s ease;
-        }
+        .sb-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.35); z-index: 200; animation: fadeIn 0.2s ease; }
         .sb-overlay.open { display: block; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-
         @media (max-width: 768px) {
           .shell { position: relative; }
-
-          /* Hide desktop collapse button on mobile */
           .collapse-btn-header { display: none !important; }
-
-          /* Sidebar becomes a fixed drawer */
-          .sidebar {
-            position: fixed !important;
-            top: 0; left: 0;
-            height: 100vh !important;
-            width: 260px !important;
-            min-width: 260px !important;
-            z-index: 300;
-            transform: translateX(-100%);
-            transition: transform 0.28s cubic-bezier(0.4,0,0.2,1) !important;
-            box-shadow: none;
-          }
-          .sidebar.mobile-drawer-open {
-            transform: translateX(0);
-            box-shadow: 4px 0 24px rgba(0,0,0,0.15);
-          }
-          /* Always show full labels in mobile drawer */
-          .sidebar.collapsed .sb-sec-lbl,
-          .sidebar.collapsed .sb-child-label,
-          .sidebar.collapsed .sb-chevron,
-          .sidebar.collapsed .sb-group-label { display: block !important; }
+          .sidebar { position: fixed !important; top: 0; left: 0; height: 100vh !important; width: 260px !important; min-width: 260px !important; z-index: 300; transform: translateX(-100%); transition: transform 0.28s cubic-bezier(0.4,0,0.2,1) !important; box-shadow: none; }
+          .sidebar.mobile-drawer-open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.15); }
+          .sidebar.collapsed .sb-sec-lbl, .sidebar.collapsed .sb-child-label, .sidebar.collapsed .sb-chevron, .sidebar.collapsed .sb-group-label { display: block !important; }
           .sidebar.collapsed .sb-sec { justify-content: flex-start !important; padding: 11px 22px !important; }
           .sidebar.collapsed .sb-child { justify-content: flex-start !important; padding: 8px 22px 8px 46px !important; }
           .sidebar.collapsed .sb-footer { padding: 12px 16px !important; }
           .sidebar.collapsed .sb-user-section { justify-content: flex-start !important; }
           .sidebar.collapsed .sb-user-info { display: block !important; }
           .sidebar.collapsed .sb-divider { margin: 6px 22px !important; }
-
-          /* Show mobile topbar */
           .mobile-topbar { display: flex; }
-
-          /* Main area fills full width */
           .main { width: 100vw; }
         }
         .page { flex:1; padding:28px; overflow-y:auto; }
@@ -460,10 +408,8 @@ export default function Layout({ children }) {
 
       <div className={`shell ${isCollapsed ? 'collapsed' : ''}`} style={{ '--sidebar-width': sidebarWidth }}>
 
-        {/* ── Mobile overlay backdrop ── */}
         <div className={`sb-overlay${mobileOpen ? ' open' : ''}`} onClick={() => setMobileOpen(false)} />
 
-        {/* ── SIDEBAR ── */}
         <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''} ${mobileOpen ? 'mobile-drawer-open' : ''}`}>
           <div className="sb-header">
             <div className="sb-logo">
@@ -540,10 +486,8 @@ export default function Layout({ children }) {
           </div>
         </aside>
 
-        {/* ── MAIN ── */}
         <div className="main">
 
-          {/* ── Mobile top bar ── */}
           <div className="mobile-topbar">
             <button className="hamburger-btn" onClick={() => setMobileOpen(true)} aria-label="Open menu">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5f6368" strokeWidth="2" strokeLinecap="round">
@@ -612,6 +556,16 @@ export default function Layout({ children }) {
                 <ClaimsList onAdd={() => setClaimsView("add")} />
               ) : (
                 <ClaimsAdd onSuccess={() => setClaimsView("list")} onCancel={() => setClaimsView("list")} />
+              )}
+            </div>
+          )}
+
+          {isImageCapturePage && (
+            <div className="page-full-scroll">
+              {imageCaptureView === "list" ? (
+                <ImageCaptureList onGenerateLink={() => setImageCaptureView("generate")} />
+              ) : (
+                <ImageCaptureLinkGenerator onBack={() => setImageCaptureView("list")} />
               )}
             </div>
           )}

@@ -7,6 +7,10 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      '/image_capture/api': {
+        target: 'https://flasherp.in',
+        changeOrigin: true,
+      },
       '/api': {
         target: 'https://flasherp.in',
         changeOrigin: true,
@@ -14,7 +18,7 @@ export default defineConfig({
       '/media': {
         target: 'https://flasherp.in',
         changeOrigin: true,
-      }
-    }
-  }
+      },
+    },
+  },
 })

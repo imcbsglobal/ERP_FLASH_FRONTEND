@@ -1,36 +1,34 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import Login from "./Components/Login";
-import Layout from "./Base_Templates/Layout";
-import PaymentTable from "./Components/collection_list";
-import PaymentForm  from "./Components/collection";
+import Login                     from "./Components/Login";
+import Layout                    from "./Base_Templates/Layout";
+import PaymentTable              from "./Components/collection_list";
+import PaymentForm               from "./Components/collection";
+import ImageCaptureLinkGenerator from "./Components/Image_link";
+import VerifyPhone               from "./Components/Image_capture";
+import OtpVerification           from "./Components/Otp_verification";
+import ImageAdd                  from "./Components/Image_add";
+import VerificationSuccess       from "./Components/verify_sucess";
 import './App.css';
 
-// ── Token helpers ─────────────────────────────────────────────
 const getToken  = () => localStorage.getItem("access_token");
 const clearAuth = () => {
   localStorage.removeItem("access_token");
   localStorage.removeItem("refresh_token");
 };
 
-// ── Route Guards ──────────────────────────────────────────────
-
-/** Redirect to /login if not authenticated */
 function PrivateRoute({ children }) {
   return getToken() ? children : <Navigate to="/login" replace />;
 }
 
-/** Redirect authenticated users away from /login */
 function PublicRoute({ children }) {
   return getToken() ? <Navigate to="/payments" replace /> : children;
 }
 
-// ── App ───────────────────────────────────────────────────────
 function App() {
   return (
     <Router>
       <Routes>
 
-        {/* ── Root redirect ── */}
         <Route
           path="/"
           element={
@@ -40,36 +38,30 @@ function App() {
           }
         />
 
-        {/* ── Public ── */}
-        <Route
-          path="/login"
-          element={
-            <PublicRoute>
-              <Login />
-            </PublicRoute>
-          }
-        />
+        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
 
-        {/* ── Protected — nested inside Layout ── */}
+        {/* Step 1 — Phone verification */}
+        <Route path="/image_capture/capture/:uuid" element={<VerifyPhone />} />
+
+        {/* Step 2 — OTP verification */}
+        <Route path="/image_capture/verify-otp/:uuid" element={<OtpVerification />} />
+
+        {/* Step 3 — Image capture */}
+        <Route path="/image_capture/add-image/:uuid" element={<ImageAdd />} />
+
+        {/* Step 4 — Verification success */}
+        <Route path="/image_capture/verification-success" element={<VerificationSuccess />} />
+
         <Route
           path="/"
-          element={
-            <PrivateRoute>
-              <Layout onLogout={clearAuth} />
-            </PrivateRoute>
-          }
+          element={<PrivateRoute><Layout onLogout={clearAuth} /></PrivateRoute>}
         >
-          {/* /payments → Payment List Table */}
-          <Route path="payments"        element={<PaymentTable />} />
-
-          {/* /payments/new → Standalone Payment Form (optional direct URL) */}
-          <Route path="payments/new"    element={<PaymentForm  />} />
-
-          {/* Default protected fallback */}
+          <Route path="payments"      element={<PaymentTable />} />
+          <Route path="payments/new"  element={<PaymentForm  />} />
+          <Route path="image-capture" element={<ImageCaptureLinkGenerator />} />
           <Route index element={<Navigate to="/payments" replace />} />
         </Route>
 
-        {/* ── 404 fallback ── */}
         <Route path="*" element={<Navigate to="/" replace />} />
 
       </Routes>

@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { getVehicles } from "../service/vehiclemaster";
-import { createChallan, updateChallan } from "../service/challan";
+import { getVehicles, createChallan, updateChallan } from "../service/Api";
 
 const offenceTypes = [
   "Signal Jumping","Over Speeding","Drunk Driving","Wrong Parking",
@@ -285,11 +284,39 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
 
         /* ── Mobile fit ── */
         @media (max-width: 600px) {
-          .ca-root    { padding: 10px !important; }
+          .ca-root    { padding: 10px 10px 100px 10px !important; }
           .ca-card    { padding: 14px 12px !important; border-radius: 10px !important; }
-          .ca-actions { flex-direction: row !important; flex-wrap: wrap !important; }
-          .ca-actions button { flex: 1; min-width: 80px; justify-content: center; }
           .ca-h4      { font-size: 17px !important; margin-bottom: 10px !important; }
+
+          /* Pin actions bar to bottom of screen */
+          .ca-actions {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 100 !important;
+            flex-direction: row !important;
+            flex-wrap: nowrap !important;
+            gap: 10px !important;
+            padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px)) !important;
+            background: #fff !important;
+            border-top: 1.5px solid #e2e8f0 !important;
+            box-shadow: 0 -2px 12px rgba(0,0,0,0.08) !important;
+            margin-top: 0 !important;
+          }
+          .ca-actions button {
+            flex: 1 !important;
+            min-width: 0 !important;
+            justify-content: center !important;
+            padding: 13px 8px !important;
+            font-size: 14px !important;
+            font-weight: 600 !important;
+            border-radius: 8px !important;
+            white-space: nowrap !important;
+          }
+          .ca-actions .cbtn-submit {
+            flex: 2 !important;
+          }
         }`}</style>
 
       <div style={s.root} className="ca-root">

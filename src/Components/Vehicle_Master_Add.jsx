@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import AddAPhotoOutlinedIcon from '@mui/icons-material/AddAPhotoOutlined';
-import { createVehicle, updateVehicle } from '../service/vehiclemaster';
+import { createVehicle, updateVehicle } from '../service/Api';
 
 /**
  * VehicleMasterAdd

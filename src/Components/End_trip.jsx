@@ -21,7 +21,7 @@ import RouteOutlinedIcon        from '@mui/icons-material/RouteOutlined';
  *      odometer_start   (number, km at trip start)
  *    }
  */
-const EndTrip = ({ onClose, onComplete, tripData = {} }) => {
+const EndTrip = ({ onClose, onComplete, tripData = {}, errorMessage = "" }) => {
 
   // ── End-trip editable state ───────────────────────────────────
   const [form, setForm] = useState({

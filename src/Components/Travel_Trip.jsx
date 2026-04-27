@@ -13,8 +13,7 @@ import {
   startTrip,
   endTrip,
   deleteTrip,
-} from "../service/vehiclemanagement";
-import { Bold } from "lucide-react";
+} from "../service/Api";
 
 const statusColors = {
   "Client Visit": { bg: "#e8f5e9", color: "#2e7d32" },
@@ -29,7 +28,7 @@ function ImageCard({ src, label, onExpand, odoValue }) {
   const Icon = isStart ? AccessTimeIcon : HistoryIcon;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, minWidth: 70 }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, minWidth: 50 }}>
       <span style={{
         fontSize: 10, fontWeight: 700, letterSpacing: 0.4,
         color: accentColor,
@@ -45,12 +44,12 @@ function ImageCard({ src, label, onExpand, odoValue }) {
           onClick={() => onExpand(src, label)}
           title="Click to enlarge"
           style={{
-            width: 64,
-            height: 48,
-            borderRadius: 10,
+            width: 40,
+            height: 30,
+            borderRadius: 6,
             overflow: "hidden",
             border: `2px solid ${accentColor}`,
-            boxShadow: "0 3px 10px rgba(0,0,0,0.15)",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.12)",
             cursor: "zoom-in",
             position: "relative",
             flexShrink: 0,
@@ -75,16 +74,16 @@ function ImageCard({ src, label, onExpand, odoValue }) {
         </div>
       ) : (
         <div style={{
-          width: 64, height: 48,
+          width: 40, height: 30,
           display: "flex", flexDirection: "column",
           alignItems: "center", justifyContent: "center",
-          borderRadius: 10,
+          borderRadius: 6,
           border: "1.5px dashed #d0d0d0",
           background: "#fafafa",
           color: "#bdbdbd",
           fontSize: 11,
           fontFamily: "'Google Sans', sans-serif",
-          gap: 3,
+          gap: 2,
         }}>
           <span style={{ fontSize: 14 }}>📷</span>
           <span>No image</span>
@@ -162,25 +161,35 @@ function ImageLightbox({ src, label, onClose }) {
 }
 
 export default function TravelList() {
-  const getLoggedInUserName = () => {
+  // Role-based filtering is handled entirely by the backend.
+  // The backend reads the JWT, looks up the user's CURRENT role from the DB,
+  // and returns only the trips that user is allowed to see:
+  //   • Admin / Manager → all trips from all users
+  //   • User            → only their own trips
+  // The frontend uses the role ONLY for UI display (page title, column visibility).
+  // No client-side ownership filtering is applied here.
+  const getStoredUser = () => {
     try {
-      const userJson = localStorage.getItem('user');
-      if (userJson) {
-        const user = JSON.parse(userJson);
-        return user.name || user.full_name || user.username || user.email || '—';
-      }
-      return (
-        localStorage.getItem('user_name') ||
-        localStorage.getItem('full_name') ||
-        localStorage.getItem('username') ||
-        localStorage.getItem('name') ||
-        '—'
-      );
-    } catch {
-      return '—';
-    }
+      const raw = localStorage.getItem('user');
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
   };
-  const loggedInUser = getLoggedInUserName();
+  // Converts "HH:MM" or "HH:MM:SS" to "hh:MM AM/PM"
+  const formatTime = (time) => {
+    if (!time) return "—";
+    const [hStr, mStr] = time.split(":");
+    const h = parseInt(hStr, 10);
+    const m = mStr || "00";
+    const ampm = h >= 12 ? "PM" : "AM";
+    const hour12 = h % 12 === 0 ? 12 : h % 12;
+    return `${hour12}:${m} ${ampm}`;
+  };
+
+  const storedUser     = getStoredUser();
+  const loggedInUser   = storedUser.username || storedUser.name || '—';
+  const loggedInRole   = (storedUser.role || 'User').trim();
+  // Case-insensitive check — matches "Admin", "admin", "ADMIN" etc.
+  const isAdminOrManager = /^(admin|manager)$/i.test(loggedInRole);
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -189,6 +198,7 @@ export default function TravelList() {
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState(null);
   const [showEndTripModal, setShowEndTripModal] = useState(null);
+  const [endTripError, setEndTripError] = useState("");
   const [lightbox, setLightbox] = useState(null);
   const [purposePopup, setPurposePopup] = useState(null);
   
@@ -214,10 +224,20 @@ export default function TravelList() {
     }
   };
 
+  // The backend is the single source of truth for role-based visibility:
+  //   • Admin / Manager  → backend returns ALL trips
+  //   • User (driver)    → backend returns only that user's trips (filtered by traveled_by)
+  // No client-side ownership filter is needed or applied here — a redundant
+  // frontend filter caused admins to see only their own trips when the role
+  // string had a case mismatch or localStorage wasn't fully populated yet.
   const filtered = data.filter(
     (r) =>
+      !search ||
+      r.vehicle_name?.toLowerCase().includes(search.toLowerCase()) ||
       r.vehicle?.toLowerCase().includes(search.toLowerCase()) ||
+      r.traveled_by?.toLowerCase().includes(search.toLowerCase()) ||
       r.traveledBy?.toLowerCase().includes(search.toLowerCase()) ||
+      r.purpose_of_trip?.toLowerCase().includes(search.toLowerCase()) ||
       r.purpose?.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -286,13 +306,14 @@ export default function TravelList() {
 
   const handleEndTrip = async (tripId, endData) => {
     setActionLoading(true);
-    setError("");
+    setEndTripError("");
     try {
       const updated = await endTrip(tripId, endData);
       setData((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
       setShowEndTripModal(null);
+      setEndTripError("");
     } catch (err) {
-      setError(err.message || "Failed to end trip.");
+      setEndTripError(err.message || "Failed to end trip.");
     } finally {
       setActionLoading(false);
     }
@@ -330,7 +351,7 @@ export default function TravelList() {
   };
 
   const tdStyle = {
-    padding: "8px 12px",
+    padding: "4px 12px",
     textAlign: "left",
     fontSize: 10,
     color: "#000000",
@@ -354,7 +375,7 @@ export default function TravelList() {
         .action-btn { opacity: 0.7; transition: opacity 0.15s, transform 0.15s; }
         .action-btn:hover { opacity: 1; transform: scale(1.12); }
         @media (max-width: 768px) {
-          .tt-title { font-size: 20px !important; }
+          .tt-title { font-size: 25px !important; }
           .tt-search { width: 100% !important; }
         }
         /* ── Travel Log Header ── */
@@ -401,7 +422,7 @@ export default function TravelList() {
           white-space: nowrap;
         }
         @media (max-width: 600px) {
-          .tt-title { font-size: 20px !important; }
+          .tt-title { font-size: 25px !important;text-align: left;  }
           .tt-header-wrap {
             flex-direction: column;
             align-items: stretch;
@@ -671,8 +692,9 @@ export default function TravelList() {
 
       {showEndTripModal && currentTrip && (
         <EndTrip
-          onClose={() => setShowEndTripModal(null)}
+          onClose={() => { setShowEndTripModal(null); setEndTripError(""); }}
           onComplete={(endData) => handleEndTrip(currentTrip.id, endData)}
+          errorMessage={endTripError}
           tripData={{
             vehicle_name:    currentTrip?.vehicle    ?? '',
             date:            currentTrip?.date        ?? '',
@@ -707,7 +729,22 @@ export default function TravelList() {
           <div style={{ margin: "0 0 22px 0", width: "100%", flexShrink: 0, padding: "0" }}>
             <div className="tt-header-wrap">
               <h1 className="tt-title" style={{ margin: 0, fontSize: 25, fontWeight: "600", color: "black", letterSpacing: -0.5 }}>
-                Travel Log
+                {isAdminOrManager ? "All Travel Logs" : "My Travel Logs"}
+                {isAdminOrManager && (
+                  <span style={{
+                    marginLeft: 10,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    background: "#e8f0fe",
+                    color: "#1a6fdb",
+                    borderRadius: 20,
+                    padding: "2px 10px",
+                    verticalAlign: "middle",
+                    letterSpacing: 0.3,
+                  }}>
+                    {loggedInRole}
+                  </span>
+                )}
               </h1>
               <div className="tt-controls">
                 <input
@@ -771,23 +808,25 @@ export default function TravelList() {
                         <div className="trip-card-field-value">
                           {row.date ? new Date(row.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                         </div>
-                        <div className="trip-card-field-sub">{row.startTime || "—"}</div>
+                        <div className="trip-card-field-sub">{formatTime(row.startTime)}</div>
                       </div>
                       <div className="trip-card-field">
                         <div className="trip-card-field-label">🔴 End</div>
                         <div className="trip-card-field-value">
                           {(row.endDate || row.end_date) ? new Date(row.endDate || row.end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                         </div>
-                        <div className="trip-card-field-sub">{row.endTime || "—"}</div>
+                        <div className="trip-card-field-sub">{formatTime(row.endTime)}</div>
                       </div>
                     </div>
 
                     {/* Driver + Distance Row */}
                     <div className="trip-card-row">
-                      <div className="trip-card-field">
-                        <div className="trip-card-field-label">👤 Driver</div>
-                        <div className="trip-card-field-value" style={{ fontSize: 11 }}>{row.traveledBy || loggedInUser}</div>
-                      </div>
+                      {isAdminOrManager && (
+                        <div className="trip-card-field">
+                          <div className="trip-card-field-label">👤 Driver</div>
+                          <div className="trip-card-field-value" style={{ fontSize: 11 }}>{row.traveledBy || loggedInUser}</div>
+                        </div>
+                      )}
                       <div className="trip-card-field">
                         <div className="trip-card-field-label">📍 Distance</div>
                         <div className="trip-card-field-value">{row.distance || 0} km</div>
@@ -859,7 +898,7 @@ export default function TravelList() {
               <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 1400 }}>
                 <thead>
                   <tr>
-                    {["Sl.No.", "Start Date", "Vehicle", "Traveled By", "Purpose", "Odometer Photos", "Distance", "Fuel & Cost", "End Date", "Action"].map((h) => (
+                    {["Sl.No.", "Start Date", "Vehicle", ...(isAdminOrManager ? ["Traveled By"] : []), "Purpose", "Odometer Photos", "Distance", "Fuel & Cost", "End Date", "Action"].map((h) => (
                       <th key={h} style={{ ...thStyle, textAlign: h === "Action" ? "center" : "left" }}>
                         {h}
                       </th>
@@ -897,7 +936,7 @@ export default function TravelList() {
                                 {row.date ? new Date(row.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                               </span>
                             </div>
-                            <span style={{ fontSize: 11, color: "#2e7d32", paddingLeft: 18 }}>{row.startTime || "—"}</span>
+                            <span style={{ fontSize: 11, color: "#2e7d32", paddingLeft: 18 }}>{formatTime(row.startTime)}</span>
                           </div>
                         </td>
 
@@ -921,10 +960,12 @@ export default function TravelList() {
                           </div>
                         </td>
 
-                        {/* Traveled By */}
-                        <td style={{ ...tdStyle, fontWeight: 600, fontSize: 14 }}>
-                          {row.traveledBy || loggedInUser}
-                        </td>
+                        {/* Traveled By — Admin/Manager only */}
+                        {isAdminOrManager && (
+                          <td style={{ ...tdStyle, fontWeight: 600, fontSize: 14 }}>
+                            {row.traveledBy || loggedInUser}
+                          </td>
+                        )}
 
                         {/* Purpose */}
                         <td style={{ ...tdStyle, textAlign: "center" }}>
@@ -977,7 +1018,7 @@ export default function TravelList() {
                                 {(row.endDate || row.end_date) ? new Date(row.endDate || row.end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                               </span>
                             </div>
-                            <span style={{ fontSize: 11, color: "#b71c1c", paddingLeft: 18 }}>{row.endTime || "—"}</span>
+                            <span style={{ fontSize: 11, color: "#b71c1c", paddingLeft: 18 }}>{formatTime(row.endTime)}</span>
                           </div>
                         </td>
                         <td style={{ ...tdStyle, minWidth: 220, textAlign: "center" }}>

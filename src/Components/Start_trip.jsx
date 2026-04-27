@@ -8,21 +8,27 @@ import AirOutlinedIcon from '@mui/icons-material/AirOutlined';
 import OilBarrelOutlinedIcon from '@mui/icons-material/OilBarrelOutlined';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
-import { getVehicles } from '../service/vehiclemaster';
+import { getVehicles } from '../service/Api';
 
 const StartTrip = ({ onClose, onStart }) => {
   const getLoggedInUserName = () => {
+    // IMPORTANT: must return the JWT `username` claim (login name), NOT the
+    // display name. The backend stamps traveled_by from the JWT username, and
+    // the GET filter uses traveled_by__iexact=username. Storing a display name
+    // ("John Doe") while filtering by login name ("johndoe") causes a blank
+    // page after refresh because no rows match the filter.
     try {
       const userJson = localStorage.getItem('user');
       if (userJson) {
         const user = JSON.parse(userJson);
-        return user.name || user.full_name || user.username || user.email || '';
+        // Prefer username (login name) over display names
+        return user.username || user.email || user.name || user.full_name || '';
       }
       return (
-        localStorage.getItem('user_name') ||
-        localStorage.getItem('full_name') ||
         localStorage.getItem('username') ||
+        localStorage.getItem('user_name') ||
         localStorage.getItem('name') ||
+        localStorage.getItem('full_name') ||
         ''
       );
     } catch {
@@ -70,7 +76,12 @@ const StartTrip = ({ onClose, onStart }) => {
         const list = Array.isArray(data) ? data : (data.results || []);
         setVehicles(list);
       } catch (err) {
-        setVehicleError('Failed to load vehicles. Please try again.');
+        // 401 means the access token expired — prompt re-login instead of a generic error
+        if (err._status === 401 || err.message?.toLowerCase().includes('unauthorized')) {
+          setVehicleError('Your session has expired. Please log out and log back in.');
+        } else {
+          setVehicleError('Failed to load vehicles. Please try again.');
+        }
       } finally {
         setVehicleLoading(false);
       }
@@ -303,16 +314,19 @@ const StartTrip = ({ onClose, onStart }) => {
         .st-cancel:hover { background: #f8f9fa !important; color: #202124 !important; }
         .st-start:hover  { background: #1557b0 !important; }
         .st-odometer-box:hover { border-color: #1a73e8 !important; }
-        /* Desktop: hide the new bottom bar, keep old inline actions */
-        .st-actions-bar { display: none; }
 
+        /* Desktop: show inline actions, hide bottom bar */
+        .st-actions-bar { display: none !important; }
+        .st-actions     { display: flex !important; }
+
+        /* Mobile overrides */
         @media (max-width: 640px) {
           /* Show bottom bar on mobile */
           .st-actions-bar { display: flex !important; }
           .st-actions     { display: none !important; }
 
-          /* Layout */
-          .st-body-scroll   { padding: 10px !important; }
+          /* Layout — extra bottom padding so content clears the fixed action bar */
+          .st-body-scroll   { padding: 10px 10px 100px 10px !important; }
           .st-card          { padding: 14px 12px !important; border-radius: 12px !important; max-width: 100% !important; margin: 0 !important; box-shadow: none !important; border: 1px solid #e8eaed !important; }
 
           /* Title */
@@ -343,15 +357,21 @@ const StartTrip = ({ onClose, onStart }) => {
           .st-odo-img       { max-width: 100% !important; max-height: 160px !important; }
           .st-preview-wrap  { flex-direction: column !important; align-items: flex-start !important; }
 
-          /* Actions bar — outside scroll, pinned at bottom */
+          /* Actions bar — fixed at bottom on mobile */
           .st-actions-bar {
             display: flex !important;
             flex-direction: row !important;
             gap: 10px !important;
-            padding: 12px 12px 16px !important;
+            padding: 12px 16px !important;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)) !important;
             background: #fff !important;
             border-top: 1.5px solid #e8eaed !important;
-            flex-shrink: 0 !important;
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            z-index: 100 !important;
+            box-shadow: 0 -2px 12px rgba(0,0,0,0.08) !important;
           }
           .st-cancel {
             flex: 1 !important;
@@ -379,7 +399,8 @@ const StartTrip = ({ onClose, onStart }) => {
             min-width: 0 !important;
             white-space: nowrap !important;
           }
-        }`}</style>
+        }
+      `}</style>
       <div style={S.body} className="st-body-scroll">
         <div style={S.card} className="st-card">
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12 }}>
@@ -607,9 +628,32 @@ const StartTrip = ({ onClose, onStart }) => {
               {errors.odometerImage}
             </span>
           )}
+          {/* Desktop inline actions */}
+          <div className="st-actions" style={S.actions}>
+            <button
+              type="button"
+              className="st-cancel"
+              style={S.cancelBtn}
+              onClick={handleCancel}
+              disabled={loading}
+            >
+              <CloseOutlinedIcon style={{ fontSize: 16 }} />
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="st-start"
+              style={S.startBtn}
+              onClick={handleStart}
+              disabled={loading}
+            >
+              <PlayArrowOutlinedIcon style={{ fontSize: 18 }} />
+              {loading ? 'Starting…' : 'Start Trip'}
+            </button>
+          </div>
         </div>
       </div>
-      {/* ── Fixed bottom action bar ── */}
+      {/* Fixed bottom action bar for mobile */}
       <div className="st-actions-bar">
         <button
           type="button"

@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import ClaimsAdd from "./claim_add";
 import ClaimsEdit from "./claim_edit";
-import { fetchClaims, deleteClaim, updateClaimStatus } from "../service/claims";
+import { fetchClaims, deleteClaim, updateClaimStatus } from "../service/Api";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
@@ -23,6 +23,12 @@ export default function MobileResponsiveClaimsList() {
   const [viewingReceipt, setViewingReceipt] = useState(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+
+  // Read logged-in user from localStorage (set by authService.login)
+  const currentUser = (() => {
+    try { return JSON.parse(localStorage.getItem("user")) || {}; } catch { return {}; }
+  })();
+  const isAdmin = currentUser?.role === "Admin";
 
   // Detect mobile screen
   useEffect(() => {
@@ -52,12 +58,12 @@ export default function MobileResponsiveClaimsList() {
   }, [loadClaims]);
 
   const handleAddClaim = (newClaim) => {
-    const currentTimestamp = new Date().toISOString();
+    // newClaim is already normalized by _mapClaim() in Api.js.
+    // It has claimedBy, clientName, expense, department_name, amount, status, date, etc.
+    // Just ensure date is set in case the server omitted created_at.
     const claimWithTimestamp = {
       ...newClaim,
-      date: currentTimestamp,
-      createdAt: currentTimestamp,
-      submittedAt: currentTimestamp
+      date: newClaim.date || new Date().toISOString(),
     };
     setClaims((prev) => [claimWithTimestamp, ...prev]);
     setShowAddForm(false);
@@ -81,6 +87,8 @@ export default function MobileResponsiveClaimsList() {
         onRefresh={loadClaims}
         onEditClaim={(claim) => setEditingClaim(claim)}
         onViewReceipt={(claim) => setViewingReceipt(claim)}
+        currentUser={currentUser}
+        isAdmin={isAdmin}
         onDeleteClaim={async (id) => {
           if (!window.confirm("Are you sure you want to delete this claim?"))
             return;
@@ -190,11 +198,22 @@ function MobileClaimsListTable({
   onViewReceipt,
   onDeleteClaim,
   isMobile,
+  currentUser,
+  isAdmin,
 }) {
   const [search, setSearch] = useState("");
   const [statusUpdating, setStatusUpdating] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
+
+  // Non-admins only see their own claims (match by username stored in claimedBy)
+  const visibleClaims = isAdmin
+    ? claims
+    : claims.filter(
+        (c) =>
+          (c.claimedBy || "").toLowerCase() ===
+          (currentUser?.username || "").toLowerCase()
+      );
 
   const handleStatusChange = async (id, newStatus) => {
     setClaims((prev) =>
@@ -251,12 +270,12 @@ function MobileClaimsListTable({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  const filtered = claims.filter((c) => {
+  const filtered = visibleClaims.filter((c) => {
     const q = search.toLowerCase();
     const matchesSearch = (
       (c.claimedBy || "").toLowerCase().includes(q) ||
       (c.clientName || "").toLowerCase().includes(q) ||
-      (c.department || "").toLowerCase().includes(q) ||
+      (c.department_name || c.department || "").toLowerCase().includes(q) ||
       (c.expense || "").toLowerCase().includes(q)
     );
     const matchesStatus = statusFilter === "all" || c.status === statusFilter;
@@ -288,6 +307,27 @@ function MobileClaimsListTable({
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
           .mobile-card:active { background: #f0f4ff !important; }
+
+          .cl-status-select {
+            padding: 3px 5px;
+            border-radius: 6px;
+            font-size: 7px;
+            font-weight: 600;
+            border: 1.5px solid transparent;
+            cursor: pointer;
+            outline: none;
+            font-family: 'Google Sans', sans-serif;
+            height: 24px;
+            min-width: 70px;
+            max-width: 90px;
+            appearance: auto;
+            flex: 0 0 auto;
+          }
+          .cl-status-select:disabled { opacity: 0.6; cursor: not-allowed; }
+          .cl-status-select.pill-green { background: #04572c !important; color: #fbfdfd !important; }
+          .cl-status-select.pill-amber { background: rgb(247,170,4) !important; color: #fcfaf8 !important; }
+          .cl-status-select.pill-red   { background: #c03030 !important; color: #faf9f9 !important; }
+          .cl-status-select.pill-muted { background: #5f6368 !important; color: #fff !important; }
         `}</style>
 
         {/* Header - Title and Action Buttons */}
@@ -418,7 +458,7 @@ function MobileClaimsListTable({
                   </div>
                   <div style={mobileListStyles.detailRow}>
                     <span style={mobileListStyles.detailLabel}>Department:</span>
-                    <span>{claim.department || "—"}</span>
+                    <span>{claim.department_name || claim.department || "—"}</span>
                   </div>
                   <div style={mobileListStyles.detailRow}>
                     <span style={mobileListStyles.detailLabel}>Expense:</span>
@@ -436,14 +476,13 @@ function MobileClaimsListTable({
                   <select
                     value={claim.status}
                     onChange={(e) => handleStatusChange(claim.id, e.target.value)}
-                    disabled={isUpdatingStatus}
-                    style={{
-                      ...mobileListStyles.statusSelect,
-                      background: sc.bg,
-                      color: sc.color,
-                      borderColor: sc.dot,
-                      opacity: isUpdatingStatus ? 0.6 : 1,
-                    }}
+                    disabled={isUpdatingStatus || !isAdmin}
+                    className={`cl-status-select${
+                      claim.status === 'Approved' ? ' pill-green' :
+                      claim.status === 'Pending'  ? ' pill-amber' :
+                      claim.status === 'Rejected' ? ' pill-red'   : ' pill-muted'
+                    }`}
+                    style={{ opacity: (isUpdatingStatus || !isAdmin) ? (isAdmin ? 0.6 : 1) : 1, cursor: isAdmin ? 'pointer' : 'default' }}
                   >
                     {Object.keys(STATUS_CONFIG).map((status) => (
                       <option
@@ -656,7 +695,7 @@ function MobileClaimsListTable({
                       <td style={desktopListStyles.td}>{claim.clientName}</td>
                       <td style={desktopListStyles.td}>
                         <span style={desktopListStyles.deptTag}>
-                          {claim.department || "—"}
+                          {claim.department_name || claim.department || "—"}
                         </span>
                       </td>
                       <td style={desktopListStyles.td}>{claim.expense}</td>
@@ -679,13 +718,15 @@ function MobileClaimsListTable({
                         <select
                           value={claim.status}
                           onChange={(e) => handleStatusChange(claim.id, e.target.value)}
-                          disabled={isUpdatingStatus}
+                          disabled={isUpdatingStatus || !isAdmin}
                           style={{
                             ...desktopListStyles.statusSelect,
                             background: sc.bg,
                             color: sc.color,
                             borderColor: sc.dot,
                             opacity: isUpdatingStatus ? 0.6 : 1,
+                            cursor: isAdmin ? "pointer" : "default",
+                            pointerEvents: isAdmin ? "auto" : "none",
                           }}
                         >
                           <option value="Approved">Approved</option>
@@ -961,16 +1002,18 @@ const mobileListStyles = {
     borderTop: "1px solid #f0f0f0",
   },
   statusSelect: {
-    padding: "5px 8px",
+    padding: "9px 12px",
     borderRadius: 8,
     border: "1.5px solid",
-    fontWeight: 400,
-    fontSize: 9,
+    fontWeight: 600,
+    fontSize: 13,
     fontFamily: "'Google Sans', sans-serif",
-    background: "#fff",
     cursor: "pointer",
-    flex: "0 1 auto",
-    maxWidth: 120,
+    flex: "1 1 auto",
+    minWidth: 0,
+    maxWidth: 160,
+    height: 38,
+    appearance: "auto",
   },
   actionButtons: {
     display: "flex",
@@ -980,11 +1023,14 @@ const mobileListStyles = {
     background: "none",
     border: "none",
     cursor: "pointer",
-    padding: 6,
+    padding: 8,
     borderRadius: 8,
     display: "flex",
     alignItems: "center",
+    justifyContent: "center",
     color: "#1a73e8",
+    height: 38,
+    width: 38,
   },
 };
 
@@ -1235,7 +1281,7 @@ const mobileModalStyles = {
   },
   modal: {
     position: "relative",
-    width: "100%",
+    width: "50%",
     maxWidth: "95%",
     maxHeight: "90vh",
     overflowY: "auto",
