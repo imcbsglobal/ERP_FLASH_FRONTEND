@@ -348,11 +348,14 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
                           onMouseDown={(e) => {
                             e.preventDefault();
                             setSelectedCustomer(c);
-                            setPhone(c.phone ?? c.mobile ?? c.phone_number ?? "");
+                            // Extract phone number from customer object
+                            const customerPhone = c.phone ?? c.mobile ?? c.phone_number ?? "";
+                            setPhone(customerPhone);
                             setSearchQuery("");        // clear search → input now shows selectedCustomer.name
                             setShowDropdown(false);
                           }}
                         >
+                          {/* Display only customer name without phone number */}
                           <span style={s.dropName}>{c.name}</span>
                           <span style={s.dropBranch}>{c.place || "—"}</span>
                         </div>
