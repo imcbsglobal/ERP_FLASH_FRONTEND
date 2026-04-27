@@ -1,6 +1,4 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import PhoneVerification from "./phoneverify";
-import OtpVerification from "./Otp_verification";
 
 /* ═══════════════════════════════════════════════════════════════
    GOOGLE MAPS-STYLE LEAFLET MAP COMPONENT
@@ -339,11 +337,6 @@ export default function ImageCaptureFlow({
   API_BASE,
   onSuccess,
 }) {
-  /* ── Phone verification gate ── */
-  const [showPhoneVerify, setShowPhoneVerify] = useState(true);
-  const [showOtpVerify,   setShowOtpVerify]   = useState(false);
-  const [verifiedPhone,   setVerifiedPhone]   = useState(propPhone || "");
-
   /* ── App-level screen state ── */
   const [screen, setScreen] = useState("capture"); // "capture" | "success"
   const [successData, setSuccessData] = useState(null);
@@ -470,7 +463,7 @@ export default function ImageCaptureFlow({
       const now = new Date().toISOString();
       setSuccessData({
         customerName: propCustomerName || "Customer",
-        phone:        verifiedPhone    || propPhone || "",
+        phone:        propPhone        || "",
         preview:      imgDataUrl,
         address,
         lat:  gps?.lat ?? null,
@@ -488,35 +481,6 @@ export default function ImageCaptureFlow({
     setScreen("capture");
     setSuccessData(null);
   };
-
-  /* ── Show phone verification first ── */
-  if (showPhoneVerify) {
-    return (
-      <PhoneVerification
-        onVerified={(phone) => {
-          setVerifiedPhone(phone);
-          setShowPhoneVerify(false);
-          setShowOtpVerify(true);
-        }}
-      />
-    );
-  }
-
-  /* ── Show OTP verification second ── */
-  if (showOtpVerify) {
-    return (
-      <OtpVerification
-        phone={verifiedPhone}
-        uuid={uuid}
-        customerName={propCustomerName}
-        onVerified={() => setShowOtpVerify(false)}
-        onBack={() => {
-          setShowOtpVerify(false);
-          setShowPhoneVerify(true);
-        }}
-      />
-    );
-  }
 
   /* ── Show success screen ── */
   if (screen === "success" && successData) {

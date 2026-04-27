@@ -1,29 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import ImageCaptureFlow from "./Image_capture";
-import PhoneVerification from "./phoneverify";
+import {
+  getBranches,
+  fetchDebtors,
+  generateCaptureLink,
+} from "../service/Api";
 
-const branches = [
-  "All Branches",
-  "Downtown Branch",
-  "North Branch",
-  "South Branch",
-  "East Branch",
-  "West Branch",
-];
-
-const customers = [
-  { id: 1, name: "Aisha Rahman",       branch: "Downtown Branch" },
-  { id: 2, name: "Mohammed Al-Farsi",  branch: "North Branch"    },
-  { id: 3, name: "Priya Nair",         branch: "South Branch"    },
-  { id: 4, name: "James Okonkwo",      branch: "East Branch"     },
-  { id: 5, name: "Sofia Lindqvist",    branch: "West Branch"     },
-  { id: 6, name: "Ravi Shankar",       branch: "Downtown Branch" },
-  { id: 7, name: "Amina Diallo",       branch: "North Branch"    },
-  { id: 8, name: "Chen Wei",           branch: "South Branch"    },
-];
-
-export default function ImageCaptureLinkGenerator({ onBack, isModal = false, modalMode = "generateLink" }) {
-  const [selectedBranch, setSelectedBranch]     = useState("All Branches");
+export default function ImageCaptureLinkGenerator({ onBack, isModal = false, modalMode = "generateLink", onLinkClick, onManualCapture }) {
+  const [selectedBranch, setSelectedBranch]     = useState("");          // "" = All Branches
   const [mode, setMode]                         = useState("select");
   const [searchQuery, setSearchQuery]           = useState("");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
@@ -34,37 +18,94 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
   const [successData, setSuccessData]           = useState(null);
   const [copied, setCopied]                     = useState(false);
   const [msgQueued, setMsgQueued]               = useState(false);
-  const [showCaptureFlow, setShowCaptureFlow]   = useState(false);
-  const [showPhoneVerify, setShowPhoneVerify]   = useState(false);
+  const [customers, setCustomers]               = useState([]);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [branches, setBranches]                 = useState([]);          // [{id, name}]
+  const [loadingBranches, setLoadingBranches]   = useState(false);
 
-  const filteredCustomers = customers.filter((c) => {
-    const matchesBranch  = selectedBranch === "All Branches" || c.branch === selectedBranch;
-    const matchesSearch  = c.name.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesBranch && matchesSearch;
-  });
+  const debounceRef = useRef(null);
+  const wrapperRef  = useRef(null);
 
-  const totalCustomers = customers.filter(
-    (c) => selectedBranch === "All Branches" || c.branch === selectedBranch
-  ).length;
+  // Fetch branches from backend on mount
+  useEffect(() => {
+    const fetchBranches = async () => {
+      setLoadingBranches(true);
+      try {
+        const data = await getBranches();
+        const list = Array.isArray(data) ? data : (data.results || []);
+        setBranches(list);
+      } catch (error) {
+        console.error('Error fetching branches:', error);
+      } finally {
+        setLoadingBranches(false);
+      }
+    };
+    fetchBranches();
+  }, []);
+
+  // Close dropdown on outside click — mirrors collection.jsx wrapperRef pattern
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) {
+        setShowDropdown(false);
+        setSearchQuery("");
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Fetch debtors with 300ms debounce — fires only when user is typing
+  useEffect(() => {
+    if (searchQuery.trim().length < 2) {
+      setCustomers([]);
+      return;
+    }
+    clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      setLoadingCustomers(true);
+      try {
+        const list = await fetchDebtors(searchQuery.trim());
+        setCustomers(list);
+      } catch (error) {
+        console.error('Error fetching customers:', error);
+        setCustomers([]);
+      } finally {
+        setLoadingCustomers(false);
+      }
+    }, 300);
+    return () => clearTimeout(debounceRef.current);
+  }, [searchQuery]);
+
+  const q = searchQuery.trim().toLowerCase();
+  const filteredCustomers = q
+    ? customers.filter(c => c.name.toLowerCase().startsWith(q))
+    : customers;
 
   const handleGenerate = async () => {
     const name = mode === "select" ? selectedCustomer?.name : manualName;
     if (!name || !phone) return;
     setIsGenerating(true);
-    await new Promise((r) => setTimeout(r, 1000));
-    const uuid = [
-      Math.random().toString(36).substring(2, 10),
-      Math.random().toString(36).substring(2, 6),
-      Math.random().toString(36).substring(2, 6),
-      Math.random().toString(36).substring(2, 6),
-      Math.random().toString(36).substring(2, 14),
-    ].join("-");
-    // Store only the path; App.jsx router will match it
-    const linkPath = `/image_capture/capture/${uuid}/`;
-    const linkFull = `${window.location.origin}${linkPath}`;
-    setSuccessData({ linkPath, linkFull, phone });
-    setIsGenerating(false);
-    setMsgQueued(false);
+    
+    try {
+      const data = await generateCaptureLink({
+        customerId:     null,                                              // debtors have no local DB id
+        customerName:   mode === "select" ? selectedCustomer?.name : manualName,
+        phone:          phone,
+        expiresInHours: 24,
+      });
+      setSuccessData({
+        linkPath: data.link_path,
+        linkFull: data.link_full,
+        phone:    phone,
+        uuid:     data.uuid,
+      });
+    } catch (error) {
+      console.error('Error generating link:', error);
+      alert(error.message || 'Failed to generate link. Please try again.');
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   const handleCopy = () => {
@@ -73,13 +114,10 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
     setTimeout(() => setCopied(false), 2000);
   };
 
-  /**
-   * Navigate in-app instead of doing a full page reload.
-   * Dispatches a custom event that App.jsx listens to.
-   */
   const handleOpenLink = (e) => {
     e.preventDefault();
-    setShowPhoneVerify(true);
+    const customerName = mode === "select" ? selectedCustomer?.name : manualName;
+    onLinkClick?.({ customerName, phone: successData?.phone || phone });
   };
 
   const handleReset = () => {
@@ -92,33 +130,16 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
     setSearchQuery("");
   };
 
-  const isDisabled =
-    isGenerating || !phone || (mode === "select" ? !selectedCustomer : !manualName);
+  const isDisabled = isGenerating || !phone || (mode === "select" ? !selectedCustomer : !manualName);
 
   const customerName = mode === "select" ? selectedCustomer?.name : manualName;
 
   const handleContinueToUpload = () => {
     if (!customerName || !phone) return;
-    setShowCaptureFlow(true);
+    onManualCapture?.({ customerName, phone });
   };
 
   const isContinueDisabled = !phone || (mode === "select" ? !selectedCustomer : !manualName);
-
-  // ── If link was clicked, show Phone Verification screen ──────
-  if (showPhoneVerify) {
-    return <PhoneVerification onBack={() => setShowPhoneVerify(false)} />;
-  }
-
-  // ── If "Continue to Image Upload" was clicked, render ImageCaptureFlow ──
-  if (showCaptureFlow) {
-    return (
-      <ImageCaptureFlow
-        customerName={customerName}
-        phone={phone}
-        onSuccess={() => { setShowCaptureFlow(false); onBack?.(); }}
-      />
-    );
-  }
 
   return (
     <div style={isModal ? { ...s.page, minHeight: 'unset', padding: '24px 16px 32px' } : s.page}>
@@ -136,8 +157,6 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
         .link-text-clickable:hover { color:#0770b8; }
       `}</style>
 
-      
-
       <div style={s.header}>
         <div style={s.iconWrap}>
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#098ae1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -151,12 +170,9 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
         </div>
       </div>
 
-      {/* ── SUCCESS VIEW ─────────────────────────────────────────────────── */}
       {successData ? (
         <div style={s.card}>
           <div style={{ animation: "fadeSlideUp 0.4s ease both" }}>
-
-            {/* Green tick circle */}
             <div style={s.circleWrap}>
               <div style={s.circle}>
                 <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
@@ -165,19 +181,12 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
               </div>
             </div>
 
-            {/* Link block */}
             <div style={{ ...s.greenBlock, animation: "fadeIn 0.35s 0.05s ease both" }}>
               <div style={s.blockHead}>
                 <CircleCheck />
                 <strong>Link Generated Successfully!</strong>
               </div>
               <div style={s.linkBox}>
-                {/*
-                  ── KEY CHANGE ──────────────────────────────────────────────
-                  Clicking the link fires handleOpenLink which dispatches
-                  "app:navigate" → App.jsx swaps to <VerifyPhone /> in-app.
-                  The href is kept so right-click → open in new tab still works.
-                */}
                 <a
                   href={successData.linkFull}
                   className="link-text-clickable"
@@ -189,7 +198,6 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
               </div>
             </div>
 
-            {/* Message queued block */}
             <div style={{ ...s.greenBlock, marginTop: "12px", animation: "fadeIn 0.35s 0.18s ease both" }}>
               <div style={s.blockHead}>
                 <CircleCheck />
@@ -203,7 +211,6 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
               </div>
             </div>
 
-            {/* Share label */}
             <div style={s.shareRow}>
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2" strokeLinecap="round">
                 <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
@@ -213,7 +220,6 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
               <span style={s.shareLabel}>Share with customer:</span>
             </div>
 
-            {/* Action buttons */}
             <div style={s.actionRow}>
               <button
                 className="abtn"
@@ -240,12 +246,8 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
             </button>
           </div>
         </div>
-
       ) : (
-        /* ── FORM VIEW ───────────────────────────────────────────────────── */
         <div style={s.card}>
-
-          {/* Branch filter */}
           <div style={s.fieldGroup}>
             <label style={s.label}>
               <span style={{ color: "#098ae1", fontSize: 12 }}>▼</span> Filter by Branch:
@@ -254,20 +256,23 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
               value={selectedBranch}
               onChange={(e) => { setSelectedBranch(e.target.value); setSelectedCustomer(null); setSearchQuery(""); }}
               style={s.select}
+              disabled={loadingBranches}
             >
-              {branches.map((b) => <option key={b}>{b}</option>)}
+              <option value="">
+                {loadingBranches ? "Loading branches…" : "All Branches"}
+              </option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.name}>{b.name}</option>
+              ))}
             </select>
-           
           </div>
 
-          {/* Customer */}
           <div style={s.fieldGroup}>
             <label style={s.label}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="#098ae1"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
               Customer:
             </label>
 
-            {/* Tab toggle */}
             <div style={s.tabRow}>
               {["select", "manual"].map((m) => (
                 <button
@@ -281,35 +286,83 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
             </div>
 
             {mode === "select" ? (
-              <div style={{ position: "relative" }}>
+              // wrapperRef = outside-click closes dropdown (collection.jsx pattern)
+              <div style={{ position: "relative" }} ref={wrapperRef}>
                 <input
                   type="text"
-                  placeholder="Search customer..."
-                  value={searchQuery}
-                  onChange={(e) => { setSearchQuery(e.target.value); setShowDropdown(true); }}
-                  onFocus={() => setShowDropdown(true)}
-                  style={s.input}
-                />
-                <span style={s.searchIcon}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round">
-                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-                  </svg>
-                </span>
-                {showDropdown && (
-                  <div style={s.dropdown}>
-                    {filteredCustomers.length === 0
-                      ? <div style={s.dropEmpty}>No customers found</div>
-                      : filteredCustomers.map((c) => (
-                          <div
-                            key={c.id}
-                            style={s.dropItem}
-                            onMouseDown={() => { setSelectedCustomer(c); setSearchQuery(c.name); setShowDropdown(false); }}
-                          >
-                            <span style={s.dropName}>{c.name}</span>
-                            <span style={s.dropBranch}>{c.branch}</span>
-                          </div>
-                        ))
+                  autoComplete="off"
+                  placeholder="Type at least 2 characters to search..."
+                  // collection.jsx pattern: show searchQuery while typing, show selected name when idle
+                  value={searchQuery !== "" ? searchQuery : (selectedCustomer ? selectedCustomer.name : "")}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSearchQuery(val);
+                    setSelectedCustomer(null);
+                    setPhone("");
+                    setShowDropdown(val.length >= 2);
+                  }}
+                  onFocus={() => {
+                    if (selectedCustomer) {
+                      // re-open search pre-filled with their name so they can change
+                      setSearchQuery(selectedCustomer.name);
+                      setShowDropdown(true);
                     }
+                  }}
+                  style={{
+                    ...s.input,
+                    paddingRight: "40px",
+                    ...(selectedCustomer && searchQuery === ""
+                      ? { background: "#f0f7ff", borderColor: "#098ae1", color: "#111827", fontWeight: "600" }
+                      : {})
+                  }}
+                />
+
+                {/* ✕ clear when selected & not actively searching, 🔍 otherwise */}
+                {selectedCustomer && searchQuery === "" ? (
+                  <button
+                    style={s.clearBtn}
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => { setSelectedCustomer(null); setSearchQuery(""); setPhone(""); }}
+                    title="Clear selection"
+                  >×</button>
+                ) : (
+                  <span style={s.searchIcon}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round">
+                      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                    </svg>
+                  </span>
+                )}
+
+                {showDropdown && searchQuery.trim().length >= 2 && (
+                  <div style={s.dropdown}>
+                    {loadingCustomers ? (
+                      <div style={s.dropEmpty}>Searching customers...</div>
+                    ) : filteredCustomers.length === 0 ? (
+                      <div style={s.dropEmpty}>No customers found</div>
+                    ) : (
+                      filteredCustomers.map((c) => (
+                        <div
+                          key={c.code}
+                          style={s.dropItem}
+                          // collection.jsx: onMouseDown + e.preventDefault() — no blur race
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            setSelectedCustomer(c);
+                            setPhone(c.phone ?? c.mobile ?? c.phone_number ?? "");
+                            setSearchQuery("");        // clear search → input now shows selectedCustomer.name
+                            setShowDropdown(false);
+                          }}
+                        >
+                          <span style={s.dropName}>{c.name}</span>
+                          <span style={s.dropBranch}>{c.place || "—"}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+                {showDropdown && searchQuery.trim().length > 0 && searchQuery.trim().length < 2 && (
+                  <div style={s.dropdown}>
+                    <div style={s.dropEmpty}>Type at least 2 characters…</div>
                   </div>
                 )}
               </div>
@@ -324,7 +377,6 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
             )}
           </div>
 
-          {/* Phone */}
           <div style={s.fieldGroup}>
             <label style={s.label}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="#098ae1"><path d="M6.6 10.8c1.4 2.8 3.8 5.1 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1-9.4 0-17-7.6-17-17 0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.3 0 .7-.2 1L6.6 10.8z"/></svg>
@@ -335,11 +387,15 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
               placeholder="Enter phone number"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              style={s.input}
+              style={{
+                ...s.input,
+                ...(mode === "select" && selectedCustomer && phone
+                  ? { background: "#f0f7ff", borderColor: "#098ae1", color: "#0770b8", fontWeight: "600" }
+                  : {})
+              }}
             />
           </div>
 
-          {/* Generate btn — shown only when modalMode === "generateLink" */}
           {modalMode === "generateLink" && (
             <button
               className="gen-btn"
@@ -360,7 +416,6 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
             </button>
           )}
 
-          {/* Continue to Image Upload — shown only when modalMode === "manualCapture" */}
           {modalMode === "manualCapture" && (
             <button
               className="gen-btn"
@@ -373,14 +428,13 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
                   <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                   <circle cx="12" cy="13" r="4"/>
                 </svg>
-                 Image Upload
+                Image Upload
               </span>
             </button>
           )}
         </div>
       )}
 
-      {showDropdown && <div style={s.overlay} onClick={() => setShowDropdown(false)} />}
     </div>
   );
 }
@@ -474,7 +528,7 @@ const s = {
     background: "white", border: "1.5px solid #e5e7eb", borderRadius: "10px",
     boxShadow: "0 8px 24px rgba(0,0,0,0.1)", zIndex: 100, maxHeight: "200px", overflowY: "auto",
   },
-  dropItem:   { padding: "10px 14px", cursor: "pointer", display: "flex", justifyContent: "space-between", background: "white" },
+  dropItem:   { padding: "10px 14px", cursor: "pointer", display: "flex", justifyContent: "space-between", background: "white", borderBottom: "1px solid #f0f0f0" },
   dropName:   { fontSize: "14px", color: "#111827", fontWeight: "500" },
   dropBranch: { fontSize: "12px", color: "#6b7280" },
   dropEmpty:  { padding: "14px", textAlign: "center", color: "#9ca3af", fontSize: "14px" },
@@ -485,4 +539,10 @@ const s = {
   },
   btnRow:  { display: "flex", alignItems: "center", justifyContent: "center", gap: "8px" },
   overlay: { position: "fixed", inset: 0, zIndex: 50 },
+  clearBtn: {
+    position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)",
+    background: "none", border: "none", cursor: "pointer",
+    fontSize: "20px", color: "#9ca3af", lineHeight: 1, padding: "2px 4px",
+    display: "flex", alignItems: "center", zIndex: 2,
+  },
 };

@@ -1,9 +1,18 @@
 import React, { useState } from 'react';
 import ImageCaptureLinkGenerator from './Image_link';
+import PhoneVerification from './phoneverify';
+import OtpVerification from './Otp_verification';
+import ImageCaptureFlow from './Image_capture';
 
 const ImageCaptureList = ({ onGenerateLink }) => {
   // Google Sans font
   const fontStyle = { fontFamily: "'Google Sans', sans-serif" };
+
+  // ── Top-level screen routing ──────────────────────────────────
+  // screen: null | "phoneVerify" | "otpVerify" | "captureFlow"
+  const [screen, setScreen]             = useState(null);
+  const [flowPhone, setFlowPhone]       = useState("");
+  const [flowCustomer, setFlowCustomer] = useState("");
 
   // Inject Google Fonts
   if (typeof document !== "undefined" && !document.getElementById("google-sans-font")) {
@@ -287,6 +296,41 @@ const ImageCaptureList = ({ onGenerateLink }) => {
       border: 'none',
     },
   };
+
+  // ── Full-screen renders based on active screen ───────────────
+  if (screen === "phoneVerify") {
+    return (
+      <PhoneVerification
+        onBack={() => setScreen(null)}
+        onVerified={(phone) => {
+          setFlowPhone(phone);
+          setScreen("otpVerify");
+        }}
+      />
+    );
+  }
+
+  if (screen === "otpVerify") {
+    return (
+      <OtpVerification
+        phone={flowPhone}
+        customerName={flowCustomer}
+        onVerified={() => setScreen("captureFlow")}
+        onBack={() => setScreen("phoneVerify")}
+      />
+    );
+  }
+
+  if (screen === "captureFlow") {
+    return (
+      <ImageCaptureFlow
+        customerName={flowCustomer}
+        phone={flowPhone}
+        skipVerification={true}
+        onSuccess={() => setScreen(null)}
+      />
+    );
+  }
 
   return (
     <div className="p-6 bg-white min-h-screen" style={{ fontFamily: "'Google Sans', sans-serif" }}>
@@ -716,6 +760,18 @@ const ImageCaptureList = ({ onGenerateLink }) => {
               isModal={true}
               modalMode={modalMode}
               onBack={() => setModalMode(null)}
+              onLinkClick={({ customerName, phone }) => {
+                setFlowCustomer(customerName || "");
+                setFlowPhone(phone || "");
+                setModalMode(null);
+                setScreen("phoneVerify");
+              }}
+              onManualCapture={({ customerName, phone }) => {
+                setFlowCustomer(customerName || "");
+                setFlowPhone(phone || "");
+                setModalMode(null);
+                setScreen("captureFlow");
+              }}
             />
           </div>
         </div>

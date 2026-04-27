@@ -16,6 +16,7 @@
 //    • Claims        (CRUD + status + draft)
 //    • Payments      (CRUD + status + summary + normalize)
 //    • Trips         (start, end, fetch, update, delete)
+//    • Image Capture (customers, links, OTP, upload, captures)
 // ═════════════════════════════════════════════════════════════════════════════
 
 import axios from 'axios';
@@ -83,6 +84,34 @@ export const ENDPOINTS = {
   trip:             (id) => `${BASE_URL}/travel/trips/${id}/`,
   tripEnd:          (id) => `${BASE_URL}/travel/trips/${id}/end/`,
   tripsOngoing:     `${BASE_URL}/travel/trips/ongoing/`,
+
+  // =========================================================================
+  // IMAGE CAPTURE ENDPOINTS
+  // =========================================================================
+  // Image capture app is mounted at the root level in Django
+  // (path("image_capture/", include(...))), NOT under /api/.
+  // BASE_URL typically ends with /api, so we strip that suffix here.
+  // =========================================================================
+
+  // Customers
+  imageCaptureCustomers:     `${BASE_URL.replace(/\/api$/, '')}/image_capture/api/customers/`,
+  imageCaptureCustomer:      (id) => `${BASE_URL.replace(/\/api$/, '')}/image_capture/api/customers/${id}/`,
+
+  // Capture Links
+  imageCaptureGenerateLink:  `${BASE_URL.replace(/\/api$/, '')}/image_capture/api/generate-link/`,
+  imageCaptureLinkDetail:    (uuid) => `${BASE_URL.replace(/\/api$/, '')}/image_capture/api/capture-link/${uuid}/`,
+  imageCaptureLinks:         `${BASE_URL.replace(/\/api$/, '')}/image_capture/api/capture-links/`,
+
+  // OTP
+  imageCaptureSendOtp:       `${BASE_URL.replace(/\/api$/, '')}/image_capture/api/send-otp/`,
+  imageCaptureVerifyOtp:     `${BASE_URL.replace(/\/api$/, '')}/image_capture/api/verify-otp/`,
+  imageCaptureResendOtp:     `${BASE_URL.replace(/\/api$/, '')}/image_capture/api/resend-otp/`,
+
+  // Image Upload & Captures
+  imageCaptureUpload:        `${BASE_URL.replace(/\/api$/, '')}/image_capture/api/upload-image/`,
+  imageCaptureList:          `${BASE_URL.replace(/\/api$/, '')}/image_capture/api/captures/`,
+  imageCaptureDetail:        (id) => `${BASE_URL.replace(/\/api$/, '')}/image_capture/api/captures/${id}/`,
+  imageCaptureManualStatus:  (id) => `${BASE_URL.replace(/\/api$/, '')}/image_capture/api/captures/${id}/manual-status/`,
 
   // Media helper — resolves relative /media/... paths to absolute URLs
   mediaUrl: (raw) => {
@@ -873,6 +902,27 @@ export async function fetchPaymentSummary() {
   return _handlePaymentResponse(await _authFetch(ENDPOINTS.paymentSummary, { method: 'GET' }));
 }
 
+/**
+ * Fetch debtors from the FlashERP proxy endpoint.
+ * Raw shape: { code, name, phone, phone2, place, address, area, city, ... }
+ * NOTE: phone2 is the real contact number — phone is often blank.
+ */
+export async function fetchDebtors(search = '') {
+  const q = new URLSearchParams();
+  if (search && search.trim().length >= 2) q.set('search', search.trim());
+  const url = `${ENDPOINTS.debtors}${q.toString() ? `?${q}` : ''}`;
+  const res  = await _authFetch(url, { method: 'GET' });
+  const data = await _handlePaymentResponse(res);
+  const raw  = Array.isArray(data) ? data : (data?.results ?? []);
+  return raw.map(d => ({
+    code:    d.code    || '',
+    name:    d.name    || '',
+    phone:   d.phone2  || d.phone || '',   // phone2 is the real number
+    place:   d.place   || d.city  || d.area || '',
+    address: d.address || '',
+  }));
+}
+
 export function normalizePayment(p) {
   return {
     id:              p.id,
@@ -1029,3 +1079,209 @@ export async function deleteTrip(id) {
     await axiosApi.delete(ENDPOINTS.trip(id));
   } catch (e) { throw _handleTripError(e, `Failed to delete trip #${id}`); }
 }
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  IMAGE CAPTURE SERVICE
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ── Helper for image capture auth headers ──
+const _icAuthHeader = (isMultipart = false) => {
+  const token = localStorage.getItem('access_token');
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  if (!isMultipart) headers['Content-Type'] = 'application/json';
+  return headers;
+};
+
+// ── Customer APIs ──
+export async function getImageCaptureCustomers(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.branch) params.append('branch', filters.branch);
+  if (filters.search) params.append('search', filters.search);
+  const query = params.toString() ? `?${params}` : '';
+  
+  const doFetch = () => fetch(`${ENDPOINTS.imageCaptureCustomers}${query}`, {
+    method: 'GET',
+    headers: _icAuthHeader(),
+  });
+  return handleResponse(await doFetch(), doFetch);
+}
+
+export async function createImageCaptureCustomer(data) {
+  const doFetch = () => fetch(ENDPOINTS.imageCaptureCustomers, {
+    method: 'POST',
+    headers: _icAuthHeader(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(await doFetch(), doFetch);
+}
+
+// ── Capture Link APIs ──
+export async function generateCaptureLink(data) {
+  const doFetch = () => fetch(ENDPOINTS.imageCaptureGenerateLink, {
+    method: 'POST',
+    headers: _icAuthHeader(),
+    body: JSON.stringify({
+      customer_id: data.customerId || null,
+      customer_name: data.customerName || null,
+      phone: data.phone,
+      expires_in_hours: data.expiresInHours || 24,
+    }),
+  });
+  return handleResponse(await doFetch(), doFetch);
+}
+
+export async function getCaptureLinkByUuid(uuid) {
+  const doFetch = () => fetch(ENDPOINTS.imageCaptureLinkDetail(uuid), {
+    method: 'GET',
+    headers: _icAuthHeader(),
+  });
+  return handleResponse(await doFetch(), doFetch);
+}
+
+export async function getAllCaptureLinks(status = null) {
+  const query = status ? `?status=${status}` : '';
+  const doFetch = () => fetch(`${ENDPOINTS.imageCaptureLinks}${query}`, {
+    method: 'GET',
+    headers: _icAuthHeader(),
+  });
+  return handleResponse(await doFetch(), doFetch);
+}
+
+// ── OTP APIs ──
+export async function sendOtp(phone, uuid = null) {
+  const doFetch = () => fetch(ENDPOINTS.imageCaptureSendOtp, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, uuid }),
+  });
+  return handleResponse(await doFetch(), doFetch);
+}
+
+export async function verifyOtp(phone, otpCode, uuid = null) {
+  const doFetch = () => fetch(ENDPOINTS.imageCaptureVerifyOtp, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, otp_code: otpCode, uuid }),
+  });
+  return handleResponse(await doFetch(), doFetch);
+}
+
+export async function resendOtp(phone, uuid = null) {
+  const doFetch = () => fetch(ENDPOINTS.imageCaptureResendOtp, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, uuid }),
+  });
+  return handleResponse(await doFetch(), doFetch);
+}
+
+// ── Image Upload & Capture APIs ──
+export async function uploadCaptureImage(formData) {
+  const token = localStorage.getItem('access_token');
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  // Don't set Content-Type for FormData - browser will set with boundary
+  
+  const response = await fetch(ENDPOINTS.imageCaptureUpload, {
+    method: 'POST',
+    headers,
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    let body = {};
+    try { body = await response.json(); } catch {}
+    const msg = body?.detail || body?.message || `Upload failed (${response.status})`;
+    const err = new Error(msg);
+    err._status = response.status;
+    err.data = body;
+    throw err;
+  }
+  
+  return response.json();
+}
+
+export async function getAllCaptures(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.status) params.append('status', filters.status);
+  if (filters.manualStatus) params.append('manual_status', filters.manualStatus);
+  if (filters.search) params.append('search', filters.search);
+  const query = params.toString() ? `?${params}` : '';
+  
+  const doFetch = () => fetch(`${ENDPOINTS.imageCaptureList}${query}`, {
+    method: 'GET',
+    headers: _icAuthHeader(),
+  });
+  return handleResponse(await doFetch(), doFetch);
+}
+
+export async function getCaptureById(id) {
+  const doFetch = () => fetch(ENDPOINTS.imageCaptureDetail(id), {
+    method: 'GET',
+    headers: _icAuthHeader(),
+  });
+  return handleResponse(await doFetch(), doFetch);
+}
+
+export async function updateCaptureManualStatus(id, status) {
+  const doFetch = () => fetch(ENDPOINTS.imageCaptureManualStatus(id), {
+    method: 'PATCH',
+    headers: _icAuthHeader(),
+    body: JSON.stringify({ manual_status: status }),
+  });
+  return handleResponse(await doFetch(), doFetch);
+}
+
+export async function deleteCapture(id) {
+  const doFetch = () => fetch(ENDPOINTS.imageCaptureDetail(id), {
+    method: 'DELETE',
+    headers: _icAuthHeader(),
+  });
+  return handleResponse(await doFetch(), doFetch);
+}
+
+export async function updateCapture(id, data) {
+  const doFetch = () => fetch(ENDPOINTS.imageCaptureDetail(id), {
+    method: 'PATCH',
+    headers: _icAuthHeader(),
+    body: JSON.stringify(data),
+  });
+  return handleResponse(await doFetch(), doFetch);
+}
+
+// ── Helper: Get full image URL ──
+export function getCaptureImageUrl(imagePath) {
+  if (!imagePath) return null;
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) return imagePath;
+  return ENDPOINTS.mediaUrl(imagePath);
+}
+
+// ── Export all image capture services as a grouped object ──
+export const imageCaptureService = {
+  // Customers
+  getCustomers: getImageCaptureCustomers,
+  createCustomer: createImageCaptureCustomer,
+  
+  // Capture Links
+  generateLink: generateCaptureLink,
+  getLinkByUuid: getCaptureLinkByUuid,
+  getAllLinks: getAllCaptureLinks,
+  
+  // OTP
+  sendOtp,
+  verifyOtp,
+  resendOtp,
+  
+  // Captures
+  upload: uploadCaptureImage,
+  getAll: getAllCaptures,
+  getById: getCaptureById,
+  updateManualStatus: updateCaptureManualStatus,
+  delete: deleteCapture,
+  update: updateCapture,
+  
+  // Helpers
+  getImageUrl: getCaptureImageUrl,
+};

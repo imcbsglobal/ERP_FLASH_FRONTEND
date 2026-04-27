@@ -1,5 +1,179 @@
 import { useState } from "react";
+import OtpVerification from "./Otp_verification";
+import ImageCaptureFlow from "./Image_capture"; // Import the ImageCaptureFlow
 
+export default function PhoneVerification({ onBack, onVerified, customerName, prefillPhone, uuid, API_BASE, skipVerification }) {
+  const [phone, setPhone] = useState(prefillPhone || "");
+  const [showOtp, setShowOtp] = useState(false);
+  const [showImageCapture, setShowImageCapture] = useState(false); // New state for image capture
+  const [demoMode, setDemoMode] = useState(false); // Track if we're in demo mode
+
+  const handleSend = () => {
+    if (!phone.trim()) return;
+    
+    // Check for demo mode (phone number 1234567890)
+    if (phone.trim() === "1234567890") {
+      setDemoMode(true);
+      // For demo mode, skip OTP and go directly to image capture
+      setShowImageCapture(true);
+      if (onVerified) {
+        onVerified(phone);
+      }
+    } else {
+      setDemoMode(false);
+      setShowOtp(true);
+    }
+  };
+
+  const handleOtpVerified = () => {
+    // OTP verified successfully - now show image capture
+    setShowOtp(false);
+    setShowImageCapture(true);
+    
+    // Also call onVerified if provided (for parent components)
+    if (onVerified) {
+      onVerified(phone);
+    }
+  };
+
+  const handleBackToPhone = () => {
+    setShowOtp(false);
+  };
+
+  const handleImageCaptureSuccess = (photoData) => {
+    // Handle successful image capture if needed
+    console.log("Image captured successfully", photoData);
+  };
+
+  // Show Image Capture component after OTP verification or demo mode
+  if (showImageCapture) {
+    return (
+      <ImageCaptureFlow
+        uuid={uuid}
+        phone={phone}
+        customerName={customerName}
+        API_BASE={API_BASE}
+        onSuccess={handleImageCaptureSuccess}
+        skipVerification={skipVerification || true} // Skip phone/OTP verification since we already did it
+      />
+    );
+  }
+
+  // Show OTP component
+  if (showOtp) {
+    return (
+      <OtpVerification
+        phone={phone}
+        uuid={uuid}
+        customerName={customerName}
+        onVerified={handleOtpVerified}
+        onBack={handleBackToPhone}
+      />
+    );
+  }
+
+  // Show phone verification screen
+  return (
+    <div style={styles.page}>
+      <div style={styles.card}>
+        {onBack && (
+          <button onClick={onBack} style={styles.backBtn}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+            Back
+          </button>
+        )}
+        <div style={styles.iconWrapper}>
+          <ShieldIcon />
+        </div>
+
+        <h1 style={styles.title}>Phone Verification</h1>
+        <p style={styles.subtitle}>
+          Enter your phone number to receive an OTP via WhatsApp
+        </p>
+
+        {/* Demo mode hint */}
+        <div style={{
+          width: "100%",
+          marginBottom: "16px",
+          background: "#fef3c7",
+          borderRadius: "12px",
+          padding: "10px 16px",
+          textAlign: "center",
+          fontSize: "12px",
+          color: "#92400e",
+        }}>
+          <strong>Demo Mode:</strong> Use phone number <strong>1234567890</strong> to skip OTP verification
+        </div>
+
+        <div style={styles.userBadge}>
+          <UserIcon />
+          <span style={styles.userText}>{customerName || "Customer"}</span>
+        </div>
+
+        <div style={styles.inputWrapper}>
+          <input
+            type="tel"
+            placeholder="Enter your phone number"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            style={styles.input}
+            onFocus={(e) => {
+              e.target.style.borderColor = "#2563EB";
+              e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.12)";
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = "#E5E7EB";
+              e.target.style.boxShadow = "none";
+            }}
+          />
+        </div>
+
+        <button
+          onClick={handleSend}
+          disabled={!phone.trim()}
+          style={{
+            ...styles.button,
+            opacity: !phone.trim() ? 0.6 : 1,
+            cursor: !phone.trim() ? "not-allowed" : "pointer",
+          }}
+          onMouseEnter={(e) => {
+            if (phone.trim()) {
+              e.target.style.background = "#1D4ED8";
+              e.target.style.transform = "translateY(-1px)";
+              e.target.style.boxShadow = "0 6px 20px rgba(37,99,235,0.4)";
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.background = "#2563EB";
+            e.target.style.transform = "translateY(0)";
+            e.target.style.boxShadow = "0 4px 14px rgba(37,99,235,0.3)";
+          }}
+        >
+          <span style={styles.buttonInner}>
+            <SendIcon />
+            <span>Send OTP / Demo Mode</span>
+          </span>
+        </button>
+
+        <div style={styles.securityNote}>
+          <LockIcon />
+          <span style={styles.securityText}>Your information is secure and encrypted</span>
+        </div>
+      </div>
+
+      <style>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(18px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+// Keep the icon components as they were...
 const ShieldIcon = () => (
   <svg width="48" height="56" viewBox="0 0 48 56" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path
@@ -34,154 +208,15 @@ const LockIcon = () => (
   </svg>
 );
 
-export default function PhoneVerification({ onBack, onVerified }) {
-  const [phone, setPhone] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-
-  const handleSend = async () => {
-    if (!phone.trim()) return;
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1500));
-    setLoading(false);
-    setSent(true);
-  };
-
-  const handleProceed = () => {
-    if (onVerified) onVerified(phone);
-  };
-
-  return (
-    <div style={styles.page}>
-      <div style={styles.card}>
-        {/* Back button */}
-        {onBack && (
-          <button onClick={onBack} style={styles.backBtn}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563EB" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="15 18 9 12 15 6"/>
-            </svg>
-            Back
-          </button>
-        )}
-        {/* Shield Icon */}
-        <div style={styles.iconWrapper}>
-          <ShieldIcon />
-        </div>
-
-        {/* Title */}
-        <h1 style={styles.title}>Phone Verification</h1>
-        <p style={styles.subtitle}>
-          Enter your phone number to receive an OTP via WhatsApp
-        </p>
-
-        {/* User Badge */}
-        <div style={styles.userBadge}>
-          <UserIcon />
-          <span style={styles.userText}>Demo Customer</span>
-        </div>
-
-        {/* Phone Input */}
-        <div style={styles.inputWrapper}>
-          <input
-            type="tel"
-            placeholder="Enter your phone number"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            style={styles.input}
-            onFocus={(e) => {
-              e.target.style.borderColor = "#2563EB";
-              e.target.style.boxShadow = "0 0 0 3px rgba(37,99,235,0.12)";
-            }}
-            onBlur={(e) => {
-              e.target.style.borderColor = "#E5E7EB";
-              e.target.style.boxShadow = "none";
-            }}
-          />
-        </div>
-
-        {/* Send OTP Button */}
-        <button
-          onClick={handleSend}
-          disabled={loading || sent}
-          style={{
-            ...styles.button,
-            opacity: loading || (!phone.trim()) ? 0.85 : 1,
-            cursor: loading || (!phone.trim()) ? "not-allowed" : "pointer",
-          }}
-          onMouseEnter={(e) => {
-            if (!loading && phone.trim()) {
-              e.target.style.background = "#1D4ED8";
-              e.target.style.transform = "translateY(-1px)";
-              e.target.style.boxShadow = "0 6px 20px rgba(37,99,235,0.4)";
-            }
-          }}
-          onMouseLeave={(e) => {
-            e.target.style.background = "#2563EB";
-            e.target.style.transform = "translateY(0)";
-            e.target.style.boxShadow = "0 4px 14px rgba(37,99,235,0.3)";
-          }}
-        >
-          <span style={styles.buttonInner}>
-            {loading ? (
-              <span style={styles.spinner} />
-            ) : sent ? (
-              "✓ OTP Sent!"
-            ) : (
-              <>
-                <SendIcon />
-                <span>Send OTP</span>
-              </>
-            )}
-          </span>
-        </button>
-
-        {/* Security Note */}
-        <div style={styles.securityNote}>
-          <LockIcon />
-          <span style={styles.securityText}>Your information is secure and encrypted</span>
-        </div>
-
-        {/* Proceed button — shown only after OTP is sent */}
-        {sent && onVerified && (
-          <button
-            onClick={handleProceed}
-            style={styles.proceedButton}
-            onMouseEnter={(e) => {
-              e.target.style.background = "#15803d";
-              e.target.style.transform = "translateY(-1px)";
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.background = "#16a34a";
-              e.target.style.transform = "translateY(0)";
-            }}
-          >
-            Proceed to OTP Verification →
-          </button>
-        )}
-      </div>
-
-      <style>{`
-        @keyframes spin {
-          to { transform: rotate(360deg); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(18px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
-    </div>
-  );
-}
-
 const styles = {
   page: {
-    minHeight: "100vh",
     background: "#EFF2F7",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif",
     padding: "24px",
+    minHeight: "100vh",
   },
   card: {
     background: "#FFFFFF",
@@ -232,7 +267,7 @@ const styles = {
   },
   inputWrapper: {
     width: "100%",
-    marginBottom: "12px",
+    marginBottom: "20px",
     boxSizing: "border-box",
   },
   input: {
@@ -268,15 +303,6 @@ const styles = {
     gap: "8px",
     pointerEvents: "none",
   },
-  spinner: {
-    display: "inline-block",
-    width: "16px",
-    height: "16px",
-    border: "2px solid rgba(255,255,255,0.4)",
-    borderTopColor: "#fff",
-    borderRadius: "50%",
-    animation: "spin 0.7s linear infinite",
-  },
   securityNote: {
     display: "flex",
     alignItems: "center",
@@ -298,20 +324,5 @@ const styles = {
     fontWeight: "600",
     cursor: "pointer",
     padding: "0 0 12px 0",
-  },
-  proceedButton: {
-    width: "100%",
-    marginTop: "12px",
-    padding: "13px 18px",
-    background: "#16a34a",
-    border: "none",
-    borderRadius: "10px",
-    color: "#FFFFFF",
-    fontSize: "15px",
-    fontWeight: "600",
-    cursor: "pointer",
-    transition: "background 0.2s, transform 0.15s",
-    boxShadow: "0 4px 14px rgba(22,163,74,0.3)",
-    boxSizing: "border-box",
   },
 };
