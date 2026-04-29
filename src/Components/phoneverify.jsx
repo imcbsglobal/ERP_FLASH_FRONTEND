@@ -215,13 +215,15 @@ const styles = {
     alignItems: "center",
     justifyContent: "center",
     fontFamily: "'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif",
-    padding: "24px",
+    padding: "16px",
     minHeight: "100vh",
+    minHeight: "-webkit-fill-available",
+    boxSizing: "border-box",
   },
   card: {
     background: "#FFFFFF",
     borderRadius: "20px",
-    padding: "44px 40px 36px",
+    padding: "clamp(28px, 6vw, 44px) clamp(20px, 6vw, 40px) 32px",
     width: "100%",
     maxWidth: "420px",
     display: "flex",
@@ -229,6 +231,7 @@ const styles = {
     alignItems: "center",
     boxShadow: "0 8px 40px rgba(0,0,0,0.08)",
     animation: "fadeIn 0.45s ease both",
+    boxSizing: "border-box",
   },
   iconWrapper: {
     marginBottom: "22px",
@@ -284,7 +287,7 @@ const styles = {
   },
   button: {
     width: "100%",
-    padding: "14px 18px",
+    padding: "15px 18px",
     background: "#2563EB",
     border: "none",
     borderRadius: "10px",
@@ -295,6 +298,7 @@ const styles = {
     boxShadow: "0 4px 14px rgba(37,99,235,0.3)",
     marginBottom: "16px",
     boxSizing: "border-box",
+    minHeight: "48px",
   },
   buttonInner: {
     display: "flex",

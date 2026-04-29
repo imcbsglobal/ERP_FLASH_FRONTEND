@@ -208,7 +208,7 @@ function VerificationSuccess({ data, onClose }) {
         @keyframes slideIn { from{opacity:0;transform:translateY(18px)} to{opacity:1;transform:translateY(0)} }
         @keyframes popIn   { 0%{transform:scale(0.3);opacity:0} 70%{transform:scale(1.15)} 100%{transform:scale(1);opacity:1} }
         @keyframes fadeUp  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
-        .vs-page { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px; background:white; }
+        .vs-page { min-height:100vh; min-height:-webkit-fill-available; display:flex; align-items:center; justify-content:center; padding:24px; background:white; }
         .vs-card { background:#ffffff; border-radius:20px; padding:36px 32px 28px; width:100%; max-width:460px; box-shadow:0 12px 48px rgba(0,0,0,0.14); display:flex; flex-direction:column; align-items:center; animation:slideIn 0.35s ease both; }
         .vs-check { width:68px; height:68px; border-radius:50%; background:#0990eb; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 20px rgba(26,115,232,0.45); margin-bottom:18px; animation:popIn 0.5s cubic-bezier(.34,1.56,.64,1) both; }
         .vs-title { font-size:22px; font-weight:700; color:#0990eb; margin-bottom:8px; text-align:center; }
@@ -732,8 +732,8 @@ const css = `
   @keyframes icf-spin    { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
   @keyframes icf-locPulse{ 0%{background:#dbeafe} 100%{background:white} }
 
-  .icf-page { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px 16px; background:#f5f7fa; }
-  .icf-card { background:white; border-radius:22px; padding:36px 28px 32px; width:100%; max-width:420px; box-shadow:0 8px 40px rgba(9,144,235,0.18),0 2px 8px rgba(0,0,0,0.08); display:flex; flex-direction:column; align-items:center; gap:15px; }
+  .icf-page { min-height:100vh; min-height:-webkit-fill-available; display:flex; align-items:center; justify-content:center; padding:24px 16px; background:#f5f7fa; }
+  .icf-card { background:white; border-radius:22px; padding:36px 28px 32px; width:100%; max-width:420px; box-sizing:border-box; box-shadow:0 8px 40px rgba(9,144,235,0.18),0 2px 8px rgba(0,0,0,0.08); display:flex; flex-direction:column; align-items:center; gap:15px; }
   .icf-card-anim { animation: icf-cardIn 0.4s cubic-bezier(.22,1,.36,1) both; }
   .icf-fade-up   { animation: icf-fadeUp 0.4s ease both; }
   .icf-pop-in    { animation: icf-popIn  0.5s cubic-bezier(.34,1.56,.64,1) both; }
@@ -824,4 +824,40 @@ const css = `
     transition:background .15s;
   }
   .icf-map-link:hover { background:#e6f4ff; }
-`;
+
+  /* ── Mobile Responsive ── */
+  @media (max-width: 480px) {
+    .icf-page { padding: 10px; align-items: flex-start; }
+    .icf-card { padding: 24px 16px 24px; border-radius: 16px; gap: 12px; margin-top: 8px; margin-bottom: 8px; }
+    .icf-title { font-size: 19px; }
+    .icf-cam-emoji { font-size: 22px; }
+    .icf-subtitle { font-size: 12px; }
+    .icf-cam-btn { padding: 14px 16px; font-size: 14px; min-height: 48px; }
+    .icf-snap-btn { width: 56px; height: 56px; }
+    .icf-snap-inner { width: 38px; height: 38px; }
+    .icf-video { max-height: 260px; }
+    .icf-preview-img { max-height: 220px; }
+    .icf-next-btn, .icf-retake-btn { padding: 13px 0; font-size: 13px; min-height: 46px; }
+    .icf-submit-btn { padding: 14px; font-size: 14px; min-height: 48px; }
+    .icf-retake-btn-full { padding: 12px; min-height: 44px; }
+    .icf-loc-lines { padding: 12px 14px 10px; }
+    .icf-loc-row { font-size: 13px; }
+    .icf-notice { font-size: 11.5px; padding: 12px 14px; }
+    .icf-notice-head { font-size: 12px; }
+    .icf-map-toggle-btn { padding: 10px 14px; font-size: 13px; }
+    .vs-page { padding: 12px; align-items: flex-start; }
+    .vs-card { padding: 24px 16px 20px; border-radius: 16px; margin-top: 8px; margin-bottom: 8px; }
+    .vs-title { font-size: 19px; }
+    .vs-subtitle { font-size: 12px; margin-bottom: 16px; }
+    .vs-thumb-wrap { width: 130px; height: 110px; margin-bottom: 18px; }
+    .vs-row { padding: 11px 0; gap: 10px; }
+    .vs-icon-wrap { width: 32px; height: 32px; border-radius: 8px; }
+    .vs-row-value { font-size: 14px; }
+    .vs-close-btn { padding: 11px 24px; font-size: 14px; min-height: 46px; }
+  }
+  @media (max-width: 360px) {
+    .icf-card { padding: 20px 12px 20px; }
+    .vs-card { padding: 20px 12px 16px; }
+    .icf-btn-row { gap: 8px; }
+    .icf-title { font-size: 17px; }
+  }`;

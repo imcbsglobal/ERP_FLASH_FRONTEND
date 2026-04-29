@@ -722,7 +722,7 @@ function _mapClaim(c) {
     expense: c.expense_type_display || c.expense_type || '',
     amount: parseFloat(c.amount) || 0,
     receipt: !!(c.receipt || c.has_receipt), receiptUrl,
-    status: c.status || 'Pending', expense_type: c.expense_type || '',
+    status: c.status === 'Approved' ? 'Accepted' : (c.status || 'Pending'), expense_type: c.expense_type || '',
     purpose: c.purpose || '', notes: c.notes || '', _raw: c,
   };
 }
@@ -779,10 +779,12 @@ export async function saveDraftClaim(form) {
 }
 
 export async function updateClaimStatus(id, newStatus) {
+  // UI uses "Accepted"; backend expects "Approved"
+  const apiStatus = newStatus === 'Accepted' ? 'Approved' : newStatus;
   const res = await fetch(ENDPOINTS.claimStatus(id), {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ..._authHeader() },
-    body: JSON.stringify({ status: newStatus }),
+    body: JSON.stringify({ status: apiStatus }),
   });
   if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.detail || `Request failed: ${res.status}`);
   return res.json();
@@ -883,6 +885,8 @@ export async function updatePayment(id, formData) {
   payload.append('paid_for',        formData.paidFor);
   payload.append('notes',           formData.notes            || '');
   if (formData.paymentProof instanceof File) payload.append('payment_proof', formData.paymentProof);
+  if (formData.cashReceived !== undefined && formData.cashReceived !== null)
+    payload.append('cash_received', formData.cashReceived);
   return _handlePaymentResponse(await _authFetch(ENDPOINTS.payment(id), { method: 'PUT', body: payload }));
 }
 
@@ -938,6 +942,7 @@ export function normalizePayment(p) {
     paymentProof:    p.payment_proof     || null,
     paymentProofUrl: p.payment_proof_url || null,
     status:          p.status,
+    cashReceived:    p.cash_received      ?? null,
     date:            p.date,
     createdByName:   p.created_by_name   || null,
     created_by_name: p.created_by_name   || null,

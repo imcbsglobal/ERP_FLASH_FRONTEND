@@ -285,17 +285,22 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
         @media (max-width: 600px) {
           .vma-grid3 { grid-template-columns: 1fr !important; }
           .vma-grid2 { grid-template-columns: 1fr !important; }
+          .vma-page-header { flex-direction: column !important; align-items: flex-start !important; height: auto !important; padding: 12px 16px !important; gap: 4px !important; }
+          .vma-actions { flex-direction: row !important; justify-content: stretch !important; flex-wrap: nowrap !important; gap: 8px !important; }
+          .vma-actions button { flex: 1 !important; min-width: 0 !important; padding: 10px 8px !important; font-size: 13px !important; }
+          .vma-form { padding: 12px 10px !important; }
         }
       `}</style>
 
       {/* ── Scrollable Form Body ── */}
       <div style={styles.scrollBody}>
-        <form onSubmit={handleSubmit} style={styles.form}>
+        <form onSubmit={handleSubmit} className="vma-form" style={styles.form}>
 
           {/* Top-level API error banner */}
           {apiError && <div style={styles.apiError}>⚠️ {apiError}</div>}
 
-          <div style={styles.pageHeader}>
+
+          <div className="vma-page-header" style={styles.pageHeader}>
             <div style={styles.pageHeaderLeft}>
               <h1 style={styles.pageHeaderTitle}>{editData ? 'Edit Vehicle' : 'Add New Vehicle'}</h1>
             </div>
@@ -518,17 +523,14 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
           </div>
 
           {/* ── Form Actions ── */}
-          <div style={styles.actions}>
-            <div style={styles.pageHeaderActions}>
-              <button
-                type="button" style={styles.backBtn} onClick={onClose}
-                onMouseEnter={e => { e.currentTarget.style.background = '#137ce6'; e.currentTarget.style.color = '#fbfbfc'; }}
-                onMouseLeave={e => { e.currentTarget.style.background = '#1c67d8'; e.currentTarget.style.color = '#f9fbfd'; }}
-              >
-                Back
-              </button>
-            </div>
-            
+          <div className="vma-actions" style={styles.actions}>
+            <button
+              type="button" style={styles.backBtn} onClick={onClose}
+              onMouseEnter={e => { e.currentTarget.style.background = '#137ce6'; e.currentTarget.style.color = '#fbfbfc'; }}
+              onMouseLeave={e => { e.currentTarget.style.background = '#1c67d8'; e.currentTarget.style.color = '#f9fbfd'; }}
+            >
+              Back
+            </button>
             <button type="button" style={styles.resetBtn} onClick={handleReset} disabled={loading}>
               Reset
             </button>

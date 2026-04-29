@@ -1,40 +1,42 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPayment, updatePayment, normalizePayment, getBranches, ENDPOINTS, authHeaders, apiFetch } from '../service/Api';
 
-// ── WhatsApp Notification ─────────────────────────────────────
-const WHATSAPP_NOTIFY_NUMBER = '8157831029';
-
+// ── WhatsApp Notification using Approved Template ─────────────────
 const sendWhatsAppNotification = async (formData) => {
   try {
-    const templateName = 'BUZWAP'; // Update this to your actual template name
-    const message = encodeURIComponent(
-      `New Collection Recorded!\n` +
-      `Client: ${formData.clientName}\n` +
-      `Amount: ₹${formData.amount}\n` +
-      `Type: ${formData.collectionType}\n` +
-      `Branch: ${formData.branch}\n` +
-      `Paid For: ${formData.paidFor}`
-    );
-    const url =
-      `https://bhashsms.com/api/sendmsg.php` +
-      `?user=innovations` +
-      `&pass=********` +
-      `&sender=BUZWAP` +
-      `&phone=${WHATSAPP_NOTIFY_NUMBER}` +
-      `&text=${message}` +
-      `&priority=wa` +
-      `&stype=normal`;
+    // Build the client's phone number (10 digits only, no country code)
+    const rawPhone = (formData.phoneNumber || '').replace(/\D/g, '');
+    const clientPhone = rawPhone.startsWith('91') ? rawPhone.slice(2) : rawPhone;
 
-    await fetch(url, { method: 'GET', mode: 'no-cors' });
+    // Format amount with ₹ symbol
+    const amount = `₹${formData.amount}`;
+
+    // Build template message: Hello {{1}}, an amount of {{2}} has been collected...
+    const templateMessage = `Hello ${formData.clientName}, an amount of ${amount} has been collected and updated in your account. Thanks, Flash Innovations!`;
+
+    // URL encode the template message
+    const encodedMessage = encodeURIComponent(templateMessage);
+
+    // Build the complete API URL with your credentials
+    const apiUrl = `http://bhashsms.com/api/sendmsg.php?user=innovations&pass=9447733322&sender=BUZWAP&phone=${clientPhone}&text=${encodedMessage}&priority=wa&stype=normal`;
+
+    // Send the notification
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      mode: 'no-cors'
+    });
+
+    console.log('WhatsApp notification sent to:', clientPhone, '| Client:', formData.clientName, '| Amount:', amount);
+    return true;
   } catch (err) {
-    // Notification failure should not block the form flow
-    console.warn('WhatsApp notification failed:', err);
+    console.error('WhatsApp notification failed:', err.message);
+    return false;
   }
 };
 
 // ── Component ──────────────────────────────────────────────────
 const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
-  const isEdit = Boolean(initialData?.id);
+  const isEdit = Boolean(initialData?.id ?? initialData?._id ?? initialData?.payment_id);
 
   const [formData, setFormData] = useState({
     clientName: '',
@@ -47,12 +49,15 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
     paidFor: '',
     notes: '',
     paymentProof: null,
+    cashReceived: null,
   });
 
   const [errors, setErrors]            = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null);
   const [branches, setBranches]         = useState([]);
+  const [showCashPopup, setShowCashPopup] = useState(false);
+  const [pendingSuccess, setPendingSuccess] = useState(null); // { normalized, formSnapshot }
 
   // ── Departments from FlashERP ─────────────────────────────────
   const [departments, setDepartments] = useState([]);
@@ -311,6 +316,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
         paidFor:        initialData.paidFor        ?? '',
         notes:          initialData.notes          ?? '',
         paymentProof:   null,
+        cashReceived:   initialData.cashReceived   ?? null,
       });
       setErrors({});
       setSubmitStatus(null);
@@ -374,7 +380,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
   const resetForm = () => {
     setFormData({
       clientName: '', place: '', phoneNumber: '', department: '', branch: '',
-      collectionType: '', amount: '', paidFor: '', notes: '', paymentProof: null,
+      collectionType: '', amount: '', paidFor: '', notes: '', paymentProof: null, cashReceived: null,
     });
     setErrors({});
     setSubmitStatus(null);
@@ -393,19 +399,23 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
     setSubmitStatus(null);
     try {
       const saved = isEdit
-        ? await updatePayment(initialData.id, formData)
+        ? await updatePayment(initialData.id ?? initialData._id ?? initialData.payment_id, formData)
         : await createPayment(formData);
       const normalized = normalizePayment(saved);
       setSubmitStatus({
         type: 'success',
         message: isEdit ? 'Payment updated successfully!' : 'Payment submitted successfully!',
       });
-      // Send WhatsApp notification only on new payment creation
-      if (!isEdit) {
+      // Only show cash popup for NEW submissions, never for updates
+      const isNewRecord = !isEdit && !(initialData?.id ?? initialData?._id ?? initialData?.payment_id);
+      if (isNewRecord) {
         sendWhatsAppNotification(formData);
-        resetForm();
+        // Store result and show popup — reset/onSuccess happen after dismiss
+        setPendingSuccess({ normalized });
+        setShowCashPopup(true);
+      } else {
+        if (typeof onSuccess === 'function') onSuccess(normalized);
       }
-      if (typeof onSuccess === 'function') onSuccess(normalized);
     } catch (error) {
       console.error('Submission error:', error);
       setSubmitStatus({
@@ -901,6 +911,113 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
         </div>
 
       </form>
+
+      {/* ── Collection Submitted Popup ── */}
+      {showCashPopup && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: '14px', padding: '36px 32px',
+            minWidth: '320px', maxWidth: '400px', width: '90%', textAlign: 'center',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.22)',
+          }}>
+            {/* Success check */}
+            <div style={{
+              width: '64px', height: '64px', borderRadius: '50%',
+              background: '#e8f5ee', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', margin: '0 auto 16px',
+            }}>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="12" fill="#266648"/>
+                <path d="M7 12.5l3.5 3.5 6.5-7" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+
+            <h3 style={{ margin: '0 0 6px', color: '#1a1a1a', fontSize: '18px', fontWeight: 700 }}>
+              Collection Submitted!
+            </h3>
+            <p style={{ margin: '0 0 20px', color: '#666', fontSize: '13.5px', lineHeight: 1.5 }}>
+              Payment has been recorded successfully.
+            </p>
+
+            {/* Cash receiver confirmation */}
+            <div style={{
+              background: '#f6faf8', border: '1.5px solid #c3dfd1',
+              borderRadius: '10px', padding: '14px 16px', marginBottom: '24px',
+            }}>
+              <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#266648', fontSize: '14px' }}>
+                💵 Cash Received by Collector?
+              </p>
+              <p style={{ margin: 0, color: '#555', fontSize: '12.5px' }}>
+                Confirm whether the cash has been physically collected.
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                onClick={async () => {
+                  const normalized = pendingSuccess?.normalized;
+                  setShowCashPopup(false);
+                  resetForm();
+                  if (normalized?.id != null) {
+                    try {
+                      await apiFetch(`${ENDPOINTS.payment(normalized.id)}`, {
+                        method: 'PATCH',
+                        headers: authHeaders({ 'Content-Type': 'application/json' }),
+                        body: JSON.stringify({ cash_received: true }),
+                      });
+                    } catch (err) {
+                      console.warn('Failed to save cash_received:', err);
+                    }
+                  }
+                  if (typeof onSuccess === 'function' && normalized) {
+                    onSuccess({ ...normalized, cashReceived: true });
+                  }
+                  setPendingSuccess(null);
+                }}
+                style={{
+                  flex: 1, padding: '11px 0', borderRadius: '8px',
+                  border: 'none', background: '#266648', color: '#fff',
+                  fontWeight: 700, fontSize: '14px', cursor: 'pointer',
+                }}
+              >
+                ✓ Yes, Received
+              </button>
+              <button
+                onClick={async () => {
+                  const normalized = pendingSuccess?.normalized;
+                  setShowCashPopup(false);
+                  resetForm();
+                  if (normalized?.id != null) {
+                    try {
+                      await apiFetch(`${ENDPOINTS.payment(normalized.id)}`, {
+                        method: 'PATCH',
+                        headers: authHeaders({ 'Content-Type': 'application/json' }),
+                        body: JSON.stringify({ cash_received: false }),
+                      });
+                    } catch (err) {
+                      console.warn('Failed to save cash_received:', err);
+                    }
+                  }
+                  if (typeof onSuccess === 'function' && normalized) {
+                    onSuccess({ ...normalized, cashReceived: false });
+                  }
+                  setPendingSuccess(null);
+                }}
+                style={{
+                  flex: 1, padding: '11px 0', borderRadius: '8px',
+                  border: '1.5px solid #ddd', background: '#f5f5f5',
+                  color: '#444', fontWeight: 700, fontSize: '14px', cursor: 'pointer',
+                }}
+              >
+                ✗ Not Yet
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -14,7 +14,7 @@ class AuthError extends Error {
 }
 
 // ── Mobile Card Component ──────────────────────────────────────
-function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, onStatusUpdate, onEdit, onDelete, editLoading, mode, isAdmin }) {
+function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, onStatusUpdate, onEdit, onDelete, editLoading, mode, isAdmin, cashReceived }) {
   const [expanded, setExpanded] = React.useState(false);
 
   const formatCurrency = (amount) =>
@@ -130,12 +130,35 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
               <div className="mc-val">{payment.paidFor}</div>
             </div>
           )}
+          <div>
+            <div className="mc-lbl">Cash Received</div>
+            <div className="mc-val">
+              {cashReceived === true ? (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 3,
+                  background: "#e6f4ea", color: "#188038",
+                  borderRadius: 20, padding: "2px 9px",
+                  fontSize: 11, fontWeight: 700,
+                }}>✓ Yes</span>
+              ) : cashReceived === false ? (
+                <span style={{
+                  display: "inline-flex", alignItems: "center", gap: 3,
+                  background: "#fce8e6", color: "#c5221f",
+                  borderRadius: 20, padding: "2px 9px",
+                  fontSize: 11, fontWeight: 700,
+                }}>✗ No</span>
+              ) : (
+                <span style={{ color: "#9ca3af", fontSize: 12 }}>—</span>
+              )}
+            </div>
+          </div>
           {payment.paymentProofUrl && (
             <div>
               <div className="mc-lbl">Proof</div>
-              <a className="file-link" href={payment.paymentProofUrl} target="_blank" rel="noopener noreferrer">
+              <button className="file-link" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, gap: 4 }}
+                onClick={e => { e.stopPropagation(); setProofViewer(payment.paymentProofUrl); }}>
                 <VisibilityOutlinedIcon style={{ fontSize: 18 }} /> View
-              </a>
+              </button>
             </div>
           )}
           {canEditDelete && (
@@ -210,6 +233,10 @@ const PaymentTable = ({ mode = 'all' }) => {
   const [editingPayment, setEditingPayment]   = useState(null);
   const [editLoading, setEditLoading]         = useState(false);
   
+  // Cash received map: merged from API data + any popup answers in this session
+  const [cashReceivedMap, setCashReceivedMap] = useState({});
+  const [proofViewer, setProofViewer]         = useState(null); // url string
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -243,7 +270,18 @@ const PaymentTable = ({ mode = 'all' }) => {
       );
 
       const list = Array.isArray(data) ? data : (data.results ?? []);
-      setPayments(list.map(normalizePayment));
+      const normalized = list.map(normalizePayment);
+      setPayments(normalized);
+      // Seed cashReceivedMap from whatever the API already has persisted
+      setCashReceivedMap(prev => {
+        const next = { ...prev };
+        normalized.forEach(p => {
+          if (p.cashReceived !== null && p.cashReceived !== undefined) {
+            next[p.id] = p.cashReceived;
+          }
+        });
+        return next;
+      });
       setCurrentPage(1); // Reset to first page when filters change
     } catch (err) {
       if (err.name === 'AuthError') {
@@ -262,6 +300,10 @@ const PaymentTable = ({ mode = 'all' }) => {
   // ── Add new payment from PaymentForm ──────────────────────────
   const handleNewPayment = async (normalizedPayment) => {
     setShowPaymentForm(false);
+    // Store cash received status for this payment if provided
+    if (normalizedPayment?.id != null && normalizedPayment.cashReceived !== undefined) {
+      setCashReceivedMap(prev => ({ ...prev, [normalizedPayment.id]: normalizedPayment.cashReceived }));
+    }
     await loadPayments();
   };
 
@@ -428,7 +470,7 @@ const PaymentTable = ({ mode = 'all' }) => {
   const collectionTypes = ['all', 'Cash', 'Cheque', 'Bank Transfer', 'Credit Card', 'Debit Card', 'Online Payment'];
 
   // Table headers
-  const headers = ["Sl. no.", "Date", "Client Name", "Branch", "Department", "Payment Type", "Amount", "Paid For", "Status", "Proof", "Action"];
+  const headers = ["Sl. no.", "Date", "Client Name", "Branch", "Department", "Payment Type", "Amount", "Paid For", "Cash Received", "Status", "Proof", "Action"];
 
   // Table styles - th font size set to 20
   const thStyle = { 
@@ -889,6 +931,7 @@ const PaymentTable = ({ mode = 'all' }) => {
           .mc-chevron { font-size: 10px !important; }
           .mobile-card-list { gap: 8px !important; }
           .mobile-card-scroll-wrapper { padding-bottom: 10px !important; }
+          .desktop-pagination-only { display: none !important; }
         }
       `}</style>
 
@@ -1023,7 +1066,7 @@ const PaymentTable = ({ mode = 'all' }) => {
                   <thead>
                     <tr>
                       {headers.map(h => (
-                        <th key={h} className={["Department","Paid For","Proof"].includes(h) ? "col-hide-mobile" : ""} style={{ ...thStyle, textAlign: h === "Amount" ? "right" : "left" }}>{h}</th>
+                        <th key={h} className={["Department","Paid For","Proof","Cash Received"].includes(h) ? "col-hide-mobile" : ""} style={{ ...thStyle, textAlign: h === "Amount" ? "right" : "left" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -1100,6 +1143,30 @@ const PaymentTable = ({ mode = 'all' }) => {
                         {/* Paid For */}
                         <td className="paidfor-cell col-hide-mobile" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 160 }}>{payment.paidFor}</td>
 
+                        {/* Cash Received */}
+                        <td className="col-hide-mobile" style={{ ...tdStyle, textAlign: "center" }}>
+                          {cashReceivedMap[payment.id] === true ? (
+                            <span style={{
+                              display: "inline-flex", alignItems: "center", gap: 4,
+                              background: "#e6f4ea", color: "#188038",
+                              borderRadius: 6, padding: "3px 10px",
+                              fontSize: 12, fontWeight: 700,
+                            }}>
+                              ✓ Yes
+                            </span>
+                          ) : cashReceivedMap[payment.id] === false ? (
+                            <span style={{
+                              display: "inline-flex",alignItems: "center", gap: 4,
+                              background: "#fce8e6", color: "#c5221f",
+                              borderRadius: 6, padding: "3px 10px",
+                              fontSize: 12, fontWeight: 700,
+                            }}>
+                              ✗ No
+                            </span>
+                          ) : (
+                            <span style={{ color: "#cbd5e1", fontSize: 12 }}>—</span>
+                          )}
+                        </td>
 
                         {/* Status */}
                         <td style={tdStyle}>
@@ -1118,9 +1185,10 @@ const PaymentTable = ({ mode = 'all' }) => {
                         {/* Proof */}
                         <td className="col-hide-mobile" style={{ ...tdStyle, textAlign: "left" }}>
                           {payment.paymentProofUrl ? (
-                            <a className="file-link" href={payment.paymentProofUrl} target="_blank" rel="noopener noreferrer">
+                            <button className="file-link" style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                              onClick={() => setProofViewer(payment.paymentProofUrl)}>
                               <VisibilityOutlinedIcon style={{ fontSize: 18 }} />
-                            </a>
+                            </button>
                           ) : (
                             <span className="no-proof">—</span>
                           )}
@@ -1165,7 +1233,7 @@ const PaymentTable = ({ mode = 'all' }) => {
 
               {/* ── Pagination ── */}
               {totalPages > 1 && (
-                <div className="pagination-container">
+                <div className="pagination-container desktop-pagination-only">
                   <button
                     className="pagination-button"
                     onClick={goToPreviousPage}
@@ -1235,6 +1303,7 @@ const PaymentTable = ({ mode = 'all' }) => {
                     editLoading={editLoading}
                     mode={mode}
                     isAdmin={isAdmin}
+                    cashReceived={cashReceivedMap[payment.id]}
                   />
                 ))}
                 {/* Mobile pagination */}
@@ -1258,6 +1327,43 @@ const PaymentTable = ({ mode = 'all' }) => {
           )}
         </div>
       </div>
+
+      {/* ── Proof Viewer Modal ── */}
+      {proofViewer && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 16 }}
+          onClick={() => setProofViewer(null)}>
+          <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 720, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(0,0,0,0.35)", overflow: "hidden" }}
+            onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: "1px solid #e8eaed", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <VisibilityOutlinedIcon style={{ fontSize: 18, color: "#1a73e8" }} />
+                <span style={{ fontWeight: 700, fontSize: 15, color: "#202124", fontFamily: "'Google Sans', sans-serif" }}>Payment Proof</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <a href={proofViewer} target="_blank" rel="noreferrer"
+                  style={{ padding: "6px 14px", borderRadius: 7, background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none", fontFamily: "'Google Sans', sans-serif" }}>
+                  Open in new tab
+                </a>
+                <button onClick={() => setProofViewer(null)}
+                  style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e8eaed", background: "#f8f9fa", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#5f6368", lineHeight: 1 }}>
+                  ×
+                </button>
+              </div>
+            </div>
+            {/* Content */}
+            <div style={{ flex: 1, minHeight: 0, overflow: "auto", background: "#f8f9fa", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+              {/\.(jpg|jpeg|png|gif|webp)$/i.test(proofViewer) ? (
+                <img src={proofViewer} alt="Payment Proof"
+                  style={{ maxWidth: "100%", maxHeight: "70vh", borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.15)", objectFit: "contain" }} />
+              ) : (
+                <iframe src={proofViewer} title="Payment Proof"
+                  style={{ width: "100%", height: "70vh", border: "none", borderRadius: 8 }} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── New Payment Modal ── */}
       {showPaymentForm && (

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import ImageCaptureLinkGenerator from './Image_link';
 import PhoneVerification from './phoneverify';
 import OtpVerification from './Otp_verification';
@@ -7,6 +7,16 @@ import ImageCaptureFlow from './Image_capture';
 const ImageCaptureList = ({ onGenerateLink }) => {
   // Google Sans font
   const fontStyle = { fontFamily: "'Google Sans', sans-serif" };
+
+  // ── Mobile detection ──────────────────────────────────────────
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' ? window.innerWidth < 768 : false
+  );
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // ── Top-level screen routing ──────────────────────────────────
   // screen: null | "phoneVerify" | "otpVerify" | "captureFlow"
@@ -395,127 +405,262 @@ const ImageCaptureList = ({ onGenerateLink }) => {
         </div>
         </div>
 
-        {/* Table Container */}
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table style={tableStyles.table}>
-              <thead>
-                <tr style={tableStyles.theadRow}>
-                  <th style={tableStyles.th}>Sl. No</th>
-                  <th style={tableStyles.th}>Client Details</th>
-                  <th style={tableStyles.th}>Image</th>
-                  <th style={tableStyles.th}>Location</th>
-                  <th style={tableStyles.th}>Coordinate</th>
-                  <th style={tableStyles.th}>Verification Time</th>
-                  <th style={tableStyles.th}>Status</th>
-                  <th style={tableStyles.th}>Manual Status</th>
-                  <th style={tableStyles.th}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {captureData.map((item, index) => (
-                  <tr key={item.id} className="hover:bg-gray-50 transition-colors">
-                    <td style={tableStyles.td}>{index + 1}</td>
-                    <td style={tableStyles.td}>
-                      <div className="font-medium text-gray-900">{item.clientDetails.name}</div>
-                      
-                      <div className="text-gray-500 text-xs">{item.clientDetails.phone}</div>
-                    </td>
-                    <td style={tableStyles.td}>
-                      <img
-                        src={item.image}
-                        alt={`Client ${item.clientDetails.name}`}
-                        style={{ width: 28, height: 28, borderRadius: 4, objectFit: "cover", border: "1px solid #e5e7eb", cursor: "zoom-in" }}
-                        onClick={() => setPreviewImg({ src: item.image, name: item.clientDetails.name })}
-                      />
-                    </td>
-                    <td style={tableStyles.td}>{item.location}</td>
-                    <td style={tableStyles.td} className="font-mono">{item.coordinate}</td>
-                    <td style={tableStyles.td}>{item.verificationTime}</td>
-                    <td style={tableStyles.td}>
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(item.status)}`}>
-                        {item.status}
-                      </span>
-                    </td>
-                    <td style={tableStyles.td}>
-                      <select
-                        value={item.manualStatus}
-                        onChange={(e) => {
-                          setCaptureData(captureData.map(d =>
-                            d.id === item.id ? { ...d, manualStatus: e.target.value } : d
-                          ));
-                        }}
-                        style={{
-                          padding: "4px 6px",
-                          borderRadius: 6,
-                          border: "1.5px solid #d1d5db",
-                          fontSize: 11,
-                          fontWeight: 600,
-                          fontFamily: "'Google Sans', sans-serif",
-                          cursor: "pointer",
-                          outline: "none",
-                          width: "90px",
-                          background: item.manualStatus === "Verified" ? "#10973f" : "rgb(247,170,4) ",
-                          color: item.manualStatus === "Verified" ? "#fafdfb" : "#f7f6f4",
-                        }}
-                      >
-                        <option value="Pending">Pending</option>
-                        <option value="Verified">Verified</option>
-                      </select>
-                    </td>
-                    <td style={tableStyles.td}>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        {/* Edit */}
-                        <button
-                          onClick={() => handleEdit(item)}
-                          title="Edit"
-                          style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
-                        >
-                          <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        {/* Download */}
-                        <button
-                          onClick={() => handleDownload(item)}
-                          title="Download"
-                          style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#09832d", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
-                        >
-                          <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                          </svg>
-                        </button>
-                        {/* Delete */}
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          title="Delete"
-                          style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#d93025", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
-                        >
-                          <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
+        {/* ── DESKTOP: Table Container (unchanged) ── */}
+        {!isMobile && (
+          <div className="bg-white rounded-lg shadow overflow-hidden">
+            <div className="overflow-x-auto">
+              <table style={tableStyles.table}>
+                <thead>
+                  <tr style={tableStyles.theadRow}>
+                    <th style={tableStyles.th}>Sl. No</th>
+                    <th style={tableStyles.th}>Client Details</th>
+                    <th style={tableStyles.th}>Image</th>
+                    <th style={tableStyles.th}>Location</th>
+                    <th style={tableStyles.th}>Coordinate</th>
+                    <th style={tableStyles.th}>Verification Time</th>
+                    <th style={tableStyles.th}>Status</th>
+                    <th style={tableStyles.th}>Manual Status</th>
+                    <th style={tableStyles.th}>Action</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Empty State */}
-          {captureData.length === 0 && (
-            <div className="text-center py-12">
-              <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              <p className="mt-2 text-gray-500">No image capture records found</p>
+                </thead>
+                <tbody>
+                  {captureData.map((item, index) => (
+                    <tr key={item.id} className="hover:bg-gray-50 transition-colors">
+                      <td style={tableStyles.td}>{index + 1}</td>
+                      <td style={tableStyles.td}>
+                        <div className="font-medium text-gray-900">{item.clientDetails.name}</div>
+                        
+                        <div className="text-gray-500 text-xs">{item.clientDetails.phone}</div>
+                      </td>
+                      <td style={tableStyles.td}>
+                        <img
+                          src={item.image}
+                          alt={`Client ${item.clientDetails.name}`}
+                          style={{ width: 28, height: 28, borderRadius: 4, objectFit: "cover", border: "1px solid #e5e7eb", cursor: "zoom-in" }}
+                          onClick={() => setPreviewImg({ src: item.image, name: item.clientDetails.name })}
+                        />
+                      </td>
+                      <td style={tableStyles.td}>{item.location}</td>
+                      <td style={tableStyles.td} className="font-mono">{item.coordinate}</td>
+                      <td style={tableStyles.td}>{item.verificationTime}</td>
+                      <td style={tableStyles.td}>
+                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(item.status)}`}>
+                          {item.status}
+                        </span>
+                      </td>
+                      <td style={tableStyles.td}>
+                        <select
+                          value={item.manualStatus}
+                          onChange={(e) => {
+                            setCaptureData(captureData.map(d =>
+                              d.id === item.id ? { ...d, manualStatus: e.target.value } : d
+                            ));
+                          }}
+                          style={{
+                            padding: "4px 6px",
+                            borderRadius: 6,
+                            border: "1.5px solid #d1d5db",
+                            fontSize: 11,
+                            fontWeight: 600,
+                            fontFamily: "'Google Sans', sans-serif",
+                            cursor: "pointer",
+                            outline: "none",
+                            width: "90px",
+                            background: item.manualStatus === "Verified" ? "#10973f" : "rgb(247,170,4) ",
+                            color: item.manualStatus === "Verified" ? "#fafdfb" : "#f7f6f4",
+                          }}
+                        >
+                          <option value="Pending">Pending</option>
+                          <option value="Verified">Verified</option>
+                        </select>
+                      </td>
+                      <td style={tableStyles.td}>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          {/* Edit */}
+                          <button
+                            onClick={() => handleEdit(item)}
+                            title="Edit"
+                            style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
+                          >
+                            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                          </button>
+                          {/* Download */}
+                          <button
+                            onClick={() => handleDownload(item)}
+                            title="Download"
+                            style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#09832d", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
+                          >
+                            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                          </button>
+                          {/* Delete */}
+                          <button
+                            onClick={() => handleDelete(item.id)}
+                            title="Delete"
+                            style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#d93025", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
+                          >
+                            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-          )}
 
-          {/* Footer with pagination (optional) */}
-          
-        </div>
+            {/* Empty State */}
+            {captureData.length === 0 && (
+              <div className="text-center py-12">
+                <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <p className="mt-2 text-gray-500">No image capture records found</p>
+              </div>
+            )}
+
+            {/* Footer with pagination (optional) */}
+            
+          </div>
+        )}
+
+        {/* ── MOBILE: Card View ── */}
+        {isMobile && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {captureData.length === 0 && (
+              <div style={{ textAlign: 'center', padding: '48px 0', color: '#9ca3af' }}>
+                <svg style={{ margin: '0 auto 8px', display: 'block' }} width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                <p style={{ fontSize: 14 }}>No image capture records found</p>
+              </div>
+            )}
+
+            {captureData.map((item, index) => (
+              <div
+                key={item.id}
+                style={{
+                  background: '#fff',
+                  borderRadius: 12,
+                  border: '1px solid #e8eaed',
+                  boxShadow: '0 1px 6px rgba(0,0,0,0.07)',
+                  overflow: 'hidden',
+                  fontFamily: "'Google Sans', sans-serif",
+                }}
+              >
+                {/* Card Header: serial + image + name + status badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 14px 10px' }}>
+                  <div style={{ minWidth: 26, height: 26, borderRadius: '50%', background: '#0990eb', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                    {index + 1}
+                  </div>
+                  <img
+                    src={item.image}
+                    alt={item.clientDetails.name}
+                    onClick={() => setPreviewImg({ src: item.image, name: item.clientDetails.name })}
+                    style={{ width: 42, height: 42, borderRadius: 8, objectFit: 'cover', border: '1px solid #e5e7eb', cursor: 'zoom-in', flexShrink: 0 }}
+                  />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: '#0d0d0e', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {item.clientDetails.name}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{item.clientDetails.phone}</div>
+                  </div>
+                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(item.status)}`} style={{ flexShrink: 0 }}>
+                    {item.status}
+                  </span>
+                </div>
+
+                {/* Divider */}
+                <div style={{ height: 1, background: '#f0f0f0' }} />
+
+                {/* Card Body: info rows */}
+                <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {/* Location */}
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                    <svg width="13" height="13" style={{ marginTop: 1, flexShrink: 0 }} fill="none" stroke="#6b7280" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500, minWidth: 70, flexShrink: 0 }}>Location:</span>
+                    <span style={{ fontSize: 12, color: '#111827' }}>{item.location}</span>
+                  </div>
+                  {/* Coordinate */}
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                    <svg width="13" height="13" style={{ marginTop: 1, flexShrink: 0 }} fill="none" stroke="#6b7280" viewBox="0 0 24 24">
+                      <circle cx="12" cy="12" r="10" strokeWidth={2} />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20" />
+                    </svg>
+                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500, minWidth: 70, flexShrink: 0 }}>Coordinate:</span>
+                    <span style={{ fontSize: 12, color: '#111827', fontFamily: 'monospace', wordBreak: 'break-all' }}>{item.coordinate}</span>
+                  </div>
+                  {/* Verification Time */}
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
+                    <svg width="13" height="13" style={{ marginTop: 1, flexShrink: 0 }} fill="none" stroke="#6b7280" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500, minWidth: 70, flexShrink: 0 }}>Verified At:</span>
+                    <span style={{ fontSize: 12, color: '#111827' }}>{item.verificationTime}</span>
+                  </div>
+                  {/* Manual Status */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
+                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Manual Status</span>
+                    <select
+                      value={item.manualStatus}
+                      onChange={(e) => {
+                        setCaptureData(captureData.map(d =>
+                          d.id === item.id ? { ...d, manualStatus: e.target.value } : d
+                        ));
+                      }}
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: 6,
+                        border: "1.5px solid #d1d5db",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        fontFamily: "'Google Sans', sans-serif",
+                        cursor: "pointer",
+                        outline: "none",
+                        minWidth: 90,
+                        background: item.manualStatus === "Verified" ? "#10973f" : "rgb(247,170,4)",
+                        color: item.manualStatus === "Verified" ? "#fafdfb" : "#f7f6f4",
+                      }}
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Verified">Verified</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Card Footer: action buttons */}
+                <div style={{ borderTop: '1px solid #f0f0f0', padding: '10px 14px', display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+                  <button onClick={() => handleEdit(item)} title="Edit"
+                    style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}>
+                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  <button onClick={() => handleDownload(item)} title="Download"
+                    style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#09832d", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}>
+                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                  </button>
+                  <button onClick={() => handleDelete(item.id)} title="Delete"
+                    style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#d93025", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}>
+                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Image Preview Modal */}

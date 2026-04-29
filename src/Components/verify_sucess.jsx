@@ -106,8 +106,9 @@ export default function VerificationSuccess({ overrideState }) {
 
         .vs-page {
           min-height: 100vh;
+          min-height: -webkit-fill-available;
           display: flex; align-items: center; justify-content: center;
-          padding: 24px;
+          padding: 16px;
           background: white;
         }
         .vs-card {
@@ -118,6 +119,7 @@ export default function VerificationSuccess({ overrideState }) {
           box-shadow: 0 12px 48px rgba(0,0,0,0.14);
           display: flex; flex-direction: column; align-items: center;
           animation: slideIn 0.35s ease both;
+          box-sizing: border-box;
         }
 
         /* ── Checkmark circle ── */
@@ -226,9 +228,31 @@ export default function VerificationSuccess({ overrideState }) {
           cursor: pointer; display: flex; align-items: center; gap: 7px;
           transition: background 0.18s, transform 0.15s;
           animation: fadeUp 0.4s 0.3s ease both;
+          min-height: 46px;
         }
         .vs-close-btn:hover { background: #e5e7eb; transform: translateY(-1px); }
         .vs-close-btn:active { transform: translateY(0); }
+
+        @media (max-width: 480px) {
+          .vs-page { align-items: flex-start; padding: 12px; }
+          .vs-card { padding: 24px 16px 20px; border-radius: 16px; margin-top: 8px; margin-bottom: 8px; }
+          .vs-title { font-size: 19px; }
+          .vs-subtitle { font-size: 12px; margin-bottom: 16px; }
+          .vs-thumb-wrap { width: 130px; height: 110px; margin-bottom: 18px; }
+          .vs-row { padding: 11px 0; gap: 10px; }
+          .vs-icon-wrap { width: 32px; height: 32px; border-radius: 8px; }
+          .vs-row-value { font-size: 14px; }
+          .vs-close-btn { width: 100%; justify-content: center; padding: 13px 24px; }
+          .loc-box { padding: 10px 12px; }
+          .loc-box-addr { font-size: 12px; }
+          .loc-box-coords { font-size: 11px; }
+        }
+        @media (max-width: 360px) {
+          .vs-card { padding: 20px 12px 16px; }
+          .vs-title { font-size: 17px; }
+          .vs-row-label { font-size: 9px; }
+          .vs-row-value { font-size: 13px; }
+        }
       `}</style>
 
       <div className="vs-page">

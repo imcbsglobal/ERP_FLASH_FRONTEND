@@ -77,20 +77,22 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
     return () => clearTimeout(debounceRef.current);
   }, [searchQuery]);
 
+  const cleanName = (name) => (name || "").replace(/\d+$/, "").trim();
+
   const q = searchQuery.trim().toLowerCase();
   const filteredCustomers = q
-    ? customers.filter(c => c.name.toLowerCase().startsWith(q))
+    ? customers.filter(c => cleanName(c.name).toLowerCase().startsWith(q))
     : customers;
 
   const handleGenerate = async () => {
-    const name = mode === "select" ? selectedCustomer?.name : manualName;
+    const name = mode === "select" ? cleanName(selectedCustomer?.name) : manualName;
     if (!name || !phone) return;
     setIsGenerating(true);
     
     try {
       const data = await generateCaptureLink({
         customerId:     null,                                              // debtors have no local DB id
-        customerName:   mode === "select" ? selectedCustomer?.name : manualName,
+        customerName:   mode === "select" ? cleanName(selectedCustomer?.name) : manualName,
         phone:          phone,
         expiresInHours: 24,
       });
@@ -116,7 +118,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
 
   const handleOpenLink = (e) => {
     e.preventDefault();
-    const customerName = mode === "select" ? selectedCustomer?.name : manualName;
+    const customerName = mode === "select" ? cleanName(selectedCustomer?.name) : manualName;
     onLinkClick?.({ customerName, phone: successData?.phone || phone });
   };
 
@@ -132,7 +134,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
 
   const isDisabled = isGenerating || !phone || (mode === "select" ? !selectedCustomer : !manualName);
 
-  const customerName = mode === "select" ? selectedCustomer?.name : manualName;
+  const customerName = mode === "select" ? cleanName(selectedCustomer?.name) : manualName;
 
   const handleContinueToUpload = () => {
     if (!customerName || !phone) return;
@@ -155,9 +157,20 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
         .abtn:hover{filter:brightness(0.94)}
         .link-text-clickable { color:#098ae1; text-decoration:underline; cursor:pointer; word-break:break-all; }
         .link-text-clickable:hover { color:#0770b8; }
+        @media (max-width: 540px) {
+          .img-link-header { flex-direction: column !important; gap: 10px !important; align-items: flex-start !important; }
+          .img-link-header h1 { font-size: 20px !important; }
+          .img-link-card { padding: 20px 16px !important; border-radius: 14px !important; }
+          .img-link-action-row { flex-direction: column !important; }
+          .img-link-action-row button, .img-link-action-row a { width: 100% !important; justify-content: center !important; min-height: 46px !important; }
+          .gen-btn { min-height: 48px !important; }
+        }
+        @media (max-width: 380px) {
+          .img-link-header h1 { font-size: 17px !important; }
+        }
       `}</style>
 
-      <div style={s.header}>
+      <div style={s.header} className="img-link-header">
         <div style={s.iconWrap}>
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#098ae1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 0 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
@@ -171,7 +184,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
       </div>
 
       {successData ? (
-        <div style={s.card}>
+        <div style={s.card} className="img-link-card">
           <div style={{ animation: "fadeSlideUp 0.4s ease both" }}>
             <div style={s.circleWrap}>
               <div style={s.circle}>
@@ -220,7 +233,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
               <span style={s.shareLabel}>Share with customer:</span>
             </div>
 
-            <div style={s.actionRow}>
+            <div style={s.actionRow} className="img-link-action-row">
               <button
                 className="abtn"
                 onClick={() => setMsgQueued(true)}
@@ -247,7 +260,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
           </div>
         </div>
       ) : (
-        <div style={s.card}>
+        <div style={s.card} className="img-link-card">
           <div style={s.fieldGroup}>
             <label style={s.label}>
               <span style={{ color: "#098ae1", fontSize: 12 }}>▼</span> Filter by Branch:
@@ -293,7 +306,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
                   autoComplete="off"
                   placeholder="Type at least 2 characters to search..."
                   // collection.jsx pattern: show searchQuery while typing, show selected name when idle
-                  value={searchQuery !== "" ? searchQuery : (selectedCustomer ? selectedCustomer.name : "")}
+                  value={searchQuery !== "" ? searchQuery : (selectedCustomer ? cleanName(selectedCustomer.name) : "")}
                   onChange={(e) => {
                     const val = e.target.value;
                     setSearchQuery(val);
@@ -304,7 +317,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
                   onFocus={() => {
                     if (selectedCustomer) {
                       // re-open search pre-filled with their name so they can change
-                      setSearchQuery(selectedCustomer.name);
+                      setSearchQuery(cleanName(selectedCustomer.name));
                       setShowDropdown(true);
                     }
                   }}
@@ -356,7 +369,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
                           }}
                         >
                           {/* Display only customer name without phone number */}
-                          <span style={s.dropName}>{c.name}</span>
+                          <span style={s.dropName}>{cleanName(c.name)}</span>
                           <span style={s.dropBranch}>{c.place || "—"}</span>
                         </div>
                       ))
@@ -461,11 +474,13 @@ function Spinner() {
 
 const s = {
   page: {
-    minHeight: "100vh", background: "white", fontFamily: "'Google Sans', sans-serif",
+    minHeight: "100vh", minHeight: "-webkit-fill-available",
+    background: "white", fontFamily: "'Google Sans', sans-serif",
     display: "flex", flexDirection: "column", alignItems: "center",
     padding: "24px 16px 56px", position: "relative",
+    boxSizing: "border-box",
   },
-  header: { display: "flex", alignItems: "center", gap: "16px", marginBottom: "28px" },
+  header: { display: "flex", alignItems: "center", gap: "16px", marginBottom: "28px", width: "100%", maxWidth: "520px" },
   iconWrap: {
     width: "56px", height: "56px", background: "#e8f0fe", borderRadius: "16px",
     display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,

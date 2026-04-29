@@ -119,11 +119,29 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
 
     } catch (err) {
       console.error("Submission failed:", err);
-      const messages = Object.entries(err)
-        .filter(([k]) => k !== "_status")
-        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
-        .join(" | ");
-      setError(messages || "Failed to submit challan. Please try again.");
+      // Map backend field errors to inline field errors
+      const data = err?.data || {};
+      const fieldMap = {
+        challan_no:     "challanNo",
+        vehicle:        "vehicle",
+        challan_date:   "challanDate",
+        offence_type:   "offenceType",
+        fine_amount:    "fineAmount",
+      };
+      const fieldErrors = {};
+      let hasFieldError = false;
+      Object.entries(data).forEach(([k, v]) => {
+        const mapped = fieldMap[k];
+        if (mapped) {
+          fieldErrors[mapped] = Array.isArray(v) ? v.join(", ") : String(v);
+          hasFieldError = true;
+        }
+      });
+      if (hasFieldError) {
+        setErrors(prev => ({ ...prev, ...fieldErrors }));
+      } else {
+        setError(err.message || "Failed to submit challan. Please try again.");
+      }
     } finally {
       setLoading(false);
     }
@@ -284,9 +302,10 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
 
         /* ── Mobile fit ── */
         @media (max-width: 600px) {
-          .ca-root    { padding: 10px 10px 100px 10px !important; }
+          .ca-root    { padding: 10px 10px 140px 10px !important; }
           .ca-card    { padding: 14px 12px !important; border-radius: 10px !important; }
           .ca-h4      { font-size: 17px !important; margin-bottom: 10px !important; }
+          .ct         { min-height: 100px !important; margin-bottom: 8px !important; }
 
           /* Pin actions bar to bottom of screen */
           .ca-actions {

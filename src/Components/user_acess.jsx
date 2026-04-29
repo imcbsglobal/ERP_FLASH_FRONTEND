@@ -17,12 +17,13 @@ import PlaylistAddCheckOutlinedIcon from '@mui/icons-material/PlaylistAddCheckOu
 import DriveEtaOutlinedIcon from '@mui/icons-material/DriveEtaOutlined';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import EmergencyOutlinedIcon from '@mui/icons-material/EmergencyOutlined';
+import CameraAltOutlinedIcon from '@mui/icons-material/CameraAltOutlined';
 
 // ── Static config ─────────────────────────────────────────────────────────────
-const ROLES = ["Admin", "Manager", "Operator", "Viewer", "Support", "Auditor"];
+const ROLES = ["Admin", "Super Admin", "User"];
 
 // All permission keys — mirrors Layout.jsx NAV exactly
-const ALL_PERM_KEYS = ["dashboard", "col_reports", "col_reports_view", "vm_trips", "vm_service", "cl_list", "um_users", "um_roles", "mm_vehicle"];
+const ALL_PERM_KEYS = ["dashboard", "col_reports", "col_reports_view", "vm_trips", "vm_service", "cl_list", "image_capture", "um_users", "um_roles", "mm_vehicle"];
 
 const MENU_GROUPS = [
   {
@@ -53,6 +54,13 @@ const MENU_GROUPS = [
     icon: <EmergencyOutlinedIcon style={{ width: 18, height: 18 }} />,
     items: [
       { key: "cl_list", label: "Claims", icon: <EmergencyOutlinedIcon style={{ width: 16, height: 16 }} /> },
+    ],
+  },
+  {
+    group: "Image Capture",
+    icon: <CameraAltOutlinedIcon style={{ width: 18, height: 18 }} />,
+    items: [
+      { key: "image_capture", label: "Image Capture", icon: <CameraAltOutlinedIcon style={{ width: 16, height: 16 }} /> },
     ],
   },
   {

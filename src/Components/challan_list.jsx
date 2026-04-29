@@ -27,6 +27,7 @@ export default function ChallanList({ onAdd, onEdit }) {
   const [editRow, setEditRow]         = useState(null);
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
   const [remarkPopup, setRemarkPopup] = useState(null);
+  const [docViewer, setDocViewer]     = useState(null); // { url, title }
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -585,12 +586,12 @@ export default function ChallanList({ onAdd, onEdit }) {
             text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px;
           }
           .challan-card-field-value { font-size: 12px; font-weight: 600; color: #202124; }
-          .challan-card-actions { display: flex; gap: 6px; margin-top: 7px; }
-          .challan-card-actions button {
-            flex: 1; padding: 6px 8px; border-radius: 6px; border: none;
-            font-size: 11px; font-weight: 600; cursor: pointer;
+          .challan-card-actions { display: flex; gap: 6px; margin-top: 7px; align-items: stretch; }
+          .challan-card-actions button, .challan-card-actions select {
+            flex: 1; padding: 7px 6px; border-radius: 6px; border: none;
+            font-size: 12px; font-weight: 600; cursor: pointer;
             display: flex; align-items: center; justify-content: center; gap: 4px;
-            font-family: 'Google Sans', sans-serif;
+            font-family: 'Google Sans', sans-serif; min-height: 34px;
           }
           .challan-card-docs {
             display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;
@@ -743,14 +744,16 @@ export default function ChallanList({ onAdd, onEdit }) {
                       {(row.challan_doc_url || row.payment_receipt_url || row.remark) && (
                         <div className="challan-card-docs">
                           {row.challan_doc_url && (
-                            <a className="challan-card-doc-link" href={row.challan_doc_url} target="_blank" rel="noreferrer">
+                            <button className="challan-card-doc-link" style={{ background: "#fdfdfd", border: "none", cursor: "pointer" }}
+                              onClick={() => setDocViewer({ url: row.challan_doc_url, title: "Challan Document" })}>
                               <VisibilityOutlinedIcon style={{ fontSize: 13 }} /> Challan Doc
-                            </a>
+                            </button>
                           )}
                           {row.payment_receipt_url && (
-                            <a className="challan-card-doc-link" href={row.payment_receipt_url} target="_blank" rel="noreferrer">
+                            <button className="challan-card-doc-link" style={{ background: "#fdfdfd", border: "none", cursor: "pointer" }}
+                              onClick={() => setDocViewer({ url: row.payment_receipt_url, title: "Payment Receipt" })}>
                               <VisibilityOutlinedIcon style={{ fontSize: 13 }} /> Receipt
-                            </a>
+                            </button>
                           )}
                           {row.remark && (
                             <button
@@ -884,9 +887,10 @@ export default function ChallanList({ onAdd, onEdit }) {
                         {/* Challan Doc - centered icon */}
                         <td className="col-hide-mobile" style={{ ...tdStyle, textAlign: "center" }}>
                           {row.challan_doc_url ? (
-                            <a className="file-link" href={row.challan_doc_url} target="_blank" rel="noreferrer">
+                            <button className="file-link" style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                              onClick={() => setDocViewer({ url: row.challan_doc_url, title: "Challan Document" })}>
                               <VisibilityOutlinedIcon style={{ fontSize: 18 }} />
-                            </a>
+                            </button>
                           ) : (
                             <span className="no-file">—</span>
                           )}
@@ -895,9 +899,10 @@ export default function ChallanList({ onAdd, onEdit }) {
                         {/* Payment Receipt - centered icon */}
                         <td className="col-hide-mobile" style={{ ...tdStyle, textAlign: "center" }}>
                           {row.payment_receipt_url ? (
-                            <a className="file-link" href={row.payment_receipt_url} target="_blank" rel="noreferrer">
+                            <button className="file-link" style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
+                              onClick={() => setDocViewer({ url: row.payment_receipt_url, title: "Payment Receipt" })}>
                               <VisibilityOutlinedIcon style={{ fontSize: 18 }} />
-                            </a>
+                            </button>
                           ) : (
                             <span className="no-file">—</span>
                           )}
@@ -1013,6 +1018,43 @@ export default function ChallanList({ onAdd, onEdit }) {
           )}
         </div>
       </div>
+
+      {/* ── Document Viewer Modal ── */}
+      {docViewer && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: "16px" }}
+          onClick={() => setDocViewer(null)}>
+          <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 780, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(0,0,0,0.35)", overflow: "hidden" }}
+            onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: "1px solid #e8eaed", flexShrink: 0 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <VisibilityOutlinedIcon style={{ fontSize: 18, color: "#1a73e8" }} />
+                <span style={{ fontWeight: 700, fontSize: 15, color: "#202124", fontFamily: "'Google Sans', sans-serif" }}>{docViewer.title}</span>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <a href={docViewer.url} target="_blank" rel="noreferrer"
+                  style={{ padding: "6px 14px", borderRadius: 7, background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none", fontFamily: "'Google Sans', sans-serif" }}>
+                  Open in new tab
+                </a>
+                <button onClick={() => setDocViewer(null)}
+                  style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e8eaed", background: "#f8f9fa", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#5f6368", lineHeight: 1 }}>
+                  ×
+                </button>
+              </div>
+            </div>
+            {/* Content */}
+            <div style={{ flex: 1, minHeight: 0, overflow: "auto", background: "#f8f9fa", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+              {/\.(jpg|jpeg|png|gif|webp)$/i.test(docViewer.url) ? (
+                <img src={docViewer.url} alt={docViewer.title}
+                  style={{ maxWidth: "100%", maxHeight: "70vh", borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.15)", objectFit: "contain" }} />
+              ) : (
+                <iframe src={docViewer.url} title={docViewer.title}
+                  style={{ width: "100%", height: "70vh", border: "none", borderRadius: 8 }} />
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Remark Popup ── */}
       {remarkPopup && (

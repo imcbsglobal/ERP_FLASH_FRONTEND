@@ -4,7 +4,7 @@ import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const ROLES    = ["Admin", "Manager", "User"];
+const ROLES    = ["Admin", "Super Admin", "User"];
 const STATUSES = ["Active", "Inactive"];
 const EMPTY_FORM = {
   username: "", address: "", phone: "", branch: "",
@@ -339,23 +339,19 @@ export default function RegisteredUsers() {
         setErrors({});
       }, 1500);
     } catch (err) {
+      console.error("Create user error raw:", err, err?.data);
+      const data = err?.data || {};
+      const fieldMap = { username: "username", address: "address", phone: "phone", branch_id: "branch", role: "role", status: "status" };
       const fieldErrors = {};
-      const knownFields = ["username", "address", "phone", "branch_id", "role", "status"];
-      knownFields.forEach(field => {
-        if (err[field]) {
-          fieldErrors[field === "branch_id" ? "branch" : field] =
-            Array.isArray(err[field]) ? err[field][0] : err[field];
-        }
+      Object.entries(data).forEach(([k, v]) => {
+        const mapped = fieldMap[k];
+        if (mapped) fieldErrors[mapped] = Array.isArray(v) ? v[0] : String(v);
       });
       if (Object.keys(fieldErrors).length > 0) {
         setErrors(fieldErrors);
         setApiError("Please fix the highlighted fields.");
-      } else if (err.detail) {
-        setApiError(err.detail);
-      } else if (err.non_field_errors) {
-        setApiError(Array.isArray(err.non_field_errors) ? err.non_field_errors[0] : err.non_field_errors);
       } else {
-        setApiError("Failed to create user. Please try again.");
+        setApiError(err.message || "Failed to create user. Please try again.");
       }
     } finally {
       setSubmitting(false);
@@ -475,30 +471,25 @@ export default function RegisteredUsers() {
       setEditSuccess(true);
       setTimeout(() => { handleCloseEdit(); }, 1200);
     } catch (err) {
-      console.error("Edit user error:", err);
+      console.error("Edit user error raw:", err, err?.data);
       if (err?._status === 404) {
         handleCloseEdit();
         setApiError("That user no longer exists and has been removed from the list.");
         await fetchUsers();
         return;
       }
+      const data = err?.data || {};
+      const fieldMap = { username: "username", address: "address", phone: "phone", branch_id: "branch", role: "role", status: "status", password: "password" };
       const fieldErrors = {};
-      const knownFields = ["username", "address", "phone", "password", "branch_id", "role", "status"];
-      knownFields.forEach(field => {
-        if (err[field]) {
-          fieldErrors[field === "branch_id" ? "branch" : field] =
-            Array.isArray(err[field]) ? err[field][0] : err[field];
-        }
+      Object.entries(data).forEach(([k, v]) => {
+        const mapped = fieldMap[k];
+        if (mapped) fieldErrors[mapped] = Array.isArray(v) ? v[0] : String(v);
       });
       if (Object.keys(fieldErrors).length > 0) {
         setEditErrors(fieldErrors);
         setApiError("Please fix the highlighted fields.");
-      } else if (err.detail) {
-        setApiError(err.detail);
-      } else if (err.non_field_errors) {
-        setApiError(Array.isArray(err.non_field_errors) ? err.non_field_errors[0] : err.non_field_errors);
       } else {
-        setApiError("Failed to update user. Please try again.");
+        setApiError(err.message || "Failed to update user. Please try again.");
       }
     } finally {
       editSubmitInFlight.current = false;

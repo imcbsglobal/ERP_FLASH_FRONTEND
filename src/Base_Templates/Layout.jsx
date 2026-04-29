@@ -177,7 +177,26 @@ const CollapseIcon = ({ isCollapsed }) => (
 );
 
 export default function Layout({ children }) {
-  const [active, setActive] = useState("dashboard");
+  const [active, setActive] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem("active_page");
+      const u = JSON.parse(localStorage.getItem("user") || "{}");
+      const admin = u?.role === "Admin" || u?.is_staff === true;
+      if (saved) {
+        // validate saved page is still permitted
+        if (admin) return saved;
+        const perms = JSON.parse(localStorage.getItem("menu_permissions") || "{}");
+        const allItems = NAV.flatMap(s => s.children ? s.children : [s]);
+        const item = allItems.find(i => i.id === saved);
+        if (item && (item.id === "dashboard" ? false : (!item.permKey || perms[item.permKey] === true))) return saved;
+      }
+      if (admin) return "dashboard";
+      const perms = JSON.parse(localStorage.getItem("menu_permissions") || "{}");
+      const firstAllowed = NAV.flatMap(s => s.children ? s.children : [s])
+        .find(item => item.id !== "dashboard" && (!item.permKey || perms[item.permKey] === true));
+      return firstAllowed?.id || "dashboard";
+    } catch { return "dashboard"; }
+  });
   const [open, setOpen] = useState({
     usermgmt: false,
     collection: false,
@@ -211,6 +230,7 @@ export default function Layout({ children }) {
   const filteredNav = NAV.map(section => {
     if (!section.children) {
       if (isAdmin) return section;
+      if (section.id === "dashboard") return null; // never show dashboard to non-admins
       if (!section.permKey) return section;
       if (permissions[section.permKey] === true) return section;
       return null;
@@ -243,6 +263,7 @@ export default function Layout({ children }) {
       localStorage.removeItem("refresh_token");
       localStorage.removeItem("user");
       localStorage.removeItem("menu_permissions");
+      sessionStorage.removeItem("active_page");
       window.location.href = "/login";
     }
   };
@@ -250,6 +271,7 @@ export default function Layout({ children }) {
   const toggleSection = (id) => setOpen(p => ({ ...p, [id]: !p[id] }));
   const handleNav = (id, parentId) => {
     setActive(id);
+    sessionStorage.setItem("active_page", id);
     setMobileOpen(false);
     if (parentId) setOpen(p => ({ ...p, [parentId]: true }));
     if (id !== "vm_service") setChallanView("list");
@@ -442,7 +464,7 @@ export default function Layout({ children }) {
                   {idx > 0 && <div className="sb-divider" />}
                   <button
                     className={`sb-sec ${item.children === null ? (active === item.id ? "active-single" : "") : (isExpanded ? "open" : "")}`}
-                    onClick={() => item.children === null ? setActive(item.id) : toggleSection(item.id)}
+                    onClick={() => item.children === null ? (setActive(item.id), sessionStorage.setItem("active_page", item.id)) : toggleSection(item.id)}
                     title={isCollapsed ? item.section : ""}
                   >
                     <span className="sb-sec-icon">{item.icon}</span>

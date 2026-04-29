@@ -274,6 +274,7 @@ const css = `
 
   .ia-page {
     min-height: 100vh;
+    min-height: -webkit-fill-available;
     display: flex; align-items: center; justify-content: center;
     padding: 24px 16px;
     background: #0990eb;
@@ -284,6 +285,7 @@ const css = `
     box-shadow: 0 8px 40px rgba(9,144,235,0.18), 0 2px 8px rgba(0,0,0,0.08);
     display: flex; flex-direction: column; align-items: center; gap: 14px;
     animation: slideIn 0.35s ease both;
+    box-sizing: border-box;
   }
 
   /* Title */
@@ -432,4 +434,24 @@ const css = `
   }
   .ia-success-title { font-size:20px; font-weight:700; color:#1a1a2e; text-align:center; }
   .ia-success-sub   { font-size:14px; color:#6b7280; text-align:center; line-height:1.6; }
-`;
+
+  /* ── Mobile Responsive ── */
+  @media (max-width: 480px) {
+    .ia-page { padding: 12px; background: #0990eb; }
+    .ia-card { padding: 24px 18px 24px; border-radius: 16px; gap: 12px; }
+    .ia-title { font-size: 19px; }
+    .ia-cam-emoji { font-size: 22px; }
+    .ia-preview { max-height: 220px; }
+    .ia-open-btn { padding: 14px; font-size: 14px; }
+    .ia-submit-btn { padding: 14px; font-size: 14px; min-height: 48px; }
+    .ia-retake-btn { padding: 12px; min-height: 44px; }
+    .ia-loc-lines { padding: 12px 14px 10px; }
+    .ia-loc-row { font-size: 13px; }
+    .ia-notice { font-size: 11.5px; padding: 12px 14px; }
+    .ia-notice-head { font-size: 12px; }
+  }
+  @media (max-width: 360px) {
+    .ia-card { padding: 20px 14px 20px; }
+    .ia-title { font-size: 17px; }
+    .ia-subtitle { font-size: 12px; }
+  }`;

@@ -181,10 +181,9 @@ export default function MobileResponsiveClaimsList() {
 //  MobileClaimsListTable - Enhanced mobile version
 // ─────────────────────────────────────────────
 const STATUS_CONFIG = {
-  Approved: { bg: "#04572c", color: "#fbfdfd", dot: "#10b981" },
-  Pending: { bg: "rgb(247, 170, 4)", color: "#fcfaf8", dot: "#f59e0b" },
   Rejected: { bg: "#c03030", color: "#faf9f9", dot: "#ef4444" },
- 
+  Pending:  { bg: "rgb(247, 170, 4)", color: "#fcfaf8", dot: "#f59e0b" },
+  Accepted: { bg: "#04572c", color: "#fbfdfd", dot: "#10b981" },
 };
 
 function MobileClaimsListTable({
@@ -307,27 +306,6 @@ function MobileClaimsListTable({
         <style>{`
           @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
           .mobile-card:active { background: #f0f4ff !important; }
-
-          .cl-status-select {
-            padding: 3px 5px;
-            border-radius: 6px;
-            font-size: 7px;
-            font-weight: 600;
-            border: 1.5px solid transparent;
-            cursor: pointer;
-            outline: none;
-            font-family: 'Google Sans', sans-serif;
-            height: 24px;
-            min-width: 70px;
-            max-width: 90px;
-            appearance: auto;
-            flex: 0 0 auto;
-          }
-          .cl-status-select:disabled { opacity: 0.6; cursor: not-allowed; }
-          .cl-status-select.pill-green { background: #04572c !important; color: #fbfdfd !important; }
-          .cl-status-select.pill-amber { background: rgb(247,170,4) !important; color: #fcfaf8 !important; }
-          .cl-status-select.pill-red   { background: #c03030 !important; color: #faf9f9 !important; }
-          .cl-status-select.pill-muted { background: #5f6368 !important; color: #fff !important; }
         `}</style>
 
         {/* Header - Title and Action Buttons */}
@@ -374,7 +352,7 @@ function MobileClaimsListTable({
         {/* Filter options */}
         {showFilters && (
           <div style={mobileListStyles.filterBar}>
-            {["all", "Approved", "Pending", "Rejected"].map((status) => (
+            {["all", "Rejected", "Pending", "Accepted"].map((status) => (
               <button
                 key={status}
                 style={{
@@ -474,32 +452,27 @@ function MobileClaimsListTable({
 
                 <div style={mobileListStyles.cardActions}>
                   <select
-                    value={claim.status}
+                    value={claim.status || 'Pending'}
                     onChange={(e) => handleStatusChange(claim.id, e.target.value)}
-                    disabled={isUpdatingStatus || !isAdmin}
-                    className={`cl-status-select${
-                      claim.status === 'Approved' ? ' pill-green' :
-                      claim.status === 'Pending'  ? ' pill-amber' :
-                      claim.status === 'Rejected' ? ' pill-red'   : ' pill-muted'
-                    }`}
-                    style={{ opacity: (isUpdatingStatus || !isAdmin) ? (isAdmin ? 0.6 : 1) : 1, cursor: isAdmin ? 'pointer' : 'default' }}
+                    disabled={isUpdatingStatus}
+                    style={{
+                      padding: "3px 6px",
+                      borderRadius: 6,
+                      border: "none",
+                      background: sc.bg,
+                      color: sc.color,
+                      fontFamily: "'Google Sans', sans-serif",
+                      fontSize: 12,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      outline: "none",
+                      flexShrink: 0,
+                      opacity: isUpdatingStatus ? 0.7 : 1,
+                    }}
                   >
-                    {Object.keys(STATUS_CONFIG).map((status) => (
-                      <option
-                        key={status}
-                        value={status}
-                        style={
-                          claim.status === status
-                            ? {
-                                backgroundColor: STATUS_CONFIG[status].bg,
-                                color: STATUS_CONFIG[status].color,
-                              }
-                            : {}
-                        }
-                      >
-                        {status}
-                      </option>
-                    ))}
+                    <option value="Rejected" style={{ background: "#fff", color: "#202124" }}>Rejected</option>
+                    <option value="Pending"  style={{ background: "#fff", color: "#202124" }}>Pending</option>
+                    <option value="Accepted" style={{ background: "#fff", color: "#202124" }}>Accepted</option>
                   </select>
 
                   <div style={mobileListStyles.actionButtons}>
@@ -718,20 +691,19 @@ function MobileClaimsListTable({
                         <select
                           value={claim.status}
                           onChange={(e) => handleStatusChange(claim.id, e.target.value)}
-                          disabled={isUpdatingStatus || !isAdmin}
+                          disabled={isUpdatingStatus}
                           style={{
                             ...desktopListStyles.statusSelect,
                             background: sc.bg,
                             color: sc.color,
                             borderColor: sc.dot,
                             opacity: isUpdatingStatus ? 0.6 : 1,
-                            cursor: isAdmin ? "pointer" : "default",
-                            pointerEvents: isAdmin ? "auto" : "none",
+                            cursor: "pointer",
                           }}
                         >
-                          <option value="Approved">Approved</option>
-                          <option value="Pending">Pending</option>
                           <option value="Rejected">Rejected</option>
+                          <option value="Pending">Pending</option>
+                          <option value="Accepted">Accepted</option>
                           
                         </select>
                       </td>

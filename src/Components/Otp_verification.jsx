@@ -146,12 +146,18 @@ export default function OtpVerification({ phone, uuid, customerName, onVerified,
         @keyframes fadeIn  { from{opacity:0} to{opacity:1} }
 
         .otp-input {
-          width: 60px; height: 70px; /* Slightly wider for 4 digits */
+          width: 60px; height: 70px;
           border: 2px solid #e0e1f0; border-radius: 12px;
           font-size: 24px; font-weight: 700; color: #1a73e8;
           text-align: center; background: white; outline: none;
           transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
           caret-color: #1a73e8;
+        }
+        @media (max-width: 400px) {
+          .otp-input { width: 56px; height: 64px; font-size: 22px; border-radius: 10px; }
+        }
+        @media (max-width: 360px) {
+          .otp-input { width: 48px; height: 56px; font-size: 20px; }
         }
         .otp-input:focus {
           border-color: #1a73e8;
@@ -186,11 +192,13 @@ export default function OtpVerification({ phone, uuid, customerName, onVerified,
 
       <div style={{
         display: "flex", justifyContent: "center", alignItems: "center",
-        minHeight: "100vh", background: "#f8f9fa", padding: "20px"
+        minHeight: "100vh", minHeight: "-webkit-fill-available",
+        background: "#f8f9fa", padding: "16px"
       }}>
         <div style={{
           background: "white", borderRadius: 20,
-          padding: "40px 36px 32px", width: "100%", maxWidth: 460,
+          padding: "clamp(24px, 5vw, 40px) clamp(20px, 5vw, 36px) 28px",
+          width: "100%", maxWidth: 460,
           boxShadow: "0 8px 40px rgba(26,115,232,0.1), 0 2px 8px rgba(0,0,0,0.06)",
           display: "flex", flexDirection: "column", alignItems: "center",
           animation: "slideIn 0.3s ease both",
