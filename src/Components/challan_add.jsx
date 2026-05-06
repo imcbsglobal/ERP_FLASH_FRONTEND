@@ -9,6 +9,12 @@ const offenceTypes = [
 
 const today = new Date().toISOString().split("T")[0];
 
+// Mobile detection utility
+const isMobileDevice = () => {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+         window.innerWidth <= 768;
+};
+
 function ChallanAdd({ onBack, onSuccess, initialData }) {
   const isEdit = Boolean(initialData?.id);
 
@@ -49,6 +55,13 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
   const challanDocRef = useRef();
   const receiptRef    = useRef();
 
+  // Camera states
+  const [cameraMode, setCameraMode]       = useState(null); // null, "challan", or "receipt"
+  const [cameraStream, setCameraStream]   = useState(null);
+  const [capturedPhoto, setCapturedPhoto] = useState(null);
+  const videoRef = useRef();
+  const canvasRef = useRef();
+
   // Re-populate form whenever initialData changes (e.g. switching between edit records)
   useEffect(() => {
     setForm(buildInitial());
@@ -57,6 +70,78 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
     setErrors({});
     setError(null);
   }, [initialData?.id]);
+
+  // Open camera
+  const openCamera = async (mode) => {
+    try {
+      setCameraMode(mode);
+      setCapturedPhoto(null);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+      setCameraStream(stream);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 100);
+    } catch (err) {
+      console.error("Camera error:", err);
+      setError("Failed to access camera. Please check permissions.");
+      setCameraMode(null);
+    }
+  };
+
+  // Take photo from video stream
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const ctx = canvasRef.current.getContext("2d");
+      const video = videoRef.current;
+      canvasRef.current.width = video.videoWidth;
+      canvasRef.current.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      canvasRef.current.toBlob(blob => {
+        if (blob) {
+          const file = new File([blob], `photo-${Date.now()}.jpg`, { type: "image/jpeg" });
+          setCapturedPhoto({ blob, file, preview: canvasRef.current.toDataURL() });
+        }
+      }, "image/jpeg", 0.9);
+    }
+  };
+
+  // Retake photo
+  const retakePhoto = () => {
+    setCapturedPhoto(null);
+  };
+
+  // Confirm and save photo
+  const confirmPhoto = async () => {
+    if (!capturedPhoto) return;
+
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    if (capturedPhoto.blob.size > MAX_FILE_SIZE) {
+      setError(`Photo is too large (${(capturedPhoto.blob.size / 1024 / 1024).toFixed(2)}MB). Maximum 5MB.`);
+      return;
+    }
+
+    if (cameraMode === "challan") {
+      setChallanDoc(capturedPhoto.file);
+    } else if (cameraMode === "receipt") {
+      setPaymentReceipt(capturedPhoto.file);
+    }
+
+    closeCamera();
+  };
+
+  // Close camera
+  const closeCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(t => t.stop());
+      setCameraStream(null);
+    }
+    setCameraMode(null);
+    setCapturedPhoto(null);
+  };
 
   const validate = () => {
     const e = {};
@@ -78,7 +163,19 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
 
   const handleFile = (e, setter) => {
     const f = e.target.files[0];
-    if (f) setter(f);
+    if (!f) return;
+
+    // Maximum 5MB file size
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    
+    if (f.size > MAX_FILE_SIZE) {
+      setError(`File is too large (${(f.size / 1024 / 1024).toFixed(2)}MB). Maximum allowed size is 5MB.`);
+      e.target.value = '';
+      return;
+    }
+
+    setter(f);
+    setError(null);
   };
 
   const handleSubmit = async () => {
@@ -427,33 +524,105 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
             <div style={s.inlineRow}>
               <div style={s.inlineField}>
                 <label style={s.inlineLabel}>Challan Document</label>
-                <button type="button" className="cfile"
-                  onClick={()=>challanDocRef.current.click()}>
-                  <span style={{color:challanDoc?"#2563eb":"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
-                    {challanDoc
-                      ? challanDoc.name
-                      : initialData?.challan_doc_url
-                        ? "📄 Replace existing file"
-                        : "Upload Challan Doc"}
-                  </span>
-                </button>
-                <input ref={challanDocRef} type="file" accept=".pdf,.jpg,.jpeg,.png"
-                  style={{display:"none"}} onChange={e=>handleFile(e,setChallanDoc)} />
+                {isMobileDevice() ? (
+                  <button type="button" className="cfile"
+                    onClick={()=>openCamera("challan")}>
+                    <span style={{color:challanDoc?"#2563eb":"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+                      {challanDoc
+                        ? challanDoc.name
+                        : initialData?.challan_doc_url
+                          ? "📄 Replace existing file"
+                          : "📷 Take Photo"}
+                    </span>
+                  </button>
+                ) : (
+                  <input
+                    type="file"
+                    ref={challanDocRef}
+                    accept="image/*,.pdf,.doc,.docx"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const MAX_FILE_SIZE = 5 * 1024 * 1024;
+                        if (file.size > MAX_FILE_SIZE) {
+                          setError(`File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum 5MB.`);
+                          return;
+                        }
+                        setChallanDoc(file);
+                      }
+                    }}
+                    style={{ display: 'none' }}
+                  />
+                )}
+                <small style={{marginTop:"4px", display:"block", color:"#6b7280", fontSize:"11px"}}>
+                  {isMobileDevice() ? "Camera capture (Max 5MB)" : "Upload file (Max 5MB)"}
+                </small>
+                {!isMobileDevice() && !challanDoc && !initialData?.challan_doc_url && (
+                  <button
+                    type="button"
+                    className="cfile"
+                    onClick={() => challanDocRef.current?.click()}
+                    style={{ marginTop: '8px' }}
+                  >
+                    📁 Choose File
+                  </button>
+                )}
+                {(challanDoc || initialData?.challan_doc_url) && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#2563eb' }}>
+                    {challanDoc ? challanDoc.name : "📄 Existing file"}
+                  </div>
+                )}
               </div>
               <div style={s.inlineField}>
                 <label style={s.inlineLabel}>Payment Receipt</label>
-                <button type="button" className="cfile"
-                  onClick={()=>receiptRef.current.click()}>
-                  <span style={{color:paymentReceipt?"#2563eb":"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
-                    {paymentReceipt
-                      ? paymentReceipt.name
-                      : initialData?.payment_receipt_url
-                        ? "📄 Replace existing file"
-                        : "Upload Payment Receipt"}
-                  </span>
-                </button>
-                <input ref={receiptRef} type="file" accept=".pdf,.jpg,.jpeg,.png"
-                  style={{display:"none"}} onChange={e=>handleFile(e,setPaymentReceipt)} />
+                {isMobileDevice() ? (
+                  <button type="button" className="cfile"
+                    onClick={()=>openCamera("receipt")}>
+                    <span style={{color:paymentReceipt?"#2563eb":"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+                      {paymentReceipt
+                        ? paymentReceipt.name
+                        : initialData?.payment_receipt_url
+                          ? "📄 Replace existing file"
+                          : "📷 Take Photo"}
+                    </span>
+                  </button>
+                ) : (
+                  <input
+                    type="file"
+                    ref={receiptRef}
+                    accept="image/*,.pdf,.doc,.docx"
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        const MAX_FILE_SIZE = 5 * 1024 * 1024;
+                        if (file.size > MAX_FILE_SIZE) {
+                          setError(`File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum 5MB.`);
+                          return;
+                        }
+                        setPaymentReceipt(file);
+                      }
+                    }}
+                    style={{ display: 'none' }}
+                  />
+                )}
+                <small style={{marginTop:"4px", display:"block", color:"#6b7280", fontSize:"11px"}}>
+                  {isMobileDevice() ? "Camera capture (Max 5MB)" : "Upload file (Max 5MB)"}
+                </small>
+                {!isMobileDevice() && !paymentReceipt && !initialData?.payment_receipt_url && (
+                  <button
+                    type="button"
+                    className="cfile"
+                    onClick={() => receiptRef.current?.click()}
+                    style={{ marginTop: '8px' }}
+                  >
+                    📁 Choose File
+                  </button>
+                )}
+                {(paymentReceipt || initialData?.payment_receipt_url) && (
+                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#2563eb' }}>
+                    {paymentReceipt ? paymentReceipt.name : "📄 Existing file"}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -486,6 +655,145 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
       <div className={`ctoast${submitted?" show":""}`}>
         <span>✅</span> Challan {isEdit ? "updated" : "submitted"} successfully!
       </div>
+
+      {/* Camera Modal */}
+      {cameraMode && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.95)",
+          zIndex: 9999,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "16px",
+        }}>
+          <canvas ref={canvasRef} style={{ display: "none" }} />
+
+          {!capturedPhoto ? (
+            <>
+              <div style={{
+                position: "relative",
+                width: "100%",
+                maxWidth: "600px",
+                aspectRatio: "4/3",
+                background: "#000",
+                borderRadius: "12px",
+                overflow: "hidden",
+                marginBottom: "16px",
+              }}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              </div>
+              <p style={{ color: "#fff", marginBottom: "16px", fontSize: "14px" }}>
+                Position document in frame and tap capture
+              </p>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+                <button
+                  onClick={closeCamera}
+                  style={{
+                    padding: "12px 24px",
+                    background: "#666",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={takePhoto}
+                  style={{
+                    padding: "12px 32px",
+                    background: "#2563eb",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  📷 Capture
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{
+                position: "relative",
+                width: "100%",
+                maxWidth: "600px",
+                aspectRatio: "4/3",
+                background: "#000",
+                borderRadius: "12px",
+                overflow: "hidden",
+                marginBottom: "16px",
+              }}>
+                <img
+                  src={capturedPhoto.preview}
+                  alt="Captured"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              </div>
+              <p style={{ color: "#fff", marginBottom: "16px", fontSize: "14px" }}>
+                {capturedPhoto.blob.size > 5 * 1024 * 1024
+                  ? "⚠ Photo is too large"
+                  : "✓ Photo ready. Confirm to upload?"}
+              </p>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+                <button
+                  onClick={retakePhoto}
+                  style={{
+                    padding: "12px 24px",
+                    background: "#666",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  Retake
+                </button>
+                <button
+                  onClick={confirmPhoto}
+                  disabled={capturedPhoto.blob.size > 5 * 1024 * 1024}
+                  style={{
+                    padding: "12px 32px",
+                    background: capturedPhoto.blob.size > 5 * 1024 * 1024 ? "#999" : "#16a34a",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: capturedPhoto.blob.size > 5 * 1024 * 1024 ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  ✓ Confirm
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </>
   );
 }

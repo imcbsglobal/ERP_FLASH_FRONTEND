@@ -1,13 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import ImageCaptureLinkGenerator from './Image_link';
-import PhoneVerification from './phoneverify';
-import OtpVerification from './Otp_verification';
 import ImageCaptureFlow from './Image_capture';
+import { getAllCaptures, updateCaptureManualStatus, deleteCapture } from '../service/Api';
+import API_BASE_URL from '../service/apiConfig';
+
+const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
 
 const ImageCaptureList = ({ onGenerateLink }) => {
-  // Google Sans font
-  const fontStyle = { fontFamily: "'Google Sans', sans-serif" };
-
   // ── Mobile detection ──────────────────────────────────────────
   const [isMobile, setIsMobile] = useState(
     typeof window !== 'undefined' ? window.innerWidth < 768 : false
@@ -19,93 +18,60 @@ const ImageCaptureList = ({ onGenerateLink }) => {
   }, []);
 
   // ── Top-level screen routing ──────────────────────────────────
-  // screen: null | "phoneVerify" | "otpVerify" | "captureFlow"
   const [screen, setScreen]             = useState(null);
   const [flowPhone, setFlowPhone]       = useState("");
   const [flowCustomer, setFlowCustomer] = useState("");
 
-  // Inject Google Fonts
-  if (typeof document !== "undefined" && !document.getElementById("google-sans-font")) {
-    const link = document.createElement("link");
-    link.id = "google-sans-font";
-    link.rel = "stylesheet";
-    link.href = "https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap";
-    document.head.appendChild(link);
-  }
-  
-  // Sample data for demonstration
-  const [captureData, setCaptureData] = useState([
-    {
-      id: 1,
-      clientDetails: {
-        name: 'Rajesh Constructions',
-        contact: 'rajesh@constructions.com',
-        phone: '+91 98765 43210',
-      },
-      image: 'https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=100&h=100&fit=crop',
-      location: 'Mumbai, Maharashtra',
-      coordinate: '19.0760° N, 72.8777° E',
-      verificationTime: '2024-02-15 10:30:00',
-      status: 'Verified',
-      manualStatus: 'Approved',
+  // ── API data ──────────────────────────────────────────────────
+  const [captureData, setCaptureData] = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState("");
+
+  const normalizeImageUrl = (url) => {
+    if (!url) return null;
+    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+    return `${API_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
+  };
+
+  const normalize = (item) => ({
+    id:               item.id,
+    clientDetails: {
+      name:    item.client_details?.name    || '',
+      contact: item.client_details?.contact || '',
+      phone:   item.client_details?.phone   || '',
     },
-    {
-      id: 2,
-      clientDetails: {
-        name: 'Greenfield Projects',
-        contact: 'info@greenfield.com',
-        phone: '+91 87654 32109',
-      },
-      image: 'https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?w=100&h=100&fit=crop',
-      location: 'Bangalore, Karnataka',
-      coordinate: '12.9716° N, 77.5946° E',
-      verificationTime: '2024-02-15 11:45:00',
-      status: 'Pending',
-      manualStatus: 'Under Review',
-    },
-    {
-      id: 3,
-      clientDetails: {
-        name: 'Shakti Developers',
-        contact: 'contact@shakti.com',
-        phone: '+91 76543 21098',
-      },
-      image: 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?w=100&h=100&fit=crop',
-      location: 'Delhi, NCR',
-      coordinate: '28.6139° N, 77.2090° E',
-      verificationTime: '2024-02-14 09:15:00',
-      status: 'Failed',
-      manualStatus: 'Rejected',
-    },
-    {
-      id: 4,
-      clientDetails: {
-        name: 'Coastal Residency',
-        contact: 'admin@coastal.com',
-        phone: '+91 65432 10987',
-      },
-      image: 'https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=100&h=100&fit=crop',
-      location: 'Chennai, Tamil Nadu',
-      coordinate: '13.0827° N, 80.2707° E',
-      verificationTime: '2024-02-14 14:20:00',
-      status: 'Verified',
-      manualStatus: 'Approved',
-    },
-    {
-      id: 5,
-      clientDetails: {
-        name: 'Urban Nest',
-        contact: 'hello@urbannest.com',
-        phone: '+91 54321 09876',
-      },
-      image: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=100&h=100&fit=crop',
-      location: 'Hyderabad, Telangana',
-      coordinate: '17.3850° N, 78.4867° E',
-      verificationTime: '2024-02-13 16:00:00',
-      status: 'Pending',
-      manualStatus: 'Pending',
-    },
-  ]);
+    image:            normalizeImageUrl(item.image),
+    location:         item.location         || '',
+    coordinate:       item.coordinate       || '',
+    verificationTime: item.verification_time || '',
+    status:           item.status           || 'pending',
+    manualStatus:     toDisplayStatus(item.manual_status || 'pending'),
+  });
+
+  // Map backend lowercase values to display labels
+  const toDisplayStatus = (v) => {
+    const map = { pending: 'Pending', approved: 'Approved', under_review: 'Under Review', rejected: 'Rejected', verified: 'Verified' };
+    return map[v] || v;
+  };
+  const toApiStatus = (v) => {
+    const map = { Pending: 'pending', Approved: 'approved', 'Under Review': 'under_review', Rejected: 'rejected', Verified: 'approved' };
+    return map[v] || v.toLowerCase();
+  };
+
+  const fetchData = useCallback(async () => {
+    setLoading(true); setError('');
+    try {
+      const data = await getAllCaptures();
+      const list = Array.isArray(data) ? data : (data?.results ?? []);
+      setCaptureData(list.map(normalize));
+    } catch (e) {
+      setError(e.message || 'Failed to load records.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
 
   // null | "generateLink" | "manualCapture"
   const [modalMode, setModalMode] = useState(null);
@@ -192,33 +158,32 @@ const ImageCaptureList = ({ onGenerateLink }) => {
     alert('Record updated successfully!');
   };
 
-  const handleDelete = (id) => {
-    setDelId(id);
+  const handleDelete = (id) => { setDelId(id); };
+
+  const doDelete = async () => {
+    try {
+      await deleteCapture(delId);
+      setCaptureData(prev => prev.filter(item => item.id !== delId));
+    } catch (e) {
+      alert(e.message || 'Delete failed.');
+    } finally {
+      setDelId(null);
+    }
   };
 
-  const doDelete = () => {
-    setCaptureData(captureData.filter((item) => item.id !== delId));
-    setDelId(null);
-  };
-
-  const handleDownload = (item) => {
-    const text = [
-      `Client: ${item.clientDetails.name}`,
-      `Email: ${item.clientDetails.contact}`,
-      `Phone: ${item.clientDetails.phone}`,
-      `Location: ${item.location}`,
-      `Coordinate: ${item.coordinate}`,
-      `Verification Time: ${item.verificationTime}`,
-      `Status: ${item.status}`,
-      `Manual Status: ${item.manualStatus}`,
-    ].join('\n');
-    const blob = new Blob([text], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${item.clientDetails.name.replace(/\s+/g, '_')}_record.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleDownload = async (item) => {
+    try {
+      const response = await fetch(item.image);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${item.clientDetails.name.replace(/\s+/g, '_')}_image.jpg`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      alert('Failed to download image.');
+    }
   };
 
   const handleInputChange = (e) => {
@@ -231,10 +196,10 @@ const ImageCaptureList = ({ onGenerateLink }) => {
 
   // Table styles
   const tableStyles = {
-    table: { width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 1000 },
+    table: { width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 1000 },
     theadRow: { background: "#0990eb" },
     th: {
-      padding: "8px 16px",
+      padding: "8px 12px",
       textAlign: "left",
       fontWeight: 600,
       color: "#fbfbfc",
@@ -249,13 +214,14 @@ const ImageCaptureList = ({ onGenerateLink }) => {
       zIndex: 10,
     },
     td: {
-      padding: "5px 16px",
+      padding: "4px 12px",
       color: "#0d0d0e",
       borderBottom: "1px solid #f0f0f0",
       whiteSpace: "nowrap",
       verticalAlign: "middle",
       textAlign: "left",
-      fontSize: 14,
+      fontSize: 13,
+      lineHeight: 1.3,
     },
   };
 
@@ -307,37 +273,13 @@ const ImageCaptureList = ({ onGenerateLink }) => {
     },
   };
 
-  // ── Full-screen renders based on active screen ───────────────
-  if (screen === "phoneVerify") {
-    return (
-      <PhoneVerification
-        onBack={() => setScreen(null)}
-        onVerified={(phone) => {
-          setFlowPhone(phone);
-          setScreen("otpVerify");
-        }}
-      />
-    );
-  }
-
-  if (screen === "otpVerify") {
-    return (
-      <OtpVerification
-        phone={flowPhone}
-        customerName={flowCustomer}
-        onVerified={() => setScreen("captureFlow")}
-        onBack={() => setScreen("phoneVerify")}
-      />
-    );
-  }
-
   if (screen === "captureFlow") {
     return (
       <ImageCaptureFlow
         customerName={flowCustomer}
         phone={flowPhone}
         skipVerification={true}
-        onSuccess={() => setScreen(null)}
+        onSuccess={() => { setScreen(null); fetchData(); }}
       />
     );
   }
@@ -405,8 +347,23 @@ const ImageCaptureList = ({ onGenerateLink }) => {
         </div>
         </div>
 
+        {/* Loading / Error */}
+        {loading && (
+          <div style={{ textAlign: 'center', padding: '48px 0', color: '#6b7280', fontFamily: "'Google Sans', sans-serif" }}>
+            <div style={{ width: 36, height: 36, border: '3px solid #e5e7eb', borderTopColor: '#0990eb', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 12px' }} />
+            <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
+            Loading records…
+          </div>
+        )}
+        {!loading && error && (
+          <div style={{ textAlign: 'center', padding: '32px 0', color: '#d93025', fontSize: 14, fontFamily: "'Google Sans', sans-serif" }}>
+            {error}
+            <button onClick={fetchData} style={{ marginLeft: 12, color: '#0990eb', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: 14 }}>Retry</button>
+          </div>
+        )}
+
         {/* ── DESKTOP: Table Container (unchanged) ── */}
-        {!isMobile && (
+        {!loading && !error && !isMobile && (
           <div className="bg-white rounded-lg shadow overflow-hidden">
             <div className="overflow-x-auto">
               <table style={tableStyles.table}>
@@ -436,7 +393,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                         <img
                           src={item.image}
                           alt={`Client ${item.clientDetails.name}`}
-                          style={{ width: 28, height: 28, borderRadius: 4, objectFit: "cover", border: "1px solid #e5e7eb", cursor: "zoom-in" }}
+                          style={{ width: 24, height: 24, borderRadius: 4, objectFit: "cover", border: "1px solid #e5e7eb", cursor: "zoom-in" }}
                           onClick={() => setPreviewImg({ src: item.image, name: item.clientDetails.name })}
                         />
                       </td>
@@ -444,17 +401,41 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                       <td style={tableStyles.td} className="font-mono">{item.coordinate}</td>
                       <td style={tableStyles.td}>{item.verificationTime}</td>
                       <td style={tableStyles.td}>
-                        <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(item.status)}`}>
-                          {item.status}
-                        </span>
+                        {item.coordinate ? (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                              background: '#f0fdf4', border: '1px solid #bbf7d0',
+                              color: '#15803d', fontSize: 11, fontWeight: 700,
+                              padding: '3px 9px', borderRadius: 20,
+                            }}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="#15803d"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                              GPS Detected
+                            </span>
+                          ) : (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                              background: '#fef2f2', border: '1px solid #fecaca',
+                              color: '#dc2626', fontSize: 11, fontWeight: 700,
+                              padding: '3px 9px', borderRadius: 20,
+                            }}>
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                              No GPS
+                            </span>
+                          )}
                       </td>
                       <td style={tableStyles.td}>
                         <select
                           value={item.manualStatus}
-                          onChange={(e) => {
-                            setCaptureData(captureData.map(d =>
-                              d.id === item.id ? { ...d, manualStatus: e.target.value } : d
-                            ));
+                          onChange={async (e) => {
+                            const displayStatus = e.target.value;
+                            try {
+                              await updateCaptureManualStatus(item.id, toApiStatus(displayStatus));
+                              setCaptureData(prev => prev.map(d =>
+                                d.id === item.id ? { ...d, manualStatus: displayStatus } : d
+                              ));
+                            } catch (err) {
+                              alert(err.message || 'Failed to update status.');
+                            }
                           }}
                           style={{
                             padding: "4px 6px",
@@ -466,26 +447,16 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                             cursor: "pointer",
                             outline: "none",
                             width: "90px",
-                            background: item.manualStatus === "Verified" ? "#10973f" : "rgb(247,170,4) ",
-                            color: item.manualStatus === "Verified" ? "#fafdfb" : "#f7f6f4",
+                            background: item.manualStatus === "Approved" ? "#10973f" : "rgb(247,170,4)",
+                            color: item.manualStatus === "Approved" ? "#fafdfb" : "#f7f6f4",
                           }}
                         >
                           <option value="Pending">Pending</option>
-                          <option value="Verified">Verified</option>
+                          <option value="Approved">Approved</option>
                         </select>
                       </td>
                       <td style={tableStyles.td}>
                         <div style={{ display: "flex", gap: 6 }}>
-                          {/* Edit */}
-                          <button
-                            onClick={() => handleEdit(item)}
-                            title="Edit"
-                            style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
-                          >
-                            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                            </svg>
-                          </button>
                           {/* Download */}
                           <button
                             onClick={() => handleDownload(item)}
@@ -530,7 +501,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
         )}
 
         {/* ── MOBILE: Card View ── */}
-        {isMobile && (
+        {!loading && !error && isMobile && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {captureData.length === 0 && (
               <div style={{ textAlign: 'center', padding: '48px 0', color: '#9ca3af' }}>
@@ -570,9 +541,27 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                     </div>
                     <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{item.clientDetails.phone}</div>
                   </div>
-                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadge(item.status)}`} style={{ flexShrink: 0 }}>
-                    {item.status}
+                  {item.coordinate ? (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    background: '#f0fdf4', border: '1px solid #bbf7d0',
+                    color: '#15803d', fontSize: 11, fontWeight: 700,
+                    padding: '3px 9px', borderRadius: 20,
+                  }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="#15803d"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+                    GPS Detected
                   </span>
+                          ) : (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    background: '#fef2f2', border: '1px solid #fecaca',
+                    color: '#dc2626', fontSize: 11, fontWeight: 700,
+                    padding: '3px 9px', borderRadius: 20,
+                  }}>
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                    No GPS
+                  </span>
+                          )}
                 </div>
 
                 {/* Divider */}
@@ -611,11 +600,17 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                     <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500 }}>Manual Status</span>
                     <select
                       value={item.manualStatus}
-                      onChange={(e) => {
-                        setCaptureData(captureData.map(d =>
-                          d.id === item.id ? { ...d, manualStatus: e.target.value } : d
-                        ));
-                      }}
+                      onChange={async (e) => {
+                            const displayStatus = e.target.value;
+                            try {
+                              await updateCaptureManualStatus(item.id, toApiStatus(displayStatus));
+                              setCaptureData(prev => prev.map(d =>
+                                d.id === item.id ? { ...d, manualStatus: displayStatus } : d
+                              ));
+                            } catch (err) {
+                              alert(err.message || 'Failed to update status.');
+                            }
+                          }}
                       style={{
                         padding: "4px 8px",
                         borderRadius: 6,
@@ -626,24 +621,18 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                         cursor: "pointer",
                         outline: "none",
                         minWidth: 90,
-                        background: item.manualStatus === "Verified" ? "#10973f" : "rgb(247,170,4)",
-                        color: item.manualStatus === "Verified" ? "#fafdfb" : "#f7f6f4",
+                        background: item.manualStatus === "Approved" ? "#10973f" : "rgb(247,170,4)",
+                        color: item.manualStatus === "Approved" ? "#fafdfb" : "#f7f6f4",
                       }}
                     >
                       <option value="Pending">Pending</option>
-                      <option value="Verified">Verified</option>
+                      <option value="Approved">Approved</option>
                     </select>
                   </div>
                 </div>
 
                 {/* Card Footer: action buttons */}
                 <div style={{ borderTop: '1px solid #f0f0f0', padding: '10px 14px', display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
-                  <button onClick={() => handleEdit(item)} title="Edit"
-                    style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}>
-                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
                   <button onClick={() => handleDownload(item)} title="Download"
                     style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#09832d", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}>
                     <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -669,13 +658,32 @@ const ImageCaptureList = ({ onGenerateLink }) => {
           onClick={() => setPreviewImg(null)}
           style={{ position: 'fixed', inset: 0, zIndex: 4000, backgroundColor: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          <div onClick={(e) => e.stopPropagation()} style={{ position: 'relative' }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ position: 'relative', textAlign: 'center' }}>
             <img
               src={previewImg.src}
               alt={previewImg.name}
-              style={{ maxWidth: '80vw', maxHeight: '80vh', borderRadius: 12, boxShadow: '0 8px 40px rgba(0,0,0,0.5)', display: 'block' }}
+              style={{ maxWidth: '80vw', maxHeight: '80vh', borderRadius: 12, boxShadow: '0 8px 40px rgba(0,0,0,0.5)', display: 'block', margin: '0 auto' }}
             />
-            <p style={{ color: '#fff', marginTop: 10, fontSize: 14, fontFamily: "'Google Sans', sans-serif", fontWeight: 600, textAlign: 'center' }}>{previewImg.name}</p>
+            <p style={{ color: '#fff', marginTop: 10, fontSize: 14, fontFamily: "'Google Sans', sans-serif", fontWeight: 600 }}>{previewImg.name}</p>
+            <button
+              onClick={async () => {
+                try {
+                  const response = await fetch(previewImg.src);
+                  const blob = await response.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `${previewImg.name.replace(/\s+/g, '_')}_image.jpg`;
+                  a.click();
+                  URL.revokeObjectURL(url);
+                } catch (error) {
+                  alert('Failed to download image.');
+                }
+              }}
+              style={{ marginTop: 10, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#0990eb', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: "'Google Sans', sans-serif" }}
+            >
+              Download Image
+            </button>
             <button
               onClick={() => setPreviewImg(null)}
               style={{ position: 'absolute', top: -12, right: -12, width: 30, height: 30, borderRadius: '50%', background: '#fff', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,0,0,0.3)' }}
@@ -909,7 +917,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                 setFlowCustomer(customerName || "");
                 setFlowPhone(phone || "");
                 setModalMode(null);
-                setScreen("phoneVerify");
+                setScreen("captureFlow");
               }}
               onManualCapture={({ customerName, phone }) => {
                 setFlowCustomer(customerName || "");

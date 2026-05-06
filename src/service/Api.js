@@ -580,13 +580,14 @@ const _buildVehicleFD = (flat) => {
 
 export const getVehicles = async (params = {}) => {
   const q = new URLSearchParams();
-  if (params.search)                                              q.set('search',       params.search);
-  if (params.status       && params.status !== 'All')            q.set('status',       params.status);
-  if (params.vehicle_type && params.vehicle_type !== 'All Types')q.set('vehicle_type', params.vehicle_type);
-  if (params.ownership)                                          q.set('ownership',    params.ownership);
-  if (params.fuel_type)                                          q.set('fuel_type',    params.fuel_type);
-  if (params.ordering)                                           q.set('ordering',     params.ordering);
-  if (params.page)                                               q.set('page',         params.page);
+  if (params.search)                                              q.set('search',          params.search);
+  if (params.status       && params.status !== 'All')            q.set('status',          params.status);
+  if (params.vehicle_type && params.vehicle_type !== 'All Types')q.set('vehicle_type',    params.vehicle_type);
+  if (params.ownership)                                          q.set('ownership',       params.ownership);
+  if (params.fuel_type)                                          q.set('fuel_type',       params.fuel_type);
+  if (params.ordering)                                           q.set('ordering',        params.ordering);
+  if (params.page)                                               q.set('page',            params.page);
+  if (params.exclude_ongoing)                                    q.set('exclude_ongoing', params.exclude_ongoing);
   const url = `${ENDPOINTS.vehicles}${q.toString() ? `?${q}` : ''}`;
   const doFetch = () => fetch(url, { method: 'GET', headers: _ah() });
   return handleResponse(await doFetch(), doFetch);
@@ -1124,15 +1125,16 @@ export async function createImageCaptureCustomer(data) {
 
 // ── Capture Link APIs ──
 export async function generateCaptureLink(data) {
+  const body = {
+    customer_name: data.customerName || null,
+    phone: data.phone,
+    expires_in_hours: data.expiresInHours || 24,
+  };
+  if (data.customerId) body.customer_id = data.customerId;
   const doFetch = () => fetch(ENDPOINTS.imageCaptureGenerateLink, {
     method: 'POST',
     headers: _icAuthHeader(),
-    body: JSON.stringify({
-      customer_id: data.customerId || null,
-      customer_name: data.customerName || null,
-      phone: data.phone,
-      expires_in_hours: data.expiresInHours || 24,
-    }),
+    body: JSON.stringify(body),
   });
   return handleResponse(await doFetch(), doFetch);
 }

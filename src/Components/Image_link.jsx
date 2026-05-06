@@ -6,6 +6,9 @@ import {
   generateCaptureLink,
 } from "../service/Api";
 
+// FIX 1: Single constant controls both the API call and the WhatsApp message
+const EXPIRES_IN_HOURS = 10 / 60; // 10 minutes
+
 export default function ImageCaptureLinkGenerator({ onBack, isModal = false, modalMode = "generateLink", onLinkClick, onManualCapture }) {
   const [selectedBranch, setSelectedBranch]     = useState("");          // "" = All Branches
   const [mode, setMode]                         = useState("select");
@@ -94,7 +97,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
         customerId:     null,                                              // debtors have no local DB id
         customerName:   mode === "select" ? cleanName(selectedCustomer?.name) : manualName,
         phone:          phone,
-        expiresInHours: 24,
+        expiresInHours: EXPIRES_IN_HOURS,                                 // FIX 1: use constant
       });
       setSuccessData({
         linkPath: data.link_path,
@@ -110,8 +113,28 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
     }
   };
 
+  const getNormalizedLink = () => {
+    if (!successData) return "";
+    // Use VITE_PUBLIC_BASE_URL if set (needed for WhatsApp clickable links — localhost is not clickable)
+    const baseUrl = import.meta.env.VITE_PUBLIC_BASE_URL?.replace(/\/$/, "") || window.location.origin;
+    if (successData.linkPath && successData.linkPath.startsWith("/")) {
+      return `${baseUrl}${successData.linkPath}`;
+    }
+    if (successData.linkFull) {
+      try {
+        const parsed = new URL(successData.linkFull, window.location.origin);
+        return `${baseUrl}${parsed.pathname}${parsed.search}`;
+      } catch {
+        return successData.linkFull;
+      }
+    }
+    return "";
+  };
+
+  const normalizedLink = getNormalizedLink();
+
   const handleCopy = () => {
-    navigator.clipboard.writeText(successData.linkFull);
+    navigator.clipboard.writeText(normalizedLink || successData.linkFull || "");
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -144,7 +167,10 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
   const isContinueDisabled = !phone || (mode === "select" ? !selectedCustomer : !manualName);
 
   return (
-    <div style={isModal ? { ...s.page, minHeight: 'unset', padding: '24px 16px 32px' } : s.page}>
+    <div
+      className={isModal ? "img-link-modal-fullscreen" : ""}
+      style={isModal ? { ...s.page, minHeight: 'unset', padding: '24px 16px 32px' } : s.page}
+    >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
         *, *::before, *::after { font-family: 'Google Sans', sans-serif !important; }
@@ -164,16 +190,48 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
           .img-link-action-row { flex-direction: column !important; }
           .img-link-action-row button, .img-link-action-row a { width: 100% !important; justify-content: center !important; min-height: 46px !important; }
           .gen-btn { min-height: 48px !important; }
+
+          /* Mobile full-screen modal */
+          .img-link-modal-fullscreen {
+            position: fixed !important;
+            inset: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            height: -webkit-fill-available !important;
+            max-width: 100vw !important;
+            max-height: 100vh !important;
+            border-radius: 0 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow-y: auto !important;
+            display: flex !important;
+            flex-direction: column !important;
+            z-index: 9999 !important;
+          }
+          .img-link-modal-inner {
+            flex: 1 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            padding: 20px 16px 32px !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
+          .img-link-card {
+            flex: 1 !important;
+            border-radius: 12px !important;
+          }
         }
         @media (max-width: 380px) {
           .img-link-header h1 { font-size: 17px !important; }
         }
       `}</style>
 
+      <div className={isModal ? "img-link-modal-inner" : ""} style={isModal ? {} : { width: '100%', maxWidth: '520px', display: 'flex', flexDirection: 'column' }}>
       <div style={s.header} className="img-link-header">
         <div style={s.iconWrap}>
+          {/* FIX 2: corrected SVG path (0 0 1 2-2 instead of 0 0 0 2-2) */}
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#098ae1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 0 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+            <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
             <circle cx="12" cy="13" r="4"/>
           </svg>
         </div>
@@ -201,26 +259,15 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
               </div>
               <div style={s.linkBox}>
                 <a
-                  href={successData.linkFull}
+                  href={normalizedLink || successData.linkFull}
                   className="link-text-clickable"
                   onClick={handleOpenLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   style={{ fontSize: 13, lineHeight: "1.6" }}
                 >
-                  {successData.linkFull}
+                  {normalizedLink || successData.linkFull}
                 </a>
-              </div>
-            </div>
-
-            <div style={{ ...s.greenBlock, marginTop: "12px", animation: "fadeIn 0.35s 0.18s ease both" }}>
-              <div style={s.blockHead}>
-                <CircleCheck />
-                <strong>Message queued for delivery to +91 {successData.phone}!</strong>
-              </div>
-              <div style={s.deliveryRow}>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#4b5563" strokeWidth="2" strokeLinecap="round">
-                  <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-                </svg>
-                <span>Delivery may take 1–2 minutes</span>
               </div>
             </div>
 
@@ -234,16 +281,23 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
             </div>
 
             <div style={s.actionRow} className="img-link-action-row">
-              <button
+              <a
                 className="abtn"
-                onClick={() => setMsgQueued(true)}
-                style={{ ...s.msgBtn, background: msgQueued ? "#076fa3" : "#098ae1" }}
+                href={`https://wa.me/91${successData.phone}?text=${encodeURIComponent(`Hello! Please click the link below to complete your image verification:
+
+${normalizedLink || successData.linkFull}
+
+This link is valid for ${Math.round(EXPIRES_IN_HOURS * 60)} minutes.`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ ...s.msgBtn, background: "#25D366", textDecoration: "none" }}
               >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                  <polyline points="20 6 9 17 4 12"/>
+                {/* WhatsApp icon */}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                  <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                 </svg>
-                {msgQueued ? "Message Queued" : "Send Message"}
-              </button>
+                Share Link
+              </a>
 
               <button className="abtn" onClick={handleCopy} style={s.copyBtn}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#098ae1" strokeWidth="2" strokeLinecap="round">
@@ -450,6 +504,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
           )}
         </div>
       )}
+      </div>
 
     </div>
   );
@@ -538,7 +593,7 @@ const s = {
   tabActive: { background: "#098ae1", color: "white", fontWeight: "600" },
   input: {
     width: "100%", padding: "11px 40px 11px 14px", border: "1.5px solid #d1d5db",
-    borderRadius: "10px", fontSize: "14px", color: "#374151", outline: "none", boxSizing: "border-box",
+    borderRadius: "10px", fontSize: "14px", color: "#374151", background: "white", outline: "none", boxSizing: "border-box",
   },
   searchIcon: { position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" },
   dropdown: {

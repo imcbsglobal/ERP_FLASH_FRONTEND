@@ -194,8 +194,8 @@ export default function Layout({ children }) {
       const perms = JSON.parse(localStorage.getItem("menu_permissions") || "{}");
       const firstAllowed = NAV.flatMap(s => s.children ? s.children : [s])
         .find(item => item.id !== "dashboard" && (!item.permKey || perms[item.permKey] === true));
-      return firstAllowed?.id || "dashboard";
-    } catch { return "dashboard"; }
+      return firstAllowed?.id || "no_access";
+    } catch { return "no_access"; }
   });
   const [open, setOpen] = useState({
     usermgmt: false,
@@ -290,8 +290,7 @@ export default function Layout({ children }) {
   const isVmFuelPage   = active === "vm_fuel";
   const isVmServicePage = active === "vm_service";
   const isClaimsPage   = active === "cl_list";
-  const isImageCapturePage = active === "image_capture";
-
+  const isImageCapturePage = active === "image_capture";  const isNoAccessPage = active === "no_access";
   const sidebarWidth = isCollapsed ? "72px" : "256px";
 
   return (
@@ -521,6 +520,26 @@ export default function Layout({ children }) {
             <img src={floshLogo} alt="Flosh" className="mobile-topbar-logo" />
           </div>
 
+          {isNoAccessPage && (
+            <div className="page-full" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px' }}>
+              <div style={{ maxWidth: 600, width: '100%', background: '#fff', border: '1px solid #e8eaed', borderRadius: 16, padding: '42px 34px', textAlign: 'center', boxShadow: '0 24px 60px rgba(15,23,42,0.08)' }}>
+                <div style={{ fontSize: 50, lineHeight: 1, marginBottom: 18 }}>🔒</div>
+                <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 12, color: '#111827' }}>No access granted</h1>
+                <p style={{ fontSize: 15, color: '#475569', lineHeight: 1.7, marginBottom: 24 }}>
+                  Your account does not currently have any assigned menu permissions. Please contact your administrator to request access.
+                </p>
+                <button
+                  onClick={() => window.location.reload()}
+                  style={{ padding: '10px 18px', borderRadius: 10, border: 'none', background: '#1a73e8', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  Refresh permissions
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!isNoAccessPage && (
+          <> 
           {isVehiclePage && (
             <div className="page-full"><VehicleMaster /></div>
           )}
@@ -594,6 +613,8 @@ export default function Layout({ children }) {
 
           {active === "dashboard" && (
             <div className="page-full-scroll"><Dashboard /></div>
+          )}
+        </>
           )}
 
           {children}

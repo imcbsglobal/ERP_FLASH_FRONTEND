@@ -22,6 +22,11 @@ import RouteOutlinedIcon        from '@mui/icons-material/RouteOutlined';
  *    }
  */
 const EndTrip = ({ onClose, onComplete, tripData = {}, errorMessage = "" }) => {
+  // Mobile detection utility
+  const isMobileDevice = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           window.innerWidth <= 768;
+  };
 
   // ── End-trip editable state ───────────────────────────────────
   const [form, setForm] = useState({
@@ -36,6 +41,12 @@ const EndTrip = ({ onClose, onComplete, tripData = {}, errorMessage = "" }) => {
   const [errors,  setErrors]  = useState({});
   const [loading, setLoading] = useState(false);
 
+  // Camera states
+  const [cameraActive,   setCameraActive]   = useState(false);
+  const [cameraStream,   setCameraStream]   = useState(null);
+  const [capturedPhoto,  setCapturedPhoto]  = useState(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
   const fileInputRef = useRef(null);
 
   // ── Live clock: sync endTime every second ──
@@ -79,6 +90,79 @@ const EndTrip = ({ onClose, onComplete, tripData = {}, errorMessage = "" }) => {
   const removeOdometerImage = () => {
     setForm(prev => ({ ...prev, odometerImage: null, odometerImagePreview: null }));
     if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Open camera
+  const openCamera = async () => {
+    try {
+      setCapturedPhoto(null);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+      setCameraStream(stream);
+      setCameraActive(true);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 100);
+    } catch (err) {
+      console.error("Camera error:", err);
+      setErrors(prev => ({ ...prev, odometerImage: "Failed to access camera. Check permissions." }));
+    }
+  };
+
+  // Take photo from video stream
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const ctx = canvasRef.current.getContext("2d");
+      const video = videoRef.current;
+      canvasRef.current.width = video.videoWidth;
+      canvasRef.current.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      canvasRef.current.toBlob(blob => {
+        if (blob) {
+          const file = new File([blob], `odometer-${Date.now()}.jpg`, { type: "image/jpeg" });
+          setCapturedPhoto({ blob, file, preview: canvasRef.current.toDataURL() });
+        }
+      }, "image/jpeg", 0.9);
+    }
+  };
+
+  // Retake photo
+  const retakePhoto = () => {
+    setCapturedPhoto(null);
+  };
+
+  // Confirm and save photo
+  const confirmPhoto = () => {
+    if (!capturedPhoto) return;
+
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    if (capturedPhoto.blob.size > MAX_FILE_SIZE) {
+      setErrors(prev => ({
+        ...prev,
+        odometerImage: `Photo is too large (${(capturedPhoto.blob.size / 1024 / 1024).toFixed(2)}MB). Maximum 5MB.`
+      }));
+      return;
+    }
+
+    setForm(prev => ({
+      ...prev,
+      odometerImage: capturedPhoto.file,
+      odometerImagePreview: capturedPhoto.preview,
+    }));
+    closeCamera();
+  };
+
+  // Close camera
+  const closeCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(t => t.stop());
+      setCameraStream(null);
+    }
+    setCameraActive(false);
+    setCapturedPhoto(null);
   };
 
   // ── Validation ────────────────────────────────────────────────
@@ -513,6 +597,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {}, errorMessage = "" }) => {
             Odometer End Image
           </div>
 
+          {/* Hidden file input for desktop upload */}
           <input
             type="file"
             accept="image/*"
@@ -522,20 +607,37 @@ const EndTrip = ({ onClose, onComplete, tripData = {}, errorMessage = "" }) => {
           />
 
           {!form.odometerImagePreview ? (
-            <div
-              className="et-odometer-box"
-              style={S.odometerBox}
-              onClick={() => fileInputRef.current && fileInputRef.current.click()}
-            >
-              <div style={{
-                width: 52, height: 52, borderRadius: '50%',
-                background: '#e6f4ea', display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-              }}>
-                <AddAPhotoOutlinedIcon style={{ fontSize: 26, color: '#1a73e8' }} />
+            isMobileDevice() ? (
+              <div
+                className="et-odometer-box"
+                style={S.odometerBox}
+                onClick={openCamera}
+              >
+                <div style={{
+                  width: 52, height: 52, borderRadius: '50%',
+                  background: '#e6f4ea', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <AddAPhotoOutlinedIcon style={{ fontSize: 26, color: '#1a73e8' }} />
+                </div>
+                <span style={{ fontSize: 12, color: '#9aa0a6', fontWeight: 500 }}>Tap to take odometer photo</span>
               </div>
-              <span style={{ fontSize: 12, color: '#9aa0a6', fontWeight: 500 }}>Tap to upload odometer photo</span>
-            </div>
+            ) : (
+              <div
+                className="et-odometer-box"
+                style={S.odometerBox}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <div style={{
+                  width: 52, height: 52, borderRadius: '50%',
+                  background: '#e6f4ea', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <AddAPhotoOutlinedIcon style={{ fontSize: 26, color: '#1a73e8' }} />
+                </div>
+                <span style={{ fontSize: 12, color: '#9aa0a6', fontWeight: 500 }}>Click to upload odometer image</span>
+              </div>
+            )
           ) : (
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }} className="et-preview-wrap">
               <div style={S.odometerPreviewWrap}>
@@ -554,19 +656,35 @@ const EndTrip = ({ onClose, onComplete, tripData = {}, errorMessage = "" }) => {
                   <CloseOutlinedIcon style={{ fontSize: 14 }} />
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={() => fileInputRef.current && fileInputRef.current.click()}
-                style={{
-                  padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e0e0',
-                  background: '#fff', color: '#5f6368', fontSize: 12, fontWeight: 600,
-                  cursor: 'pointer', fontFamily: "'Google Sans', sans-serif",
-                  display: 'flex', alignItems: 'center', gap: 5,
-                }}
-              >
-                <AddAPhotoOutlinedIcon style={{ fontSize: 14 }} />
-                Change Photo
-              </button>
+              {isMobileDevice() ? (
+                <button
+                  type="button"
+                  onClick={openCamera}
+                  style={{
+                    padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e0e0',
+                    background: '#fff', color: '#5f6368', fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: "'Google Sans', sans-serif",
+                    display: 'flex', alignItems: 'center', gap: 5,
+                  }}
+                >
+                  <AddAPhotoOutlinedIcon style={{ fontSize: 14 }} />
+                  Retake Photo
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e0e0',
+                    background: '#fff', color: '#5f6368', fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: "'Google Sans', sans-serif",
+                    display: 'flex', alignItems: 'center', gap: 5,
+                  }}
+                >
+                  <AddAPhotoOutlinedIcon style={{ fontSize: 14 }} />
+                  Change Image
+                </button>
+              )}
             </div>
           )}
 
@@ -602,6 +720,145 @@ const EndTrip = ({ onClose, onComplete, tripData = {}, errorMessage = "" }) => {
 
         </div>
       </div>
+
+      {/* Camera Modal */}
+      {cameraActive && (
+        <div style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.95)",
+          zIndex: 9999,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "16px",
+        }}>
+          <canvas ref={canvasRef} style={{ display: "none" }} />
+
+          {!capturedPhoto ? (
+            <>
+              <div style={{
+                position: "relative",
+                width: "100%",
+                maxWidth: "600px",
+                aspectRatio: "4/3",
+                background: "#000",
+                borderRadius: "12px",
+                overflow: "hidden",
+                marginBottom: "16px",
+              }}>
+                <video
+                  ref={videoRef}
+                  autoPlay
+                  playsInline
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              </div>
+              <p style={{ color: "#fff", marginBottom: "16px", fontSize: "14px", textAlign: "center" }}>
+                📊 Position odometer in frame and tap capture
+              </p>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+                <button
+                  onClick={closeCamera}
+                  style={{
+                    padding: "12px 24px",
+                    background: "#666",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={takePhoto}
+                  style={{
+                    padding: "12px 32px",
+                    background: "#1a73e8",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  📷 Capture
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{
+                position: "relative",
+                width: "100%",
+                maxWidth: "600px",
+                aspectRatio: "4/3",
+                background: "#000",
+                borderRadius: "12px",
+                overflow: "hidden",
+                marginBottom: "16px",
+              }}>
+                <img
+                  src={capturedPhoto.preview}
+                  alt="Captured odometer"
+                  style={{
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "cover",
+                  }}
+                />
+              </div>
+              <p style={{ color: "#fff", marginBottom: "16px", fontSize: "14px", textAlign: "center" }}>
+                {capturedPhoto.blob.size > 5 * 1024 * 1024
+                  ? "⚠ Photo is too large (Max 5MB)"
+                  : "✓ Photo ready. Confirm to upload?"}
+              </p>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+                <button
+                  onClick={retakePhoto}
+                  style={{
+                    padding: "12px 24px",
+                    background: "#666",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  Retake
+                </button>
+                <button
+                  onClick={confirmPhoto}
+                  disabled={capturedPhoto.blob.size > 5 * 1024 * 1024}
+                  style={{
+                    padding: "12px 32px",
+                    background: capturedPhoto.blob.size > 5 * 1024 * 1024 ? "#999" : "#16a34a",
+                    color: "#fff",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: capturedPhoto.blob.size > 5 * 1024 * 1024 ? "not-allowed" : "pointer",
+                    fontSize: "14px",
+                    fontWeight: "600",
+                  }}
+                >
+                  ✓ Confirm
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 };

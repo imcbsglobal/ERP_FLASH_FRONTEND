@@ -192,6 +192,8 @@ export default function Sidebar({ activePath = "", onNavigate, collapsed = false
     }))
     .filter((group) => group.items.length > 0);
 
+  const noMenuAccess = !isAdmin && allowedGroups.length === 0;
+
   const W = collapsed ? 64 : 240;
 
   return (

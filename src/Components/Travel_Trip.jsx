@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import RemoveRedEyeOutlinedIcon from '@mui/icons-material/RemoveRedEyeOutlined';
+import AddToPhotosOutlinedIcon from '@mui/icons-material/AddToPhotosOutlined';
 import HighlightOffOutlinedIcon from '@mui/icons-material/HighlightOffOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
@@ -195,16 +197,18 @@ export default function TravelList() {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState("");
   const [showStartTrip, setShowStartTrip] = useState(false);
+  const [vehicleRefreshKey, setVehicleRefreshKey] = useState(0);
   const [search, setSearch] = useState("");
   const [deleteId, setDeleteId] = useState(null);
   const [showEndTripModal, setShowEndTripModal] = useState(null);
   const [endTripError, setEndTripError] = useState("");
   const [lightbox, setLightbox] = useState(null);
   const [purposePopup, setPurposePopup] = useState(null);
+  const [odoPhotoPopup, setOdoPhotoPopup] = useState(null); // { startImg, endImg, odoStart, odoEnd }
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 15;
 
   useEffect(() => {
     loadTrips();
@@ -312,6 +316,7 @@ export default function TravelList() {
       setData((prev) => prev.map((t) => (t.id === updated.id ? updated : t)));
       setShowEndTripModal(null);
       setEndTripError("");
+      setVehicleRefreshKey(k => k + 1); // vehicle is now Active again — refresh dropdown
     } catch (err) {
       setEndTripError(err.message || "Failed to end trip.");
     } finally {
@@ -687,6 +692,7 @@ export default function TravelList() {
         <StartTrip
           onClose={() => setShowStartTrip(false)}
           onStart={handleStart}
+          refreshKey={vehicleRefreshKey}
         />
       )}
 
@@ -899,7 +905,7 @@ export default function TravelList() {
                 <thead>
                   <tr>
                     {["Sl.No.", "Start Date", "Vehicle", ...(isAdminOrManager ? ["Traveled By"] : []), "Purpose", "Odometer Photos", "Distance", "Fuel & Cost", "End Date", "Action"].map((h) => (
-                      <th key={h} style={{ ...thStyle, textAlign: h === "Action" ? "center" : "left" }}>
+                      <th key={h} style={{ ...thStyle, textAlign: ["Action", "Purpose", "Odometer Photos"].includes(h) ? "center" : "left" }}>
                         {h}
                       </th>
                     ))}
@@ -951,7 +957,7 @@ export default function TravelList() {
                             </span>
                             {(row.vehicleReg || row.registration_number) && (
                               <span style={{
-                                color: "#1a6fdb", fontSize: 14, fontWeight: 600,
+                                color: "#1a6fdb", fontSize: 10, fontWeight: 600,
                                 fontFamily: "'Google Sans', sans-serif", letterSpacing: 0.6,
                               }}>
                                 {row.vehicleReg || row.registration_number}
@@ -968,13 +974,13 @@ export default function TravelList() {
                         )}
 
                         {/* Purpose */}
-                        <td style={{ ...tdStyle, textAlign: "center" }}>
+                        <td style={{ ...tdStyle, textAlign: "center", verticalAlign: "middle" }}>
                           {row.purpose ? (
                             <button
                               onClick={() => setPurposePopup(row.purpose)}
-                              style={{ background: "none", border: "none", cursor: "pointer", color: "#1a73e8", display: "inline-flex", alignItems: "center", padding: 0 }}
+                              style={{ background: "none", border: "none", cursor: "pointer", color: "#1a73e8", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, margin: "0 auto" }}
                             >
-                              <PreviewOutlinedIcon style={{ fontSize: 22 }} />
+                              <RemoveRedEyeOutlinedIcon style={{ fontSize: 22 }} />
                             </button>
                           ) : (
                             <span style={{ color: "#cbd5e1", fontSize: 12 }}>—</span>
@@ -982,16 +988,14 @@ export default function TravelList() {
                         </td>
 
                         {/* Photos */}
-                        <td style={tdStyle}>
-                          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                            <div className="img-card-wrap" style={{ position: "relative" }}>
-                              <ImageCard src={row.startImg} label="Start" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} odoValue={row.odoStart} />
-                            </div>
-                            <div style={{ width: 1, height: 60, background: "#e8eaed", flexShrink: 0 }} />
-                            <div className="img-card-wrap" style={{ position: "relative" }}>
-                              <ImageCard src={row.endImg} label="End" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} odoValue={row.odoEnd} />
-                            </div>
-                          </div>
+                        <td style={{ ...tdStyle, textAlign: "center", verticalAlign: "middle" }}>
+                          <button
+                            onClick={() => setOdoPhotoPopup({ startImg: row.startImg, endImg: row.endImg, odoStart: row.odoStart, odoEnd: row.odoEnd })}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "#1a73e8", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, margin: "0 auto" }}
+                            title="View Odometer Photos"
+                          >
+                            <AddToPhotosOutlinedIcon style={{ fontSize: 22 }} />
+                          </button>
                         </td>
 
                         {/* Distance */}
@@ -1194,6 +1198,90 @@ export default function TravelList() {
           onClose={() => setLightbox(null)}
         />
       )}
+      {odoPhotoPopup && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", backdropFilter: "blur(5px)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 }}
+          onClick={() => setOdoPhotoPopup(null)}
+        >
+          <div
+            style={{ background: "#fff", borderRadius: 16, padding: "24px 28px", maxWidth: 520, width: "92vw", boxShadow: "0 20px 60px rgba(0,0,0,0.25)", fontFamily: "'Google Sans', sans-serif" }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <AddToPhotosOutlinedIcon style={{ fontSize: 22, color: "#1a73e8" }} />
+                <span style={{ fontWeight: 700, fontSize: 15, color: "#202124" }}>Odometer Photos</span>
+              </div>
+              <button
+                onClick={() => setOdoPhotoPopup(null)}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 20, color: "#5f6368", lineHeight: 1 }}
+              >×</button>
+            </div>
+
+            {/* Photos side by side */}
+            <div style={{ display: "flex", gap: 16 }}>
+              {/* Start */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#2e7d32", letterSpacing: 0.5, textTransform: "uppercase" }}>🟢 Start</span>
+                {odoPhotoPopup.startImg ? (
+                  <img
+                    src={odoPhotoPopup.startImg}
+                    alt="Start Odometer"
+                    onClick={() => setLightbox({ src: odoPhotoPopup.startImg, label: "Start" })}
+                    style={{ width: "100%", maxHeight: 180, objectFit: "cover", borderRadius: 10, border: "2px solid #2e7d32", cursor: "zoom-in", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+                  />
+                ) : (
+                  <div style={{ width: "100%", height: 140, borderRadius: 10, border: "1.5px dashed #d0d0d0", background: "#fafafa", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#bdbdbd", gap: 6 }}>
+                    <span style={{ fontSize: 28 }}>📷</span>
+                    <span style={{ fontSize: 12 }}>No image</span>
+                  </div>
+                )}
+                {odoPhotoPopup.odoStart != null && odoPhotoPopup.odoStart !== 0 ? (
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#202124" }}>{Number(odoPhotoPopup.odoStart).toLocaleString('en-IN')} km</span>
+                ) : (
+                  <span style={{ fontSize: 12, color: "#bdbdbd" }}>—</span>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div style={{ width: 1, background: "#e8eaed", flexShrink: 0, borderRadius: 2 }} />
+
+              {/* End */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#b71c1c", letterSpacing: 0.5, textTransform: "uppercase" }}>🔴 End</span>
+                {odoPhotoPopup.endImg ? (
+                  <img
+                    src={odoPhotoPopup.endImg}
+                    alt="End Odometer"
+                    onClick={() => setLightbox({ src: odoPhotoPopup.endImg, label: "End" })}
+                    style={{ width: "100%", maxHeight: 180, objectFit: "cover", borderRadius: 10, border: "2px solid #b71c1c", cursor: "zoom-in", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+                  />
+                ) : (
+                  <div style={{ width: "100%", height: 140, borderRadius: 10, border: "1.5px dashed #d0d0d0", background: "#fafafa", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "#bdbdbd", gap: 6 }}>
+                    <span style={{ fontSize: 28 }}>📷</span>
+                    <span style={{ fontSize: 12 }}>No image</span>
+                  </div>
+                )}
+                {odoPhotoPopup.odoEnd != null && odoPhotoPopup.odoEnd !== 0 ? (
+                  <span style={{ fontSize: 13, fontWeight: 700, color: "#202124" }}>{Number(odoPhotoPopup.odoEnd).toLocaleString('en-IN')} km</span>
+                ) : (
+                  <span style={{ fontSize: 12, color: "#bdbdbd" }}>—</span>
+                )}
+              </div>
+            </div>
+
+            {/* Close button */}
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 20 }}>
+              <button
+                onClick={() => setOdoPhotoPopup(null)}
+                style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#1a73e8", color: "#fff", fontWeight: 600, fontSize: 13, cursor: "pointer", fontFamily: "'Google Sans', sans-serif" }}
+              >Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </>
   );
 }

@@ -4,10 +4,7 @@ import Layout                    from "./Base_Templates/Layout";
 import PaymentTable              from "./Components/collection_list";
 import PaymentForm               from "./Components/collection";
 import ImageCaptureLinkGenerator from "./Components/Image_link";
-import VerifyPhone               from "./Components/Image_capture";
-import OtpVerification           from "./Components/Otp_verification";
-import ImageAdd                  from "./Components/Image_add";
-import VerificationSuccess       from "./Components/verify_sucess";
+import { CapturePage }           from "./Components/Image_capture";
 import './App.css';
 
 const getToken  = () => localStorage.getItem("access_token");
@@ -40,17 +37,8 @@ function App() {
 
         <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
 
-        {/* Step 1 — Phone verification */}
-        <Route path="/image_capture/capture/:uuid" element={<VerifyPhone />} />
-
-        {/* Step 2 — OTP verification */}
-        <Route path="/image_capture/verify-otp/:uuid" element={<OtpVerification />} />
-
-        {/* Step 3 — Image capture */}
-        <Route path="/image_capture/add-image/:uuid" element={<ImageAdd />} />
-
-        {/* Step 4 — Verification success */}
-        <Route path="/image_capture/verification-success" element={<VerificationSuccess />} />
+        {/* Customer capture link — goes straight to image capture */}
+        <Route path="/image_capture/capture/:uuid" element={<CapturePage />} />
 
         <Route
           path="/"

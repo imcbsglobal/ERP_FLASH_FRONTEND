@@ -1,4 +1,119 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useParams } from "react-router-dom";
+import API_BASE_URL from "../service/apiConfig";
+
+/* ═══════════════════════════════════════════════════════════════
+   CAPTURE PAGE — rendered at /image_capture/capture/:uuid
+   Fetches link details from the API then drops straight into
+   ImageCaptureFlow — no phone verify, no OTP screen.
+═══════════════════════════════════════════════════════════════ */
+export function CapturePage({ API_BASE }) {
+  const { uuid } = useParams();
+  const [status, setStatus]     = useState("loading"); // "loading" | "ready" | "error"
+  const [linkData, setLinkData] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+
+  useEffect(() => {
+    if (!uuid) { setStatus("error"); setErrorMsg("Invalid link."); return; }
+    const base = API_BASE || API_BASE_URL.replace(/\/api$/, "");
+    fetch(`${base}/image_capture/api/capture-link/${uuid}/`)
+      .then((r) => {
+        if (!r.ok) throw new Error(r.status === 404 ? "Link not found." : "Failed to load link.");
+        return r.json();
+      })
+      .then((data) => {
+        if (data.status === "used") {
+          setStatus("error"); setErrorMsg("This link has already been used.");
+        } else if (data.is_expired || data.status === "expired") {
+          setStatus("error"); setErrorMsg("This link has expired. Please request a new one.");
+        } else {
+          setLinkData(data); setStatus("ready");
+        }
+      })
+      .catch((err) => { setStatus("error"); setErrorMsg(err.message || "Unable to load this link."); });
+  }, [uuid]);
+
+  if (status === "loading") {
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f5f7fa" }}>
+        <div style={{ textAlign: "center", color: "#6b7280", fontFamily: "\'Google Sans\', sans-serif" }}>
+          <div style={{ width: 40, height: 40, border: "3px solid #e5e7eb", borderTopColor: "#0990eb", borderRadius: "50%", animation: "spin 0.7s linear infinite", margin: "0 auto 16px" }} />
+          <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
+          <p style={{ fontSize: 15, fontWeight: 500 }}>Loading…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "error") {
+    const isExpired = errorMsg.toLowerCase().includes("expired");
+    return (
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f5f7fa", padding: 24 }}>
+        <div style={{ background: "white", borderRadius: 20, padding: "40px 32px", maxWidth: 420, width: "100%", textAlign: "center", boxShadow: "0 8px 40px rgba(0,0,0,0.10)", fontFamily: "\'Google Sans\', sans-serif" }}>
+          <div style={{ width: 60, height: 60, borderRadius: "50%", background: isExpired ? "#fff7ed" : "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={isExpired ? "#f97316" : "#ef4444"} strokeWidth="2.5" strokeLinecap="round">
+              {isExpired ? (
+                <><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></>
+              ) : (
+                <><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>
+              )}
+            </svg>
+          </div>
+          <p style={{ fontSize: 18, fontWeight: 700, color: "#1f2937", marginBottom: 8 }}>{isExpired ? "Link Expired" : "Link Unavailable"}</p>
+          <p style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6, marginBottom: isExpired ? 24 : 0 }}>{errorMsg}</p>
+          {isExpired && (
+            <>
+              <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 12, padding: "14px 16px", marginBottom: 20, textAlign: "left" }}>
+                <p style={{ fontSize: 13, color: "#0369a1", lineHeight: 1.6, margin: 0 }}>
+                  <strong>💡 Need a new link?</strong><br/>
+                  Contact the person who sent you this link to generate a fresh verification link.
+                </p>
+              </div>
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  width: "100%",
+                  padding: "12px 20px",
+                  background: "#0990eb",
+                  border: "none",
+                  borderRadius: 12,
+                  color: "white",
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 8,
+                  transition: "background 0.2s"
+                }}
+                onMouseOver={(e) => e.currentTarget.style.background = "#0770b8"}
+                onMouseOut={(e) => e.currentTarget.style.background = "#0990eb"}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="23 4 23 10 17 10"/>
+                  <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+                </svg>
+                Refresh Page
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // status === "ready" — go straight to capture, no phone/OTP
+  return (
+    <ImageCaptureFlow
+      uuid={uuid}
+      phone={linkData?.phone || ""}
+      customerName={linkData?.customer_name_resolved || ""}
+      API_BASE={API_BASE || API_BASE_URL.replace(/\/api$/, "")}
+    />
+  );
+}
+
 
 /* ═══════════════════════════════════════════════════════════════
    GOOGLE MAPS-STYLE LEAFLET MAP COMPONENT
@@ -452,28 +567,59 @@ export default function ImageCaptureFlow({
 
   const showUploadErr = (msg) => { setUploadErr(msg); setTimeout(() => setUploadErr(""), 4000); };
 
-  /* ── Submit: no backend — show success screen directly ── */
-  const handleSubmit = useCallback(() => {
+  /* ── Submit: POST to /api/upload-image/ ── */
+  const handleSubmit = useCallback(async () => {
     if (!imgDataUrl && !imgFile) { showUploadErr("No image found. Please retake."); return; }
     setLoading(true);
+    try {
+      const formData = new FormData();
+      // Use imgFile if available (file picker), otherwise convert dataUrl blob
+      let fileToUpload = imgFile;
+      if (!fileToUpload && imgDataUrl) {
+        const res  = await fetch(imgDataUrl);
+        const blob = await res.blob();
+        fileToUpload = new File([blob], "capture.jpg", { type: "image/jpeg" });
+      }
+      formData.append("image", fileToUpload);
+      if (uuid)               formData.append("uuid",          uuid);
+      if (propCustomerName)   formData.append("customer_name", propCustomerName);
+      if (propPhone)          formData.append("phone",         propPhone);
+      if (gps) {
+        formData.append("latitude",  parseFloat(gps.lat.toFixed(7)));
+        formData.append("longitude", parseFloat(gps.lng.toFixed(7)));
+        formData.append("address",   address);
+      }
 
-    // Simulate a brief "processing" delay for UX realism
-    setTimeout(() => {
-      setLoading(false);
-      const now = new Date().toISOString();
+      const base = API_BASE || API_BASE_URL.replace(/\/api$/, "");
+      const r    = await fetch(`${base}/image_capture/api/upload-image/`, {
+        method: "POST",
+        body:   formData,
+      });
+      const data = await r.json();
+
+      if (!r.ok) {
+        showUploadErr(data?.message || data?.detail || "Upload failed. Please try again.");
+        return;
+      }
+
+      // Success — show success screen with returned or local data
       setSuccessData({
-        customerName: propCustomerName || "Customer",
-        phone:        propPhone        || "",
+        customerName: data.customer_name || propCustomerName || "Customer",
+        phone:        data.phone         || propPhone        || "",
         preview:      imgDataUrl,
-        address,
-        lat:  gps?.lat ?? null,
-        lng:  gps?.lng ?? null,
-        verifiedAt: now,
+        address:      data.address       || address,
+        lat:          data.lat           ?? gps?.lat ?? null,
+        lng:          data.lng           ?? gps?.lng ?? null,
+        verifiedAt:   data.verified_at   || new Date().toISOString(),
       });
       setScreen("success");
       onSuccess?.(imgDataUrl);
-    }, 900);
-  }, [imgDataUrl, imgFile, propCustomerName, propPhone, address, gps, onSuccess]);
+    } catch {
+      showUploadErr("Network error. Please check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [imgDataUrl, imgFile, uuid, propCustomerName, propPhone, address, gps, API_BASE, onSuccess]);
 
   const handleClose = () => {
     // Reset everything back to the beginning
@@ -732,7 +878,7 @@ const css = `
   @keyframes icf-spin    { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
   @keyframes icf-locPulse{ 0%{background:#dbeafe} 100%{background:white} }
 
-  .icf-page { min-height:100vh; min-height:-webkit-fill-available; display:flex; align-items:center; justify-content:center; padding:24px 16px; background:#f5f7fa; }
+  .icf-page { min-height:100vh; min-height:-webkit-fill-available; display:flex; align-items:center; justify-content:center; padding:24px 16px;  }
   .icf-card { background:white; border-radius:22px; padding:36px 28px 32px; width:100%; max-width:420px; box-sizing:border-box; box-shadow:0 8px 40px rgba(9,144,235,0.18),0 2px 8px rgba(0,0,0,0.08); display:flex; flex-direction:column; align-items:center; gap:15px; }
   .icf-card-anim { animation: icf-cardIn 0.4s cubic-bezier(.22,1,.36,1) both; }
   .icf-fade-up   { animation: icf-fadeUp 0.4s ease both; }

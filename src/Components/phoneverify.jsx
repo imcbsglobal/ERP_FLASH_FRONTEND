@@ -210,7 +210,7 @@ const LockIcon = () => (
 
 const styles = {
   page: {
-    background: "#EFF2F7",
+   
     display: "flex",
     alignItems: "center",
     justifyContent: "center",

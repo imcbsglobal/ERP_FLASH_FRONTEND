@@ -5,38 +5,62 @@ import { getCaptureLinkByUuid } from "../service/Api";
 
 export default function PhoneVerifyWrapper() {
   const { uuid } = useParams();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [loading,  setLoading]  = useState(true);
+  const [expired,  setExpired]  = useState(false);
+  const [error,    setError]    = useState(null);
   const [linkData, setLinkData] = useState(null);
 
   useEffect(() => {
     const fetchLinkData = async () => {
       if (!uuid) {
-        setError("Invalid link - no UUID provided");
+        setError("Invalid link — no UUID provided.");
         setLoading(false);
         return;
       }
-
       try {
         const data = await getCaptureLinkByUuid(uuid);
         setLinkData(data);
       } catch (err) {
-        console.error("Error fetching link data:", err);
-        setError(err.message || "Failed to load verification link. The link may have expired.");
+        if (err._status === 410) {
+          setExpired(true);
+        } else {
+          setError(err.message || "Failed to load verification link.");
+        }
       } finally {
         setLoading(false);
       }
     };
-
     fetchLinkData();
   }, [uuid]);
 
   if (loading) {
     return (
-      <div style={styles.page}>
-        <div style={styles.card}>
-          <div style={styles.spinner} />
-          <p style={styles.loadingText}>Loading verification link...</p>
+      <>
+        <style>{`@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }`}</style>
+        <div style={s.page}>
+          <div style={s.card}>
+            <div style={s.spinner} />
+            <p style={s.sub}>Loading verification link…</p>
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  if (expired) {
+    return (
+      <div style={s.page}>
+        <div style={s.card}>
+          <div style={s.iconWrap}>⏰</div>
+          <h2 style={s.title}>Link Expired</h2>
+          <p style={s.body}>
+            This verification link has expired. Links are only valid for{" "}
+            <strong>10 minutes</strong> after they are created.
+          </p>
+          <p style={s.body}>
+            Please ask the staff to generate a new link for you.
+          </p>
+          <div style={s.badge}>Link is no longer valid</div>
         </div>
       </div>
     );
@@ -44,11 +68,11 @@ export default function PhoneVerifyWrapper() {
 
   if (error) {
     return (
-      <div style={styles.page}>
-        <div style={styles.card}>
-          <div style={styles.errorIcon}>⚠️</div>
-          <h2 style={styles.errorTitle}>Link Error</h2>
-          <p style={styles.errorText}>{error}</p>
+      <div style={s.page}>
+        <div style={s.card}>
+          <div style={s.iconWrap}>⚠️</div>
+          <h2 style={{ ...s.title, color: "#DC2626" }}>Link Error</h2>
+          <p style={s.body}>{error}</p>
         </div>
       </div>
     );
@@ -63,7 +87,7 @@ export default function PhoneVerifyWrapper() {
   );
 }
 
-const styles = {
+const s = {
   page: {
     background: "#EFF2F7",
     display: "flex",
@@ -77,7 +101,7 @@ const styles = {
   card: {
     background: "#FFFFFF",
     borderRadius: "20px",
-    padding: "44px 40px 32px",
+    padding: "44px 40px 36px",
     width: "100%",
     maxWidth: "420px",
     display: "flex",
@@ -85,6 +109,7 @@ const styles = {
     alignItems: "center",
     boxShadow: "0 8px 40px rgba(0,0,0,0.08)",
     boxSizing: "border-box",
+    textAlign: "center",
   },
   spinner: {
     width: "40px",
@@ -95,27 +120,36 @@ const styles = {
     animation: "spin 0.8s linear infinite",
     marginBottom: "16px",
   },
-  loadingText: {
-    fontSize: "14px",
-    color: "#6B7280",
-    margin: 0,
+  iconWrap: {
+    fontSize: "56px",
+    marginBottom: "20px",
+    lineHeight: 1,
   },
-  errorIcon: {
-    fontSize: "48px",
-    marginBottom: "16px",
-  },
-  errorTitle: {
-    fontSize: "20px",
+  title: {
+    fontSize: "22px",
     fontWeight: "700",
-    color: "#DC2626",
-    margin: "0 0 12px 0",
-    textAlign: "center",
+    color: "#111827",
+    margin: "0 0 14px 0",
   },
-  errorText: {
+  body: {
     fontSize: "14px",
     color: "#6B7280",
-    textAlign: "center",
-    lineHeight: "1.6",
+    lineHeight: "1.7",
+    margin: "0 0 10px 0",
+  },
+  sub: {
+    fontSize: "14px",
+    color: "#6B7280",
     margin: 0,
+  },
+  badge: {
+    marginTop: "20px",
+    padding: "8px 20px",
+    borderRadius: "20px",
+    background: "#FEF2F2",
+    color: "#DC2626",
+    fontSize: "13px",
+    fontWeight: "600",
+    border: "1px solid #FECACA",
   },
 };

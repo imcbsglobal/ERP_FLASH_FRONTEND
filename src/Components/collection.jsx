@@ -38,6 +38,12 @@ const sendWhatsAppNotification = async (formData) => {
 const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
   const isEdit = Boolean(initialData?.id ?? initialData?._id ?? initialData?.payment_id);
 
+  // Mobile detection utility
+  const isMobileDevice = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+           window.innerWidth <= 768;
+  };
+
   const [formData, setFormData] = useState({
     clientName: '',
     place: '',
@@ -346,6 +352,20 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
 
   const handleFileChange = (e) => {
     const file = e.target.files[0];
+    if (!file) return;
+
+    // Maximum 5MB file size
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    
+    if (file.size > MAX_FILE_SIZE) {
+      setErrors(prev => ({
+        ...prev,
+        paymentProof: `File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum allowed size is 5MB.`
+      }));
+      e.target.value = '';
+      return;
+    }
+
     setFormData(prev => ({ ...prev, paymentProof: file }));
     if (errors.paymentProof) setErrors(prev => ({ ...prev, paymentProof: '' }));
   };
@@ -823,11 +843,23 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
             {formData.collectionType && formData.collectionType !== 'Cash' ? (
               <>
                 <label htmlFor="paymentProof">Payment Proof <span style={{ color: 'var(--red)' }}>*</span></label>
-                <input
-                  type="file" id="paymentProof" name="paymentProof"
-                  onChange={handleFileChange} accept="image/*,.pdf"
-                  className={errors.paymentProof ? 'error' : ''}
-                />
+                {isMobileDevice() ? (
+                  <input
+                    type="file" id="paymentProof" name="paymentProof"
+                    onChange={handleFileChange} accept="image/*"
+                    capture="environment"
+                    className={errors.paymentProof ? 'error' : ''}
+                  />
+                ) : (
+                  <input
+                    type="file" id="paymentProof" name="paymentProof"
+                    onChange={handleFileChange} accept="image/*,.pdf"
+                    className={errors.paymentProof ? 'error' : ''}
+                  />
+                )}
+                <small style={{ marginTop: '4px', display: 'block', color: '#6b7280', fontSize: '11px' }}>
+                  {isMobileDevice() ? '📷 Camera capture • Max 5MB' : '📁 File upload • Max 5MB'}
+                </small>
                 {isEdit && initialData?.paymentProofUrl && (
                   <small style={{ marginTop: '4px', display: 'block' }}>
                     Current:{' '}
