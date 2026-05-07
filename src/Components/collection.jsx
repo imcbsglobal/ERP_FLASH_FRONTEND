@@ -82,6 +82,14 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
   const wrapperRef = useRef(null);
   const searchRef  = useRef(null);
   const listRef    = useRef(null);
+  const paymentProofRef = useRef(null);
+
+  // ── Camera states ──
+  const [cameraActive, setCameraActive] = useState(false);
+  const [cameraStream, setCameraStream] = useState(null);
+  const [capturedPhoto, setCapturedPhoto] = useState(null);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
 
   // Close on outside click
   useEffect(() => {
@@ -100,6 +108,15 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
   useEffect(() => {
     if (showDropdown) setTimeout(() => searchRef.current?.focus(), 30);
   }, [showDropdown]);
+
+  // Cleanup camera on unmount
+  useEffect(() => {
+    return () => {
+      if (cameraStream) {
+        cameraStream.getTracks().forEach(t => t.stop());
+      }
+    };
+  }, [cameraStream]);
 
   // Strip trailing digit-runs ERP embeds
   const cleanDebtorName = (raw = '') => {
@@ -368,6 +385,67 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
 
     setFormData(prev => ({ ...prev, paymentProof: file }));
     if (errors.paymentProof) setErrors(prev => ({ ...prev, paymentProof: '' }));
+  };
+
+  // ── Camera functions ──────────────────────────────────────────
+  const openCamera = async () => {
+    try {
+      setCapturedPhoto(null);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } }
+      });
+      setCameraStream(stream);
+      setCameraActive(true);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      }, 100);
+    } catch (err) {
+      console.error("Camera error:", err);
+      setErrors(prev => ({ ...prev, paymentProof: "Failed to access camera. Check permissions." }));
+    }
+  };
+
+  const takePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const ctx = canvasRef.current.getContext("2d");
+      const video = videoRef.current;
+      canvasRef.current.width = video.videoWidth;
+      canvasRef.current.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0);
+      canvasRef.current.toBlob(blob => {
+        if (blob) {
+          const file = new File([blob], `payment-proof-${Date.now()}.jpg`, { type: "image/jpeg" });
+          setCapturedPhoto({ blob, file, preview: canvasRef.current.toDataURL() });
+        }
+      }, "image/jpeg", 0.9);
+    }
+  };
+
+  const confirmPhoto = () => {
+    if (!capturedPhoto) return;
+
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    if (capturedPhoto.blob.size > MAX_FILE_SIZE) {
+      setErrors(prev => ({
+        ...prev,
+        paymentProof: `Photo is too large (${(capturedPhoto.blob.size / 1024 / 1024).toFixed(2)}MB). Maximum 5MB.`
+      }));
+      return;
+    }
+
+    setFormData(prev => ({ ...prev, paymentProof: capturedPhoto.file }));
+    closeCamera();
+  };
+
+  const closeCamera = () => {
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(t => t.stop());
+      setCameraStream(null);
+    }
+    setCameraActive(false);
+    setCapturedPhoto(null);
   };
 
   // ── Validation ────────────────────────────────────────────────
@@ -844,12 +922,54 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
               <>
                 <label htmlFor="paymentProof">Payment Proof <span style={{ color: 'var(--red)' }}>*</span></label>
                 {isMobileDevice() ? (
-                  <input
-                    type="file" id="paymentProof" name="paymentProof"
-                    onChange={handleFileChange} accept="image/*"
-                    capture="environment"
-                    className={errors.paymentProof ? 'error' : ''}
-                  />
+                  <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+                    <button
+                      type="button"
+                      onClick={openCamera}
+                      style={{
+                        flex: 1,
+                        padding: '12px 16px',
+                        borderRadius: 8,
+                        border: '1.5px solid #cbd5e1',
+                        background: '#fff',
+                        color: '#1a73e8',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        fontFamily: "'Google Sans', sans-serif",
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      📷 Camera
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => paymentProofRef.current?.click()}
+                      style={{
+                        flex: 1,
+                        padding: '12px 16px',
+                        borderRadius: 8,
+                        border: '1.5px solid #cbd5e1',
+                        background: '#fff',
+                        color: '#1a73e8',
+                        fontSize: 13,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        fontFamily: "'Google Sans', sans-serif",
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: 8,
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      📁 Upload
+                    </button>
+                  </div>
                 ) : (
                   <input
                     type="file" id="paymentProof" name="paymentProof"
@@ -858,7 +978,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
                   />
                 )}
                 <small style={{ marginTop: '4px', display: 'block', color: '#6b7280', fontSize: '11px' }}>
-                  {isMobileDevice() ? '📷 Camera capture • Max 5MB' : '📁 File upload • Max 5MB'}
+                  {isMobileDevice() ? '📷 Camera or upload • Max 5MB' : '📁 File upload • Max 5MB'}
                 </small>
                 {isEdit && initialData?.paymentProofUrl && (
                   <small style={{ marginTop: '4px', display: 'block' }}>
@@ -886,6 +1006,119 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
               </>
             )}
           </div>
+
+          <input
+            type="file"
+            ref={paymentProofRef}
+            id="paymentProof"
+            name="paymentProof"
+            onChange={handleFileChange}
+            accept="image/*,.pdf"
+            style={{ display: 'none' }}
+          />
+          
+          {cameraActive && (
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              background: '#000',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 9999,
+            }}>
+              <video
+                ref={videoRef}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                }}
+                autoPlay
+                playsInline
+              />
+              {!capturedPhoto ? (
+                <div style={{
+                  position: 'absolute',
+                  bottom: 20,
+                  display: 'flex',
+                  gap: 10,
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => closeCamera()}
+                    style={{
+                      padding: '12px 24px',
+                      borderRadius: 50,
+                      border: '2px solid #fff',
+                      background: 'transparent',
+                      color: '#fff',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={takePhoto}
+                    style={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: '50%',
+                      border: 'none',
+                      background: '#fff',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                    }}
+                  />
+                </div>
+              ) : (
+                <div style={{
+                  position: 'absolute',
+                  bottom: 20,
+                  display: 'flex',
+                  gap: 10,
+                }}>
+                  <button
+                    type="button"
+                    onClick={() => setCapturedPhoto(null)}
+                    style={{
+                      padding: '12px 24px',
+                      borderRadius: 8,
+                      border: '2px solid #fff',
+                      background: 'transparent',
+                      color: '#fff',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Retake
+                  </button>
+                  <button
+                    type="button"
+                    onClick={confirmPhoto}
+                    style={{
+                      padding: '12px 24px',
+                      borderRadius: 8,
+                      border: 'none',
+                      background: '#4CAF50',
+                      color: '#fff',
+                      fontSize: 14,
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Confirm
+                  </button>
+                </div>
+              )}
+              <canvas ref={canvasRef} style={{ display: 'none' }} />
+            </div>
+          )}
         </div>
 
         {/* ── Row 4 — Amount & Paid For (single line) ── */}

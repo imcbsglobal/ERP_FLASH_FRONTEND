@@ -664,18 +664,59 @@ const StartTrip = ({ onClose, onStart, refreshKey }) => {
           />
           {!form.odometerImagePreview ? (
             isMobileDevice() ? (
-              <div
-                className="st-odometer-box"
-                style={S.odometerBox}
-                onClick={openCamera}
-              >
-                <div style={{
-                  width: 52, height: 52, borderRadius: '50%',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <AddAPhotoOutlinedIcon style={{ fontSize: 26, color: '#1a73e8' }} />
-                </div>
-                <span style={{ fontSize: 12, color: '#9aa0a6', fontWeight: 500 }}>Tap to take odometer photo</span>
+              <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+                <button
+                  type="button"
+                  onClick={openCamera}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    borderRadius: 8,
+                    border: '1.5px solid #e0e0e0',
+                    background: '#fff',
+                    color: '#1a73e8',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: "'Google Sans', sans-serif",
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.target.style.background = '#f0f8ff'}
+                  onMouseLeave={(e) => e.target.style.background = '#fff'}
+                >
+                  <AddAPhotoOutlinedIcon style={{ fontSize: 18 }} />
+                  Camera
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    flex: 1,
+                    padding: '12px 16px',
+                    borderRadius: 8,
+                    border: '1.5px solid #e0e0e0',
+                    background: '#fff',
+                    color: '#1a73e8',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontFamily: "'Google Sans', sans-serif",
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8,
+                    transition: 'all 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.target.style.background = '#f0f8ff'}
+                  onMouseLeave={(e) => e.target.style.background = '#fff'}
+                >
+                  📁
+                  Upload
+                </button>
               </div>
             ) : (
               <div

@@ -525,16 +525,20 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
               <div style={s.inlineField}>
                 <label style={s.inlineLabel}>Challan Document</label>
                 {isMobileDevice() ? (
-                  <button type="button" className="cfile"
-                    onClick={()=>openCamera("challan")}>
-                    <span style={{color:challanDoc?"#2563eb":"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
-                      {challanDoc
-                        ? challanDoc.name
-                        : initialData?.challan_doc_url
-                          ? "📄 Replace existing file"
-                          : "📷 Take Photo"}
-                    </span>
-                  </button>
+                  <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+                    <button type="button" className="cfile" style={{ flex: 1 }}
+                      onClick={()=>openCamera("challan")}>
+                      <span style={{color:challanDoc?"#2563eb":"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+                        {challanDoc
+                          ? challanDoc.name
+                          : "📷 Camera"}
+                      </span>
+                    </button>
+                    <button type="button" className="cfile" style={{ flex: 1 }}
+                      onClick={() => challanDocRef.current?.click()}>
+                      <span>📁 Upload</span>
+                    </button>
+                  </div>
                 ) : (
                   <input
                     type="file"
@@ -555,7 +559,7 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
                   />
                 )}
                 <small style={{marginTop:"4px", display:"block", color:"#6b7280", fontSize:"11px"}}>
-                  {isMobileDevice() ? "Camera capture (Max 5MB)" : "Upload file (Max 5MB)"}
+                  {isMobileDevice() ? "Camera or upload (Max 5MB)" : "Upload file (Max 5MB)"}
                 </small>
                 {!isMobileDevice() && !challanDoc && !initialData?.challan_doc_url && (
                   <button
@@ -576,16 +580,20 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
               <div style={s.inlineField}>
                 <label style={s.inlineLabel}>Payment Receipt</label>
                 {isMobileDevice() ? (
-                  <button type="button" className="cfile"
-                    onClick={()=>openCamera("receipt")}>
-                    <span style={{color:paymentReceipt?"#2563eb":"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
-                      {paymentReceipt
-                        ? paymentReceipt.name
-                        : initialData?.payment_receipt_url
-                          ? "📄 Replace existing file"
-                          : "📷 Take Photo"}
-                    </span>
-                  </button>
+                  <div style={{ display: 'flex', gap: 10, width: '100%' }}>
+                    <button type="button" className="cfile" style={{ flex: 1 }}
+                      onClick={()=>openCamera("receipt")}>
+                      <span style={{color:paymentReceipt?"#2563eb":"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
+                        {paymentReceipt
+                          ? paymentReceipt.name
+                          : "📷 Camera"}
+                      </span>
+                    </button>
+                    <button type="button" className="cfile" style={{ flex: 1 }}
+                      onClick={() => receiptRef.current?.click()}>
+                      <span>📁 Upload</span>
+                    </button>
+                  </div>
                 ) : (
                   <input
                     type="file"
@@ -606,7 +614,7 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
                   />
                 )}
                 <small style={{marginTop:"4px", display:"block", color:"#6b7280", fontSize:"11px"}}>
-                  {isMobileDevice() ? "Camera capture (Max 5MB)" : "Upload file (Max 5MB)"}
+                  {isMobileDevice() ? "Camera or upload (Max 5MB)" : "Upload file (Max 5MB)"}
                 </small>
                 {!isMobileDevice() && !paymentReceipt && !initialData?.payment_receipt_url && (
                   <button

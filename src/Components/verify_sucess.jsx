@@ -369,18 +369,8 @@ export default function VerificationSuccess({ overrideState }) {
 
           </div>{/* end rows */}
 
-          {/* ── Close button ── */}
-          <button
-            className="vs-close-btn"
-            onClick={() => navigate(-2)} // Go back two steps to return to previous page
-          >
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
-              stroke="#374151" strokeWidth="2.5" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-            Close
-          </button>
+          
+          
 
         </div>
       </div>

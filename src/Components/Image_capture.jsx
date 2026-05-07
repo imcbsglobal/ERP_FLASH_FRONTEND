@@ -622,10 +622,7 @@ export default function ImageCaptureFlow({
   }, [imgDataUrl, imgFile, uuid, propCustomerName, propPhone, address, gps, API_BASE, onSuccess]);
 
   const handleClose = () => {
-    // Reset everything back to the beginning
-    retake();
-    setScreen("capture");
-    setSuccessData(null);
+    window.location.href = "https://www.flashinnovations.in/";
   };
 
   /* ── Show success screen ── */
