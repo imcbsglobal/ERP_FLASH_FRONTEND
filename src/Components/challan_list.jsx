@@ -484,7 +484,7 @@ export default function ChallanList({ onAdd, onEdit }) {
             padding: 10px 12px;
             gap: 8px;
           }
-          .cl-header-bar h1 { font-size: 18px !important; }
+          .cl-header-bar h1 { font-size: 20px !important; }
           .cl-add-btn {
             width: 100%;
             justify-content: center;

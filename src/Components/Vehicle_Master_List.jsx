@@ -879,6 +879,9 @@ export default function VehicleMasterList({ onVehicleSaved }) {
             font-family: 'Google Sans', sans-serif;
           }
         }
+        @media (max-width: 600px) {
+          .vml-header h1 { font-size: 20px !important; }
+        }
         @media (min-width: 601px) {
           .vm-desktop-table { display: block !important; }
           .vm-mobile-cards  { display: none !important; }

@@ -340,7 +340,8 @@ const EndTrip = ({ onClose, onComplete, tripData = {}, errorMessage = "" }) => {
     // ── Footer ──
     actions: {
       display: 'flex', gap: 12, justifyContent: 'flex-end', flexWrap: 'wrap',
-      marginTop: 24, paddingTop: 20, 
+      marginTop: 24, paddingTop: 20,
+      paddingBottom: 'calc(16px + env(safe-area-inset-bottom, 0px))',
     },
     cancelBtn: {
       display: 'flex', alignItems: 'center', gap: 6,
@@ -378,11 +379,23 @@ const EndTrip = ({ onClose, onComplete, tripData = {}, errorMessage = "" }) => {
           .et-info-grid  { grid-template-columns: 1fr 1fr !important; }
           .et-grid3      { grid-template-columns: 1fr !important; }
           .et-grid2      { grid-template-columns: 1fr !important; }
-          .et-cancel, .et-complete { flex: 1; justify-content: center; }
-          .et-body-scroll { padding: 10px !important; }
-          .et-card        { padding: 14px 12px !important; border-radius: 12px !important; }
+          .et-cancel, .et-complete { flex: 1 !important; justify-content: center !important; min-height: 48px !important; font-size: 14px !important; }
+          .et-body-scroll { padding: 10px 10px 0 10px !important; }
+          .et-card        { padding: 14px 12px 0 12px !important; border-radius: 12px !important; }
           .et-odometer-box { align-items: center !important; justify-content: center !important; padding: 24px 16px !important; }
-          .et-actions     { flex-direction: row !important; gap: 8px !important; }
+          .et-actions     {
+            flex-direction: row !important;
+            gap: 10px !important;
+            position: sticky !important;
+            bottom: 0 !important;
+            background: #fff !important;
+            padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 16px)) 16px !important;
+            margin: 16px -12px 0 -12px !important;
+            border-top: 1px solid #e8eaed !important;
+            box-shadow: 0 -2px 12px rgba(0,0,0,0.08) !important;
+            z-index: 100 !important;
+            justify-content: stretch !important;
+          }
           .et-preview-wrap { flex-direction: column !important; align-items: flex-start !important; }
           .et-odo-img     { max-width: 100% !important; max-height: 200px !important; }
         }

@@ -288,14 +288,13 @@ const ImageCaptureList = ({ onGenerateLink }) => {
     <div className="p-6 bg-white min-h-screen" style={{ fontFamily: "'Google Sans', sans-serif" }}>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+        <div className="imgcap-header-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: 25, fontWeight: 600,textAlign: 'left', color: "#0d0d0e", fontFamily: "'Google Sans', sans-serif" }}>Verified Customers</h2>
-           
+            <h2 className="imgcap-page-title" style={{ margin: 0, fontSize: 25, fontWeight: 600,textAlign: 'left', color: "#0d0d0e", fontFamily: "'Google Sans', sans-serif" }}>Verified Customers</h2>
           </div>
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px' }}>
+        <div className="imgcap-btn-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px' }}>
           <button
             onClick={() => setModalMode('generateLink')}
             style={{
@@ -347,11 +346,14 @@ const ImageCaptureList = ({ onGenerateLink }) => {
         </div>
         </div>
 
+        {/* Styles */}
+        <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} @media (max-width: 600px) { .imgcap-page-title { font-size: 20px !important; } .imgcap-header-wrap { flex-direction: column !important; align-items: flex-start !important; gap: 12px; } .imgcap-btn-group { width: 100%; flex-direction: row !important; } .imgcap-btn-group button { flex: 1; justify-content: center; } }"}</style>
+
         {/* Loading / Error */}
         {loading && (
           <div style={{ textAlign: 'center', padding: '48px 0', color: '#6b7280', fontFamily: "'Google Sans', sans-serif" }}>
             <div style={{ width: 36, height: 36, border: '3px solid #e5e7eb', borderTopColor: '#0990eb', borderRadius: '50%', animation: 'spin 0.7s linear infinite', margin: '0 auto 12px' }} />
-            <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
+
             Loading records…
           </div>
         )}

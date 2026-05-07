@@ -15,8 +15,6 @@ class AuthError extends Error {
 
 // ── Mobile Card Component ──────────────────────────────────────
 function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, onStatusUpdate, onEdit, onDelete, editLoading, mode, isAdmin, cashReceived, onViewProof }) {
-  const [expanded, setExpanded] = React.useState(false);
-
   const formatCurrency = (amount) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR',
       minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -40,14 +38,14 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
   const statusDisabled = updatingId === payment.id || (mode === 'all' && !isAdmin);
 
   return (
-    <div className="mobile-card" onClick={() => setExpanded(p => !p)}>
+    <div className="mobile-card">
       {/* Header */}
       <div className="mc-head">
         <div className="mc-left">
           <div className="mc-serial">#{startIndex + index + 1}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="client-name">{payment.clientName}</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px 10px', marginTop: 4 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px 8px', marginTop: 3 }}>
               {payment.place && (
                 <span className="client-place">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
@@ -78,22 +76,17 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
           >
             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-          <span className={`mc-chevron${expanded ? ' open' : ''}`}>▼</span>
         </div>
       </div>
 
-      {/* Always-visible summary */}
+      {/* Always-visible summary — 2-col compact grid */}
       <div className="mc-summary">
         <div>
           <div className="mc-lbl">Date</div>
           <div className="mc-val">{formatDate(payment.date)}</div>
-          {/* Show creator name for all users */}
           {(payment.createdByName || payment.created_by_name) && (
-            <div style={{
-              fontSize: 11, color: "#5f6368", marginTop: 3,
-              display: "flex", alignItems: "center", gap: 3, fontWeight: 500
-            }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10" style={{ flexShrink: 0 }}>
+            <div style={{ fontSize: 10, color: "#5f6368", marginTop: 2, display: "flex", alignItems: "center", gap: 3, fontWeight: 500 }}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="9" height="9" style={{ flexShrink: 0 }}>
                 <circle cx="12" cy="8" r="4" />
                 <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
               </svg>
@@ -113,101 +106,62 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
           <div className="mc-lbl">Type</div>
           <div className="mc-val">{payment.collectionType || '—'}</div>
         </div>
+        {payment.department && (
+          <div>
+            <div className="mc-lbl">Department</div>
+            <div className="mc-val">{payment.department}</div>
+          </div>
+        )}
+        {payment.paidFor && (
+          <div>
+            <div className="mc-lbl">Paid For</div>
+            <div className="mc-val">{payment.paidFor}</div>
+          </div>
+        )}
+        <div>
+          <div className="mc-lbl">Cash Received</div>
+          <div className="mc-val">
+            {cashReceived === true ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#e6f4ea", color: "#188038", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>✓ Yes</span>
+            ) : cashReceived === false ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#fce8e6", color: "#c5221f", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>✗ No</span>
+            ) : (
+              <span style={{ color: "#9ca3af", fontSize: 12 }}>—</span>
+            )}
+          </div>
+        </div>
+        {payment.paymentProofUrl && (
+          <div>
+            <div className="mc-lbl">Proof</div>
+            <button className="file-link" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, gap: 3 }}
+              onClick={e => { e.stopPropagation(); onViewProof(payment.paymentProofUrl); }}>
+              <VisibilityOutlinedIcon style={{ fontSize: 16 }} /> View
+            </button>
+          </div>
+        )}
+        {payment.notes && (
+          <div style={{ gridColumn: '1 / -1' }}>
+            <div className="mc-lbl">Notes</div>
+            <div className="mc-val" style={{ fontSize: 11, lineHeight: 1.4, wordBreak: 'break-word' }}>{payment.notes}</div>
+          </div>
+        )}
       </div>
 
-      {/* Expanded details */}
-      {expanded && (
-        <div className="mc-detail" onClick={e => e.stopPropagation()}>
-          {payment.department && (
-            <div>
-              <div className="mc-lbl">Department</div>
-              <div className="mc-val">{payment.department}</div>
-            </div>
-          )}
-          {payment.paidFor && (
-            <div>
-              <div className="mc-lbl">Paid For</div>
-              <div className="mc-val">{payment.paidFor}</div>
-            </div>
-          )}
-          <div>
-            <div className="mc-lbl">Status</div>
-            <select
-              className={`status-select ${getStatusClass(payment.status)}`}
-              value={statusDisplay || 'Pending'}
-              disabled={statusDisabled}
-              onClick={e => e.stopPropagation()}
-              onChange={e => { e.stopPropagation(); onStatusUpdate(payment, e.target.value); }}
-              style={{ padding: '4px 8px', fontSize: 12 }}
-            >
-              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div>
-            <div className="mc-lbl">Cash Received</div>
-            <div className="mc-val">
-              {cashReceived === true ? (
-                <span style={{
-                  display: "inline-flex", alignItems: "center", gap: 3,
-                  background: "#e6f4ea", color: "#188038",
-                  borderRadius: 20, padding: "2px 9px",
-                  fontSize: 11, fontWeight: 700,
-                }}>✓ Yes</span>
-              ) : cashReceived === false ? (
-                <span style={{
-                  display: "inline-flex", alignItems: "center", gap: 3,
-                  background: "#fce8e6", color: "#c5221f",
-                  borderRadius: 20, padding: "2px 9px",
-                  fontSize: 11, fontWeight: 700,
-                }}>✗ No</span>
-              ) : (
-                <span style={{ color: "#9ca3af", fontSize: 12 }}>—</span>
-              )}
-            </div>
-          </div>
-          {payment.paymentProofUrl && (
-            <div>
-              <div className="mc-lbl">Proof</div>
-              <button className="file-link" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, gap: 4 }}
-                onClick={e => { e.stopPropagation(); onViewProof(payment.paymentProofUrl); }}>
-                <VisibilityOutlinedIcon style={{ fontSize: 18 }} /> View
-              </button>
-            </div>
-          )}
-          {payment.notes && (
-            <div style={{ gridColumn: '1 / -1' }}>
-              <div className="mc-lbl">Notes</div>
-              <div className="mc-val" style={{ fontSize: 12, lineHeight: 1.4, wordBreak: 'break-word' }}>{payment.notes}</div>
-            </div>
-          )}
-          {canEditDelete && (
-            <div className="mc-full mc-actions">
-              <button
-                onClick={() => onEdit(payment)}
-                style={{
-                  flex: 1, padding: '8px 0', borderRadius: 7, border: 'none',
-                  background: '#1a73e8', color: '#fff', fontSize: 13,
-                  fontWeight: 600, cursor: 'pointer', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', gap: 6,
-                  fontFamily: "'Google Sans', sans-serif",
-                }}
-              >
-                <EditOutlinedIcon style={{ fontSize: 15 }} /> Edit
-              </button>
-              <button
-                onClick={() => onDelete(payment.id)}
-                style={{
-                  flex: 1, padding: '8px 0', borderRadius: 7, border: 'none',
-                  background: '#d93025', color: '#fff', fontSize: 13,
-                  fontWeight: 600, cursor: 'pointer', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center', gap: 6,
-                  fontFamily: "'Google Sans', sans-serif",
-                }}
-              >
-                <DeleteOutlineOutlinedIcon style={{ fontSize: 15 }} /> Delete
-              </button>
-            </div>
-          )}
+      {/* Edit / Delete buttons — always visible */}
+      {canEditDelete && (
+        <div className="mc-actions" onClick={e => e.stopPropagation()}>
+          <button
+            onClick={() => onEdit(payment)}
+            style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: 'none', background: '#1a73e8', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontFamily: "'Google Sans', sans-serif" }}
+          >
+            <EditOutlinedIcon style={{ fontSize: 13 }} /> Edit
+          </button>
+          <button
+            onClick={() => onDelete(payment.id)}
+            style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: 'none', background: '#d93025', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontFamily: "'Google Sans', sans-serif" }}
+          >
+            <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
+          </button>
         </div>
       )}
     </div>
@@ -803,6 +757,14 @@ const PaymentTable = ({ mode = 'all' }) => {
           gap: 0;
         }
 
+        /* ── Root container ── */
+        .pt-root-container {
+          height: 100%;
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+        }
+
         /* ── Mobile Card styles ── */
         .mobile-card-scroll-wrapper {
           display: none;
@@ -812,52 +774,48 @@ const PaymentTable = ({ mode = 'all' }) => {
           overflow-y: auto;
           overflow-x: hidden;
           -webkit-overflow-scrolling: touch;
-          padding-bottom: 16px;
+          scroll-behavior: smooth;
+          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px);
         }
-        .mobile-card-list { display: flex; flex-direction: column; gap: 10px; }
+        .mobile-card-list { display: flex; flex-direction: column; gap: 8px; }
         .mobile-card {
           background: #fff;
           border: 1px solid #e8eaed;
-          border-radius: 14px;
-          padding: 14px 16px;
-          box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-          cursor: pointer;
-          transition: box-shadow 0.15s;
+          border-radius: 12px;
+          padding: 10px 12px;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.05);
         }
-        .mobile-card:hover { box-shadow: 0 4px 12px rgba(26,115,232,0.10); }
-        .mc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-        .mc-left { display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0; }
+        .mc-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+        .mc-left { display: flex; align-items: flex-start; gap: 8px; flex: 1; min-width: 0; }
         .mc-serial {
-          width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+          width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0;
           background: #e8f0fe; color: #1a73e8;
           display: flex; align-items: center; justify-content: center;
-          font-size: 12px; font-weight: 700;
+          font-size: 11px; font-weight: 700;
         }
-        .mc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
-        .mc-chevron { font-size: 11px; color: #9ca3af; transition: transform 0.2s; display: inline-block; }
-        .mc-chevron.open { transform: rotate(180deg); }
+        .mc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0; }
         .mc-summary {
           display: grid; grid-template-columns: 1fr 1fr;
-          gap: 8px 12px; margin-top: 12px;
-          padding-top: 12px; border-top: 1px solid #f3f4f6;
+          gap: 6px 10px; margin-top: 8px;
+          padding-top: 8px; border-top: 1px solid #f3f4f6;
         }
-        .mc-detail {
-          display: grid; grid-template-columns: 1fr 1fr;
-          gap: 8px 12px; margin-top: 10px;
-          padding-top: 10px; border-top: 1px dashed #e8eaed;
-          animation: mcFadeIn 0.15s ease;
-        }
-        .mc-detail .mc-full { grid-column: 1 / -1; }
-        .mc-lbl { font-size: 10px; color: #9aa0a6; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
-        .mc-val { font-size: 13px; font-weight: 600; color: #202124; word-break: break-word; }
+        .mc-lbl { font-size: 9px; color: #9aa0a6; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 1px; }
+        .mc-val { font-size: 12px; font-weight: 600; color: #202124; word-break: break-word; }
         .mc-val-blue { color: #1a73e8; font-weight: 700; }
-        .mc-actions { display: flex; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f3f4f6; }
-        @keyframes mcFadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+        .mc-actions { display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f3f4f6; }
 
         /* ── Mobile responsive ── */
         @media (max-width: 600px) {
+          .pt-root-container {
+            height: 100dvh !important;
+            max-height: 100dvh !important;
+            overflow: hidden !important;
+          }
           .single-scroll-table-container { display: none !important; }
-          .mobile-card-scroll-wrapper { display: flex !important; }
+          .mobile-card-scroll-wrapper {
+            display: flex !important;
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px) !important;
+          }
           .page-header-bar {
             height: auto;
             padding: 12px 14px;
@@ -928,36 +886,16 @@ const PaymentTable = ({ mode = 'all' }) => {
           .filter-container { padding: 12px !important; margin-bottom: 12px !important; }
           div[style*="flexShrink: 0"] { padding-top: 8px !important; }
 
-          /* ── Compact cards: ~2 visible on screen ── */
-          .mobile-card {
-            padding: 10px 12px !important;
-            border-radius: 10px !important;
-          }
-          .mc-serial {
-            width: 26px !important; height: 26px !important;
-            font-size: 11px !important;
-          }
-          .client-name { font-size: 13px !important; }
-          .client-place, .client-phone { font-size: 11px !important; }
+          /* ── Compact cards on mobile ── */
+          .mobile-card { padding: 9px 11px !important; border-radius: 10px !important; }
+          .mc-serial { width: 24px !important; height: 24px !important; font-size: 10px !important; }
+          .client-name { font-size: 12px !important; }
+          .client-place, .client-phone { font-size: 10px !important; }
           .status-select { font-size: 11px !important; padding: 3px 7px !important; }
-          .mc-summary {
-            margin-top: 8px !important;
-            padding-top: 8px !important;
-            gap: 6px 10px !important;
-          }
-          .mc-detail {
-            grid-template-columns: 1fr 1fr !important;
-            gap: 6px 10px !important;
-            margin-top: 8px !important;
-            padding-top: 8px !important;
-          }
-          .mc-detail .mc-full {
-            grid-column: 1 / -1 !important;
-          }
+          .mc-summary { margin-top: 6px !important; padding-top: 6px !important; gap: 5px 8px !important; }
           .mc-lbl { font-size: 9px !important; }
-          .mc-val { font-size: 12px !important; }
-          .mc-chevron { font-size: 10px !important; }
-          .mobile-card-list { gap: 8px !important; }
+          .mc-val { font-size: 11px !important; }
+          .mobile-card-list { gap: 7px !important; }
           .mobile-card-scroll-wrapper { padding-bottom: 10px !important; }
           .desktop-pagination-only { display: none !important; }
 
@@ -1002,7 +940,7 @@ const PaymentTable = ({ mode = 'all' }) => {
         }
       `}</style>
 
-      <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div className="pt-root-container">
 
         {/* ── Sticky Page Header Bar ── */}
         <div className="page-header-bar">
@@ -1118,7 +1056,7 @@ const PaymentTable = ({ mode = 'all' }) => {
         </div>
 
         {/* ── Single Scrollable Table Body Only ── */}
-        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", padding: "0 16px 8px 16px" }}>
+        <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", padding: "0 16px 8px 16px" }}>
           
           {/* ── Count and Pagination Info ── */}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>

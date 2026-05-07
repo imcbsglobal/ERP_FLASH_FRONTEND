@@ -521,114 +521,81 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
             <Sep />
             <Section title="Documents" />
 
+            {/* Hidden file inputs — always in DOM so refs work everywhere */}
+            <input
+              type="file"
+              ref={challanDocRef}
+              accept="image/*,.pdf,.doc,.docx"
+              style={{ display: 'none' }}
+              onChange={(e) => handleFile(e, setChallanDoc)}
+            />
+            <input
+              type="file"
+              ref={receiptRef}
+              accept="image/*,.pdf,.doc,.docx"
+              style={{ display: 'none' }}
+              onChange={(e) => handleFile(e, setPaymentReceipt)}
+            />
+
             <div style={s.inlineRow}>
+              {/* ── Challan Document ── */}
               <div style={s.inlineField}>
                 <label style={s.inlineLabel}>Challan Document</label>
-                {isMobileDevice() ? (
-                  <div style={{ display: 'flex', gap: 10, width: '100%' }}>
-                    <button type="button" className="cfile" style={{ flex: 1 }}
-                      onClick={()=>openCamera("challan")}>
-                      <span style={{color:challanDoc?"#2563eb":"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
-                        {challanDoc
-                          ? challanDoc.name
-                          : "📷 Camera"}
-                      </span>
-                    </button>
-                    <button type="button" className="cfile" style={{ flex: 1 }}
-                      onClick={() => challanDocRef.current?.click()}>
-                      <span>📁 Upload</span>
-                    </button>
-                  </div>
-                ) : (
-                  <input
-                    type="file"
-                    ref={challanDocRef}
-                    accept="image/*,.pdf,.doc,.docx"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const MAX_FILE_SIZE = 5 * 1024 * 1024;
-                        if (file.size > MAX_FILE_SIZE) {
-                          setError(`File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum 5MB.`);
-                          return;
-                        }
-                        setChallanDoc(file);
-                      }
-                    }}
-                    style={{ display: 'none' }}
-                  />
-                )}
-                <small style={{marginTop:"4px", display:"block", color:"#6b7280", fontSize:"11px"}}>
-                  {isMobileDevice() ? "Camera or upload (Max 5MB)" : "Upload file (Max 5MB)"}
-                </small>
-                {!isMobileDevice() && !challanDoc && !initialData?.challan_doc_url && (
+                <div style={{ display: 'flex', gap: 10, width: '100%' }}>
                   <button
                     type="button"
                     className="cfile"
-                    onClick={() => challanDocRef.current?.click()}
-                    style={{ marginTop: '8px' }}
+                    style={{ flex: 1, justifyContent: 'center' }}
+                    onClick={() => openCamera("challan")}
                   >
-                    📁 Choose File
+                    <span>📷 Camera</span>
                   </button>
-                )}
+                  <button
+                    type="button"
+                    className="cfile"
+                    style={{ flex: 1, justifyContent: 'center', borderColor: '#2563eb', color: '#2563eb', background: '#eff6ff' }}
+                    onClick={() => challanDocRef.current?.click()}
+                  >
+                    <span>📁 Upload</span>
+                  </button>
+                </div>
+                <small style={{ marginTop: '4px', display: 'block', color: '#6b7280', fontSize: '11px' }}>
+                  Camera or upload (Max 5MB)
+                </small>
                 {(challanDoc || initialData?.challan_doc_url) && (
-                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#2563eb' }}>
-                    {challanDoc ? challanDoc.name : "📄 Existing file"}
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: '#2563eb' }}>
+                    {challanDoc ? `✅ ${challanDoc.name}` : '📄 Existing file'}
                   </div>
                 )}
               </div>
+
+              {/* ── Payment Receipt ── */}
               <div style={s.inlineField}>
                 <label style={s.inlineLabel}>Payment Receipt</label>
-                {isMobileDevice() ? (
-                  <div style={{ display: 'flex', gap: 10, width: '100%' }}>
-                    <button type="button" className="cfile" style={{ flex: 1 }}
-                      onClick={()=>openCamera("receipt")}>
-                      <span style={{color:paymentReceipt?"#2563eb":"inherit", overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap"}}>
-                        {paymentReceipt
-                          ? paymentReceipt.name
-                          : "📷 Camera"}
-                      </span>
-                    </button>
-                    <button type="button" className="cfile" style={{ flex: 1 }}
-                      onClick={() => receiptRef.current?.click()}>
-                      <span>📁 Upload</span>
-                    </button>
-                  </div>
-                ) : (
-                  <input
-                    type="file"
-                    ref={receiptRef}
-                    accept="image/*,.pdf,.doc,.docx"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        const MAX_FILE_SIZE = 5 * 1024 * 1024;
-                        if (file.size > MAX_FILE_SIZE) {
-                          setError(`File is too large (${(file.size / 1024 / 1024).toFixed(2)}MB). Maximum 5MB.`);
-                          return;
-                        }
-                        setPaymentReceipt(file);
-                      }
-                    }}
-                    style={{ display: 'none' }}
-                  />
-                )}
-                <small style={{marginTop:"4px", display:"block", color:"#6b7280", fontSize:"11px"}}>
-                  {isMobileDevice() ? "Camera or upload (Max 5MB)" : "Upload file (Max 5MB)"}
-                </small>
-                {!isMobileDevice() && !paymentReceipt && !initialData?.payment_receipt_url && (
+                <div style={{ display: 'flex', gap: 10, width: '100%' }}>
                   <button
                     type="button"
                     className="cfile"
-                    onClick={() => receiptRef.current?.click()}
-                    style={{ marginTop: '8px' }}
+                    style={{ flex: 1, justifyContent: 'center' }}
+                    onClick={() => openCamera("receipt")}
                   >
-                    📁 Choose File
+                    <span>📷 Camera</span>
                   </button>
-                )}
+                  <button
+                    type="button"
+                    className="cfile"
+                    style={{ flex: 1, justifyContent: 'center' }}
+                    onClick={() => receiptRef.current?.click()}
+                  >
+                    <span>📁 Upload</span>
+                  </button>
+                </div>
+                <small style={{ marginTop: '4px', display: 'block', color: '#6b7280', fontSize: '11px' }}>
+                  Camera or upload (Max 5MB)
+                </small>
                 {(paymentReceipt || initialData?.payment_receipt_url) && (
-                  <div style={{ marginTop: '8px', fontSize: '12px', color: '#2563eb' }}>
-                    {paymentReceipt ? paymentReceipt.name : "📄 Existing file"}
+                  <div style={{ marginTop: '6px', fontSize: '12px', color: '#2563eb' }}>
+                    {paymentReceipt ? `✅ ${paymentReceipt.name}` : '📄 Existing file'}
                   </div>
                 )}
               </div>

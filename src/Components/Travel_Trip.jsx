@@ -380,8 +380,13 @@ export default function TravelList() {
         .action-btn { opacity: 0.7; transition: opacity 0.15s, transform 0.15s; }
         .action-btn:hover { opacity: 1; transform: scale(1.12); }
         @media (max-width: 768px) {
-          .tt-title { font-size: 25px !important; }
+          .tt-title { font-size: 22px !important; }
           .tt-search { width: 100% !important; }
+        }
+        @media (max-width: 600px) {
+          .page-header-bar h1 {
+            font-size: 20px !important;
+          }
         }
         /* ── Travel Log Header ── */
         .tt-header-wrap {
@@ -427,7 +432,7 @@ export default function TravelList() {
           white-space: nowrap;
         }
         @media (max-width: 600px) {
-          .tt-title { font-size: 25px !important;text-align: left;  }
+          .tt-title { font-size: 22px !important;text-align: left;  }
           .tt-header-wrap {
             flex-direction: column;
             align-items: stretch;
@@ -478,12 +483,14 @@ export default function TravelList() {
             overflow-y: auto;
             overflow-x: hidden;
             -webkit-overflow-scrolling: touch;
+            scroll-behavior: smooth;
           }
           .mobile-cards {
             display: flex;
             flex-direction: column;
             gap: 10px;
             padding: 12px;
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 80px);
           }
 
           .trip-card {
@@ -550,75 +557,112 @@ export default function TravelList() {
           .trip-card-field-value { font-size: 12px; font-weight: 600; color: #202124; }
           .trip-card-field-sub { font-size: 10px; color: #5f6368; margin-top: 1px; }
 
-          /* Fuel + Photos on single row */
+          /* Fuel + Photos — single horizontal row */
           .trip-card-fuel-photos-row {
             display: flex;
+            flex-direction: row;
             gap: 6px;
             margin-bottom: 6px;
             align-items: stretch;
           }
+          /* Fuel box: fixed width on left */
           .trip-card-fuel-box {
             background: #f8fafc;
             border-radius: 8px;
-            padding: 6px 8px;
+            padding: 8px 10px;
             display: flex;
             flex-direction: column;
             justify-content: center;
-            min-width: 80px;
+            gap: 4px;
+            flex-shrink: 0;
+            width: 90px;
           }
+          /* Photos box: takes remaining space */
           .trip-card-photos-box {
             flex: 1;
             background: #f8fafc;
             border-radius: 8px;
-            padding: 6px 8px;
+            padding: 8px 8px;
+            min-width: 0;
           }
           .trip-card-photos {
-            display: flex; gap: 8px; align-items: center;
+            display: flex;
+            gap: 0;
+            align-items: stretch;
           }
           .trip-card-photos-label {
             font-size: 9px; font-weight: 600; color: #9aa0a6;
             text-transform: uppercase; letter-spacing: 0.5px;
-            margin-bottom: 4px;
+            margin-bottom: 5px;
           }
           .trip-photo-divider {
-            width: 1px; height: 44px; background: #e8eaed; flex-shrink: 0;
+            width: 1px;
+            background: #e8eaed;
+            flex-shrink: 0;
+            margin: 0 6px;
+            align-self: stretch;
           }
-          
-          @media (max-width: 480px) {
-            .trip-card-fuel-photos-row {
-              flex-direction: column;
-              gap: 8px;
-            }
-            .trip-card-fuel-box {
-              width: 100%;
-              min-width: auto;
-              padding: 8px 10px;
-            }
-            .trip-card-photos-box {
-              width: 100%;
-              padding: 8px 10px;
-            }
-            .trip-card-photos {
-              gap: 4px;
-            }
-            .trip-photo-divider {
-              width: 1px;
-              height: 50px;
-            }
+          .trip-photo-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            min-width: 0;
+          }
+          .trip-photo-col-label {
+            font-size: 9px; font-weight: 700;
+            display: flex; align-items: center; gap: 2px;
+            align-self: flex-start;
+          }
+          .trip-photo-thumb {
+            width: 100%;
+            height: 60px;
+            border-radius: 6px;
+            overflow: hidden;
+            cursor: zoom-in;
+            border: 2px solid;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.10);
+          }
+          .trip-photo-thumb img {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+          }
+          .trip-photo-thumb-empty {
+            width: 100%; height: 60px;
+            border-radius: 6px;
+            border: 1.5px dashed #d0d0d0;
+            background: #fafafa;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            color: #bdbdbd; gap: 2px;
+          }
+          .trip-photo-odo-val {
+            font-size: 10px; font-weight: 700; color: #202124;
           }
 
           .trip-card-actions {
-            display: flex; gap: 6px; margin-top: 8px;
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #f0f0f0;
           }
           .trip-card-actions button {
             flex: 1;
-            padding: 6px 8px;
-            border-radius: 7px; border: none;
-            font-size: 12px; font-weight: 600;
+            min-height: 40px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: none;
+            font-size: 13px;
+            font-weight: 600;
             cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
             font-family: 'Google Sans', sans-serif;
             transition: opacity 0.15s;
+            white-space: nowrap;
           }
           .trip-card-actions button:disabled { opacity: 0.6; cursor: not-allowed; }
 
@@ -869,23 +913,72 @@ export default function TravelList() {
                       </button>
                     )}
 
-                    {/* Fuel/Cost + Odometer Photos — single row */}
+                    {/* Fuel / Cost + Odometer Photos — single row */}
                     <div className="trip-card-fuel-photos-row">
-                      {/* Fuel / Cost */}
+
+                      {/* LEFT: Fuel / Cost */}
                       <div className="trip-card-fuel-box">
-                        <div className="trip-card-field-label">⛽ Fuel / Cost</div>
-                        <div className="trip-card-field-value">{row.fuel?.toFixed(1) || 0} L</div>
-                        <div className="trip-card-field-sub">₹{(row.cost || 0).toLocaleString()}</div>
+                        <div className="trip-card-field-label">⛽ Fuel</div>
+                        <div className="trip-card-field-value" style={{ fontSize: 12 }}>
+                          {row.fuel?.toFixed(1) || 0} L
+                        </div>
+                        <div style={{ width: "100%", height: 1, background: "#e8eaed", margin: "2px 0" }} />
+                        <div className="trip-card-field-label">💰 Cost</div>
+                        <div className="trip-card-field-value" style={{ fontSize: 12 }}>
+                          ₹{(row.cost || 0).toLocaleString()}
+                        </div>
                       </div>
-                      {/* Odometer Photos */}
+
+                      {/* RIGHT: Odometer Photos */}
                       <div className="trip-card-photos-box">
                         <div className="trip-card-photos-label">📷 Odometer Photos</div>
                         <div className="trip-card-photos">
-                          <ImageCard src={row.startImg} label="Start" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} odoValue={row.odoStart} />
+                          {/* Start */}
+                          <div className="trip-photo-col">
+                            <div className="trip-photo-col-label" style={{ color: "#2e7d32" }}>
+                              <AccessTimeIcon style={{ fontSize: 10 }} /> Start
+                            </div>
+                            {row.startImg ? (
+                              <div className="trip-photo-thumb" style={{ borderColor: "#2e7d32" }}
+                                onClick={() => setLightbox({ src: row.startImg, label: "Start" })}>
+                                <img src={row.startImg} alt="Start odometer" />
+                              </div>
+                            ) : (
+                              <div className="trip-photo-thumb-empty">
+                                <span style={{ fontSize: 16 }}>📷</span>
+                                <span style={{ fontSize: 9 }}>No img</span>
+                              </div>
+                            )}
+                            <span className="trip-photo-odo-val">
+                              {row.odoStart ? `${Number(row.odoStart).toLocaleString('en-IN')} km` : "—"}
+                            </span>
+                          </div>
+
                           <div className="trip-photo-divider" />
-                          <ImageCard src={row.endImg} label="End" onExpand={(src, lbl) => setLightbox({ src, label: lbl })} odoValue={row.odoEnd} />
+
+                          {/* End */}
+                          <div className="trip-photo-col">
+                            <div className="trip-photo-col-label" style={{ color: "#b71c1c" }}>
+                              <HistoryIcon style={{ fontSize: 10 }} /> End
+                            </div>
+                            {row.endImg ? (
+                              <div className="trip-photo-thumb" style={{ borderColor: "#b71c1c" }}
+                                onClick={() => setLightbox({ src: row.endImg, label: "End" })}>
+                                <img src={row.endImg} alt="End odometer" />
+                              </div>
+                            ) : (
+                              <div className="trip-photo-thumb-empty">
+                                <span style={{ fontSize: 16 }}>📷</span>
+                                <span style={{ fontSize: 9 }}>No img</span>
+                              </div>
+                            )}
+                            <span className="trip-photo-odo-val">
+                              {row.odoEnd ? `${Number(row.odoEnd).toLocaleString('en-IN')} km` : "—"}
+                            </span>
+                          </div>
                         </div>
                       </div>
+
                     </div>
 
                     {/* Actions */}
@@ -896,13 +989,22 @@ export default function TravelList() {
                         style={{
                           background: row.status === "completed" ? "#06771f" : "#f4b400",
                           color: "#fff",
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
                         }}
                       >
-                        <StopCircleIcon style={{ fontSize: 14 }} />
+                        <StopCircleIcon style={{ fontSize: 16 }} />
                         {row.status === "completed" ? "Completed" : "End Trip"}
                       </button>
-                      <button onClick={() => setDeleteId(row.id)} disabled={actionLoading} style={{ background: "#d93025", color: "#fff" }}>
-                        <DeleteOutlineOutlinedIcon style={{ fontSize: 14 }} /> Delete
+                      <button
+                        onClick={() => setDeleteId(row.id)}
+                        disabled={actionLoading}
+                        style={{
+                          background: "#d93025",
+                          color: "#fff",
+                          boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+                        }}
+                      >
+                        <DeleteOutlineOutlinedIcon style={{ fontSize: 16 }} /> Delete
                       </button>
                     </div>
                   </div>

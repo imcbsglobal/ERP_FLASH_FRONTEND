@@ -183,7 +183,13 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
         .abtn:hover{filter:brightness(0.94)}
         .link-text-clickable { color:#098ae1; text-decoration:underline; cursor:pointer; word-break:break-all; }
         .link-text-clickable:hover { color:#0770b8; }
+        /* Close (×) button: desktop hidden, mobile visible */
+        .clear-btn-mobile { display: none !important; }
+        /* Modal close button: desktop hidden, mobile visible */
+        .modal-close-btn { display: none !important; }
         @media (max-width: 540px) {
+          .clear-btn-mobile { display: flex !important; }
+          .modal-close-btn { display: flex !important; }
           .img-link-header { flex-direction: column !important; gap: 10px !important; align-items: flex-start !important; }
           .img-link-header h1 { font-size: 20px !important; }
           .img-link-card { padding: 20px 16px !important; border-radius: 14px !important; }
@@ -215,6 +221,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
             padding: 20px 16px 32px !important;
             overflow-y: auto !important;
             -webkit-overflow-scrolling: touch !important;
+            position: relative !important;
           }
           .img-link-card {
             flex: 1 !important;
@@ -227,6 +234,22 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
       `}</style>
 
       <div className={isModal ? "img-link-modal-inner" : ""} style={isModal ? {} : { width: '100%', maxWidth: '520px', display: 'flex', flexDirection: 'column' }}>
+
+      {/* Mobile-only modal close button */}
+      {isModal && onBack && (
+        <button
+          className="modal-close-btn"
+          onClick={onBack}
+          title="Close"
+          style={s.modalCloseBtn}
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      )}
+
       <div style={s.header} className="img-link-header">
         <div style={s.iconWrap}>
           {/* FIX 2: corrected SVG path (0 0 1 2-2 instead of 0 0 0 2-2) */}
@@ -387,11 +410,17 @@ This link is valid for ${Math.round(EXPIRES_IN_HOURS * 60)} minutes.`)}`}
                 {/* ✕ clear when selected & not actively searching, 🔍 otherwise */}
                 {selectedCustomer && searchQuery === "" ? (
                   <button
+                    className="clear-btn-mobile"
                     style={s.clearBtn}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => { setSelectedCustomer(null); setSearchQuery(""); setPhone(""); }}
                     title="Clear selection"
-                  >×</button>
+                  >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="18" y1="6" x2="6" y2="18"/>
+                      <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
                 ) : (
                   <span style={s.searchIcon}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth="2" strokeLinecap="round">
@@ -615,7 +644,16 @@ const s = {
   clearBtn: {
     position: "absolute", right: "10px", top: "50%", transform: "translateY(-50%)",
     background: "none", border: "none", cursor: "pointer",
-    fontSize: "20px", color: "#9ca3af", lineHeight: 1, padding: "2px 4px",
-    display: "flex", alignItems: "center", zIndex: 2,
+    color: "#9ca3af", lineHeight: 1, padding: "4px 6px",
+    display: "flex", alignItems: "center", justifyContent: "center", zIndex: 2,
+    minWidth: "28px", minHeight: "28px",
+  },
+  modalCloseBtn: {
+    position: "absolute", top: "14px", right: "14px",
+    width: "36px", height: "36px", borderRadius: "50%",
+    background: "#f3f4f6", border: "none", cursor: "pointer",
+    display: "flex", alignItems: "center", justifyContent: "center",
+    color: "#6b7280", zIndex: 10, flexShrink: 0,
+    boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
   },
 };
