@@ -14,7 +14,7 @@ class AuthError extends Error {
 }
 
 // ── Mobile Card Component ──────────────────────────────────────
-function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, onStatusUpdate, onEdit, onDelete, editLoading, mode, isAdmin, cashReceived }) {
+function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, onStatusUpdate, onEdit, onDelete, editLoading, mode, isAdmin, cashReceived, onViewProof }) {
   const [expanded, setExpanded] = React.useState(false);
 
   const formatCurrency = (amount) =>
@@ -87,10 +87,10 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
         <div>
           <div className="mc-lbl">Date</div>
           <div className="mc-val">{formatDate(payment.date)}</div>
-          {/* Show creator name only in admin (all) mode on mobile cards */}
-          {mode === 'all' && (payment.createdByName || payment.created_by_name) && (
+          {/* Show creator name for all users */}
+          {(payment.createdByName || payment.created_by_name) && (
             <div style={{
-              fontSize: 12, color: "#000000", marginTop: 3,
+              fontSize: 11, color: "#5f6368", marginTop: 3,
               display: "flex", alignItems: "center", gap: 3, fontWeight: 500
             }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10" style={{ flexShrink: 0 }}>
@@ -131,6 +131,19 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
             </div>
           )}
           <div>
+            <div className="mc-lbl">Status</div>
+            <select
+              className={`status-select ${getStatusClass(payment.status)}`}
+              value={statusDisplay || 'Pending'}
+              disabled={statusDisabled}
+              onClick={e => e.stopPropagation()}
+              onChange={e => { e.stopPropagation(); onStatusUpdate(payment, e.target.value); }}
+              style={{ padding: '4px 8px', fontSize: 12 }}
+            >
+              {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+          <div>
             <div className="mc-lbl">Cash Received</div>
             <div className="mc-val">
               {cashReceived === true ? (
@@ -156,9 +169,15 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
             <div>
               <div className="mc-lbl">Proof</div>
               <button className="file-link" style={{ background: "none", border: "none", cursor: "pointer", padding: 0, gap: 4 }}
-                onClick={e => { e.stopPropagation(); setProofViewer(payment.paymentProofUrl); }}>
+                onClick={e => { e.stopPropagation(); onViewProof(payment.paymentProofUrl); }}>
                 <VisibilityOutlinedIcon style={{ fontSize: 18 }} /> View
               </button>
+            </div>
+          )}
+          {payment.notes && (
+            <div style={{ gridColumn: '1 / -1' }}>
+              <div className="mc-lbl">Notes</div>
+              <div className="mc-val" style={{ fontSize: 12, lineHeight: 1.4, wordBreak: 'break-word' }}>{payment.notes}</div>
             </div>
           )}
           {canEditDelete && (
@@ -830,7 +849,7 @@ const PaymentTable = ({ mode = 'all' }) => {
         }
         .mc-detail .mc-full { grid-column: 1 / -1; }
         .mc-lbl { font-size: 10px; color: #9aa0a6; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
-        .mc-val { font-size: 13px; font-weight: 600; color: #202124; }
+        .mc-val { font-size: 13px; font-weight: 600; color: #202124; word-break: break-word; }
         .mc-val-blue { color: #1a73e8; font-weight: 700; }
         .mc-actions { display: flex; gap: 6px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f3f4f6; }
         @keyframes mcFadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
@@ -926,12 +945,60 @@ const PaymentTable = ({ mode = 'all' }) => {
             padding-top: 8px !important;
             gap: 6px 10px !important;
           }
+          .mc-detail {
+            grid-template-columns: 1fr 1fr !important;
+            gap: 6px 10px !important;
+            margin-top: 8px !important;
+            padding-top: 8px !important;
+          }
+          .mc-detail .mc-full {
+            grid-column: 1 / -1 !important;
+          }
           .mc-lbl { font-size: 9px !important; }
           .mc-val { font-size: 12px !important; }
           .mc-chevron { font-size: 10px !important; }
           .mobile-card-list { gap: 8px !important; }
           .mobile-card-scroll-wrapper { padding-bottom: 10px !important; }
           .desktop-pagination-only { display: none !important; }
+
+          /* ── Proof Viewer Mobile Fixes ── */
+          .proof-viewer-modal {
+            padding: 8px !important;
+          }
+          .proof-viewer-container {
+            max-width: 100% !important;
+            max-height: 95vh !important;
+            border-radius: 12px !important;
+          }
+          .proof-viewer-header {
+            padding: 10px 12px !important;
+          }
+          .proof-viewer-header span {
+            font-size: 14px !important;
+          }
+          .proof-viewer-header a {
+            padding: 5px 10px !important;
+            font-size: 11px !important;
+          }
+          .proof-viewer-header button {
+            width: 28px !important;
+            height: 28px !important;
+            font-size: 16px !important;
+          }
+          .proof-viewer-content {
+            padding: 12px !important;
+          }
+          .proof-viewer-content img {
+            max-width: 100% !important;
+            max-height: 75vh !important;
+            width: 100% !important;
+            height: auto !important;
+            object-fit: contain !important;
+          }
+          .proof-viewer-content iframe {
+            width: 100% !important;
+            height: 75vh !important;
+          }
         }
       `}</style>
 
@@ -1303,6 +1370,7 @@ const PaymentTable = ({ mode = 'all' }) => {
                     editLoading={editLoading}
                     mode={mode}
                     isAdmin={isAdmin}
+                    onViewProof={setProofViewer}
                     cashReceived={cashReceivedMap[payment.id]}
                   />
                 ))}
@@ -1329,41 +1397,74 @@ const PaymentTable = ({ mode = 'all' }) => {
       </div>
 
       {/* ── Proof Viewer Modal ── */}
-      {proofViewer && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.72)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: 16 }}
-          onClick={() => setProofViewer(null)}>
-          <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 720, maxHeight: "90vh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(0,0,0,0.35)", overflow: "hidden" }}
-            onClick={e => e.stopPropagation()}>
-            {/* Header */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 20px", borderBottom: "1px solid #e8eaed", flexShrink: 0 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <VisibilityOutlinedIcon style={{ fontSize: 18, color: "#1a73e8" }} />
-                <span style={{ fontWeight: 700, fontSize: 15, color: "#202124", fontFamily: "'Google Sans', sans-serif" }}>Payment Proof</span>
+      {proofViewer && (() => {
+        // Detect file type from the URL path, ignoring query params
+        const proofPath = (() => { try { return new URL(proofViewer).pathname; } catch { return proofViewer; } })();
+        const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(proofPath);
+        const isPdf   = /\.pdf$/i.test(proofPath);
+        return (
+          <div className="proof-viewer-modal" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: "env(safe-area-inset-top, 12px) 12px 12px" }}
+            onClick={() => setProofViewer(null)}>
+            <div className="proof-viewer-container" style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 720, height: "90dvh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(0,0,0,0.45)", overflow: "hidden" }}
+              onClick={e => e.stopPropagation()}>
+              {/* Header */}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #e8eaed", flexShrink: 0, background: "#fff" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <VisibilityOutlinedIcon style={{ fontSize: 18, color: "#1a73e8" }} />
+                  <span style={{ fontWeight: 700, fontSize: 15, color: "#202124", fontFamily: "'Google Sans', sans-serif" }}>Payment Proof</span>
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <a href={proofViewer} target="_blank" rel="noreferrer"
+                    style={{ padding: "6px 12px", borderRadius: 7, background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none", fontFamily: "'Google Sans', sans-serif", whiteSpace: "nowrap" }}>
+                    Open ↗
+                  </a>
+                  <button onClick={() => setProofViewer(null)}
+                    style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e8eaed", background: "#f8f9fa", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "#5f6368", lineHeight: 1, flexShrink: 0 }}>
+                    ×
+                  </button>
+                </div>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <a href={proofViewer} target="_blank" rel="noreferrer"
-                  style={{ padding: "6px 14px", borderRadius: 7, background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none", fontFamily: "'Google Sans', sans-serif" }}>
-                  Open in new tab
-                </a>
-                <button onClick={() => setProofViewer(null)}
-                  style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e8eaed", background: "#f8f9fa", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, color: "#5f6368", lineHeight: 1 }}>
-                  ×
-                </button>
+              {/* Content */}
+              <div style={{ flex: 1, minHeight: 0, overflow: "auto", background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", padding: isImage ? 12 : 0 }}>
+                {isImage ? (
+                  <img
+                    src={proofViewer}
+                    alt="Payment Proof"
+                    style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 6, objectFit: "contain", display: "block" }}
+                    onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
+                  />
+                ) : isPdf ? (
+                  <iframe
+                    src={proofViewer}
+                    title="Payment Proof"
+                    style={{ width: "100%", height: "100%", border: "none" }}
+                  />
+                ) : (
+                  /* Fallback: try as image first, then offer open link */
+                  <img
+                    src={proofViewer}
+                    alt="Payment Proof"
+                    style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 6, objectFit: "contain", display: "block" }}
+                    onError={e => {
+                      e.target.style.display = "none";
+                      e.target.nextSibling.style.display = "flex";
+                    }}
+                  />
+                )}
+                {/* Error fallback shown if image fails to load */}
+                <div style={{ display: "none", flexDirection: "column", alignItems: "center", gap: 12, color: "#ccc", fontFamily: "'Google Sans', sans-serif" }}>
+                  <span style={{ fontSize: 40 }}>📄</span>
+                  <span style={{ fontSize: 13 }}>Cannot preview this file.</span>
+                  <a href={proofViewer} target="_blank" rel="noreferrer"
+                    style={{ padding: "8px 18px", borderRadius: 8, background: "#1a73e8", color: "#fff", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
+                    Open file
+                  </a>
+                </div>
               </div>
-            </div>
-            {/* Content */}
-            <div style={{ flex: 1, minHeight: 0, overflow: "auto", background: "#f8f9fa", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-              {/\.(jpg|jpeg|png|gif|webp)$/i.test(proofViewer) ? (
-                <img src={proofViewer} alt="Payment Proof"
-                  style={{ maxWidth: "100%", maxHeight: "70vh", borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.15)", objectFit: "contain" }} />
-              ) : (
-                <iframe src={proofViewer} title="Payment Proof"
-                  style={{ width: "100%", height: "70vh", border: "none", borderRadius: 8 }} />
-              )}
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* ── New Payment Modal ── */}
       {showPaymentForm && (

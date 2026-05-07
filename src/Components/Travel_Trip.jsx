@@ -583,6 +583,29 @@ export default function TravelList() {
           .trip-photo-divider {
             width: 1px; height: 44px; background: #e8eaed; flex-shrink: 0;
           }
+          
+          @media (max-width: 480px) {
+            .trip-card-fuel-photos-row {
+              flex-direction: column;
+              gap: 8px;
+            }
+            .trip-card-fuel-box {
+              width: 100%;
+              min-width: auto;
+              padding: 8px 10px;
+            }
+            .trip-card-photos-box {
+              width: 100%;
+              padding: 8px 10px;
+            }
+            .trip-card-photos {
+              gap: 4px;
+            }
+            .trip-photo-divider {
+              width: 1px;
+              height: 50px;
+            }
+          }
 
           .trip-card-actions {
             display: flex; gap: 6px; margin-top: 8px;

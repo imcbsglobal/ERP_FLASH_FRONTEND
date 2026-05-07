@@ -2,7 +2,9 @@
 import { useState, useRef, useEffect } from "react";
 import CameraswitchOutlinedIcon from "@mui/icons-material/CameraswitchOutlined";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import CloseIcon from "@mui/icons-material/Close"; // used in receipt remove button
+import CloseIcon from "@mui/icons-material/Close";
+import CameraAltOutlinedIcon from "@mui/icons-material/CameraAltOutlined";
+import UploadFileOutlinedIcon from "@mui/icons-material/UploadFileOutlined";
 
 /* ─── Static data ─────────────────────────────────────────────────── */
 const expenseTypes = [
@@ -136,6 +138,8 @@ const RESPONSIVE_CSS = `
     color: #b91c1c;
     font-size: 13px;
   }
+
+  /* ── Desktop drag-and-drop zone ─────────────────────────────────── */
   .ca-drop-zone {
     display: flex;
     align-items: center;
@@ -148,6 +152,7 @@ const RESPONSIVE_CSS = `
     border: 1.5px dashed #e2e8f0;
     width: 100%;
     box-sizing: border-box;
+    position: relative;
   }
   .ca-drop-zone:hover,
   .ca-drop-zone-active {
@@ -158,6 +163,13 @@ const RESPONSIVE_CSS = `
     font-size: 12px;
     color: #64748b;
   }
+
+  /* ── Mobile two-button zone – hidden on desktop ─────────────────── */
+  .ca-mobile-receipt-zone {
+    display: none;
+  }
+
+  /* ── Receipt preview card ───────────────────────────────────────── */
   .ca-receipt-card {
     display: flex;
     align-items: center;
@@ -168,6 +180,8 @@ const RESPONSIVE_CSS = `
     padding: 6px 8px 6px 12px;
     background: #f8fafc;
     min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
   }
   .ca-receipt-inner {
     display: flex;
@@ -395,15 +409,77 @@ const RESPONSIVE_CSS = `
       background: #fff;
       border-color: #e2e8f0;
     }
+
+    /* Hide desktop drop zone on mobile */
     .ca-drop-zone {
+      display: none;
+    }
+
+    /* ── Mobile two-button receipt zone ─────────────────────────── */
+    .ca-mobile-receipt-zone {
+      display: flex;
+      flex-direction: row;
+      gap: 10px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .ca-mobile-receipt-btn {
+      flex: 1;
+      display: flex;
       flex-direction: column;
-      padding: 12px 8px;
-      gap: 8px;
+      align-items: center;
       justify-content: center;
+      gap: 5px;
+      padding: 16px 10px 14px;
+      border-radius: 14px;
+      border: 1.5px dashed #c7d2e6;
+      background: #f8fafc;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+      transition: border-color 0.18s, background 0.18s;
+      min-height: 90px;
     }
-    .ca-drop-text {
+    .ca-mobile-receipt-btn:active {
+      border-color: #1a73e8;
+      background: #eff6ff;
+    }
+    .ca-mobile-receipt-btn-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #e8f0fd;
+      margin-bottom: 2px;
+    }
+    .ca-mobile-receipt-btn-label {
       font-size: 13px;
+      font-weight: 600;
+      color: #1e293b;
+      text-align: center;
+      line-height: 1.3;
     }
+    .ca-mobile-receipt-btn-sub {
+      font-size: 10px;
+      color: #94a3b8;
+      text-align: center;
+    }
+    /* Hidden native input sits over the entire button */
+    .ca-mobile-hidden-input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      font-size: 0;
+    }
+
     .ca-action-bar {
       flex-direction: row;
       gap: 10px;
@@ -485,7 +561,12 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
   const [apiError, setApiError] = useState("");
   const [departments, setDepartments] = useState([{ value: "", label: "Select Department" }]);
   const [deptLoading, setDeptLoading] = useState(true);
+
+  // Desktop file input ref
   const fileInputRef = useRef();
+  // Mobile: separate refs for camera capture and file picker
+  const cameraInputRef = useRef();
+  const mobileFileInputRef = useRef();
 
   /* Inject responsive CSS once */
   useEffect(() => {
@@ -546,23 +627,75 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
     if (apiError) setApiError("");
   };
 
-  const handleFile = (file) => {
+  /* ── Image compression helper (mobile camera 413 fix) ───────────
+     Resizes image to max 1280px on longest side and re-encodes as
+     JPEG at 75% quality. Typical 8 MP photo: 6 MB → ~300 KB.
+  ─────────────────────────────────────────────────────────────── */
+  const compressImage = (file, maxWidthPx = 1280, qualityJpeg = 0.75) =>
+    new Promise((resolve) => {
+      const img = new Image();
+      const objectUrl = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(objectUrl);
+        const scale = Math.min(1, maxWidthPx / Math.max(img.width, img.height));
+        const w = Math.round(img.width * scale);
+        const h = Math.round(img.height * scale);
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        canvas.toBlob(
+          (blob) => {
+            const compressed = new File(
+              [blob],
+              file.name.replace(/\.[^.]+$/, ".jpg"),
+              { type: "image/jpeg", lastModified: Date.now() }
+            );
+            resolve(compressed);
+          },
+          "image/jpeg",
+          qualityJpeg
+        );
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file); // fallback: use original if load fails
+      };
+      img.src = objectUrl;
+    });
+
+  /* ── Shared file handler used by all three inputs ────────────── */
+  const handleFile = async (file) => {
     if (!file) return;
     const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
     if (!allowed.includes(file.type)) {
       setErrors((prev) => ({ ...prev, receipt: "Only JPG, PNG, WEBP or PDF allowed." }));
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setErrors((prev) => ({ ...prev, receipt: "File size must be under 5 MB." }));
+
+    let finalFile = file;
+
+    // Compress images before upload to avoid 413 from high-res camera shots
+    if (file.type.startsWith("image/")) {
+      try {
+        finalFile = await compressImage(file);
+      } catch {
+        finalFile = file;
+      }
+    }
+
+    if (finalFile.size > 2 * 1024 * 1024) {
+      setErrors((prev) => ({ ...prev, receipt: "File size must be under 2 MB." }));
       return;
     }
-    setForm((prev) => ({ ...prev, receipt: file }));
+
+    setForm((prev) => ({ ...prev, receipt: finalFile }));
     setErrors((prev) => ({ ...prev, receipt: undefined }));
-    if (file.type.startsWith("image/")) {
+
+    if (finalFile.type.startsWith("image/")) {
       const reader = new FileReader();
       reader.onload = (ev) => setReceiptPreview(ev.target.result);
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(finalFile);
     } else {
       setReceiptPreview("pdf");
     }
@@ -578,6 +711,8 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
     setForm((prev) => ({ ...prev, receipt: null }));
     setReceiptPreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (cameraInputRef.current) cameraInputRef.current.value = "";
+    if (mobileFileInputRef.current) mobileFileInputRef.current.value = "";
   };
 
   const handleSubmit = async () => {
@@ -635,46 +770,110 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
     );
   }
 
+  /* ── Shared receipt preview card ────────────────────────────────── */
+  const ReceiptPreviewCard = () => (
+    <div className="ca-receipt-card">
+      <div className="ca-receipt-inner">
+        {receiptPreview === "pdf" ? (
+          <>
+            <span>📄</span>
+            <span className="ca-receipt-name">{form.receipt?.name}</span>
+          </>
+        ) : (
+          <>
+            <img src={receiptPreview} alt="Preview" className="ca-thumb-img" />
+            <span className="ca-receipt-name">{form.receipt?.name}</span>
+          </>
+        )}
+      </div>
+      <button className="ca-remove-btn" onClick={removeReceipt}>
+        <CloseIcon style={{ fontSize: 16 }} />
+      </button>
+    </div>
+  );
+
   /* ── Receipt upload zone ────────────────────────────────────────── */
-  const ReceiptZone = () =>
-    !receiptPreview ? (
-      <div
-        className={`ca-drop-zone${dragOver ? " ca-drop-zone-active" : ""}`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <CameraswitchOutlinedIcon style={{ fontSize: 26, color: "#64748b" }} />
-        <div className="ca-drop-text">Tap to upload receipt</div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,application/pdf"
-          style={{ display: "none" }}
-          onChange={(e) => handleFile(e.target.files[0])}
-        />
-      </div>
-    ) : (
-      <div className="ca-receipt-card">
-        <div className="ca-receipt-inner">
-          {receiptPreview === "pdf" ? (
-            <>
-              <span>📄</span>
-              <span className="ca-receipt-name">{form.receipt?.name}</span>
-            </>
-          ) : (
-            <>
-              <img src={receiptPreview} alt="Preview" className="ca-thumb-img" />
-              <span className="ca-receipt-name">{form.receipt?.name}</span>
-            </>
-          )}
+  const ReceiptZone = () => {
+    // After a file is selected, show the same preview card on both desktop & mobile
+    if (receiptPreview) return <ReceiptPreviewCard />;
+
+    return (
+      <>
+        {/* ── DESKTOP: drag-and-drop (hidden on mobile via CSS) ──────── */}
+        <div
+          className={`ca-drop-zone${dragOver ? " ca-drop-zone-active" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+        >
+          <CameraswitchOutlinedIcon style={{ fontSize: 26, color: "#64748b", pointerEvents: "none" }} />
+          <div className="ca-drop-text" style={{ pointerEvents: "none" }}>
+            Click or drag to upload receipt
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,application/pdf"
+            style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", zIndex: 1 }}
+            onChange={(e) => handleFile(e.target.files[0])}
+          />
         </div>
-        <button className="ca-remove-btn" onClick={removeReceipt}>
-          <CloseIcon style={{ fontSize: 16 }} />
-        </button>
-      </div>
+
+        {/* ── MOBILE: Camera + Upload File buttons (hidden on desktop via CSS) ── */}
+        <div className="ca-mobile-receipt-zone">
+
+          {/* Camera button – opens rear camera directly */}
+          <button
+            type="button"
+            className="ca-mobile-receipt-btn"
+            onClick={() => cameraInputRef.current?.click()}
+          >
+            <span className="ca-mobile-receipt-btn-icon">
+              <CameraAltOutlinedIcon style={{ fontSize: 22, color: "#1a73e8" }} />
+            </span>
+            <span className="ca-mobile-receipt-btn-label">Camera</span>
+            <span className="ca-mobile-receipt-btn-sub">Take a photo</span>
+            {/*
+              capture="environment" → opens the rear (back) camera on Android/iOS.
+              No gallery, straight to camera shutter.
+            */}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              capture="environment"
+              className="ca-mobile-hidden-input"
+              onChange={(e) => handleFile(e.target.files[0])}
+            />
+          </button>
+
+          {/* Upload File button – opens file browser / gallery */}
+          <button
+            type="button"
+            className="ca-mobile-receipt-btn"
+            onClick={() => mobileFileInputRef.current?.click()}
+          >
+            <span className="ca-mobile-receipt-btn-icon">
+              <UploadFileOutlinedIcon style={{ fontSize: 22, color: "#1a73e8" }} />
+            </span>
+            <span className="ca-mobile-receipt-btn-label">Upload File</span>
+            <span className="ca-mobile-receipt-btn-sub">JPG, PNG, PDF</span>
+            {/*
+              No capture attribute → opens the system file picker / gallery.
+            */}
+            <input
+              ref={mobileFileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              className="ca-mobile-hidden-input"
+              onChange={(e) => handleFile(e.target.files[0])}
+            />
+          </button>
+
+        </div>
+      </>
     );
+  };
 
   /* ── Main form (single layout, CSS handles breakpoints) ─────────── */
   return (
@@ -795,7 +994,7 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
             <button className="ca-btn-cancel" onClick={() => onCancel?.()} disabled={loading}>
               Cancel
             </button>
-            
+
             <button className="ca-btn-submit" onClick={handleSubmit} disabled={loading}>
               {loading ? "Submitting…" : "Submit Claim"}
             </button>

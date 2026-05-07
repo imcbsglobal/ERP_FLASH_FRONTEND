@@ -586,12 +586,29 @@ export default function ChallanList({ onAdd, onEdit }) {
             text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px;
           }
           .challan-card-field-value { font-size: 12px; font-weight: 600; color: #202124; }
-          .challan-card-actions { display: flex; gap: 6px; margin-top: 7px; align-items: stretch; }
+          .challan-card-actions { 
+            display: flex; 
+            gap: 6px; 
+            margin-top: 7px; 
+            align-items: stretch; 
+            width: 100%;
+          }
           .challan-card-actions button, .challan-card-actions select {
-            flex: 1; padding: 7px 6px; border-radius: 6px; border: none;
-            font-size: 12px; font-weight: 600; cursor: pointer;
-            display: flex; align-items: center; justify-content: center; gap: 4px;
-            font-family: 'Google Sans', sans-serif; min-height: 34px;
+            flex: 1; 
+            padding: 7px 6px; 
+            border-radius: 6px; 
+            border: none;
+            font-size: 12px; 
+            font-weight: 600; 
+            cursor: pointer;
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            gap: 4px;
+            font-family: 'Google Sans', sans-serif; 
+            min-height: 34px;
+            white-space: nowrap;
+            box-sizing: border-box;
           }
           .challan-card-docs {
             display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;

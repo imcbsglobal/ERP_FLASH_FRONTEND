@@ -679,7 +679,7 @@ const EndTrip = ({ onClose, onComplete, tripData = {}, errorMessage = "" }) => {
               </div>
             )
           ) : (
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }} className="et-preview-wrap">
+            <div style={{ display: 'flex', alignItems: isMobileDevice() ? 'stretch' : 'flex-start', gap: 16, flexDirection: isMobileDevice() ? 'column' : 'row' }} className="et-preview-wrap">
               <div style={S.odometerPreviewWrap}>
                 <img
                   src={form.odometerImagePreview}
@@ -701,13 +701,15 @@ const EndTrip = ({ onClose, onComplete, tripData = {}, errorMessage = "" }) => {
                   type="button"
                   onClick={openCamera}
                   style={{
-                    padding: '7px 16px', borderRadius: 8, border: '1px solid #e0e0e0',
-                    background: '#fff', color: '#5f6368', fontSize: 12, fontWeight: 600,
+                    padding: '12px 16px', borderRadius: 8, border: '1.5px solid #e0e0e0',
+                    background: '#fff', color: '#1a73e8', fontSize: 13, fontWeight: 600,
                     cursor: 'pointer', fontFamily: "'Google Sans', sans-serif",
-                    display: 'flex', alignItems: 'center', gap: 5,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, width: '100%',
                   }}
+                  onMouseEnter={(e) => e.target.style.background = '#f0f8ff'}
+                  onMouseLeave={(e) => e.target.style.background = '#fff'}
                 >
-                  <AddAPhotoOutlinedIcon style={{ fontSize: 14 }} />
+                  <AddAPhotoOutlinedIcon style={{ fontSize: 16 }} />
                   Retake Photo
                 </button>
               ) : (
