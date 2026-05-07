@@ -539,6 +539,11 @@ function MobileClaimsListTable({
             >Next ›</button>
           </div>
         )}
+
+        {/* Footer */}
+        <div style={{ textAlign: "center", padding: "10px 16px", marginTop: "auto", paddingTop: 16, borderTop: "1px solid #e8eaed", fontSize: 11, color: "#9aa0a6", fontFamily: "'Google Sans', sans-serif", letterSpacing: "0.01em", flexShrink: 0 }}>
+          Powered by <span style={{ fontWeight: 600, color: "#1a73e8" }}>IMCB Solutions LLP</span>
+        </div>
       </div>
     );
   }
@@ -770,6 +775,11 @@ function MobileClaimsListTable({
           </div>
         </div>
       )}
+
+      {/* Footer */}
+      <div style={{ textAlign: "center", padding: "12px 16px", borderTop: "1px solid #e8eaed", fontSize: 12, color: "#9aa0a6", fontFamily: "'Google Sans', sans-serif", letterSpacing: "0.01em", flexShrink: 0, marginTop: 8 }}>
+        Powered by <span style={{ fontWeight: 600, color: "#1a73e8" }}>IMCB Solutions LLP</span>
+      </div>
     </div>
   );
 }

@@ -753,6 +753,29 @@ export default function TravelList() {
           margin-right: auto;
           font-family: 'Google Sans', sans-serif;
         }
+      
+        /* ── IMCB Footer ── */
+        .imcb-footer {
+          text-align: center;
+          padding: 12px 16px;
+          margin-top: 8px;
+          border-top: 1px solid #e8eaed;
+          font-size: 12px;
+          color: #9aa0a6;
+          font-family: 'Google Sans', sans-serif;
+          letter-spacing: 0.01em;
+          flex-shrink: 0;
+          background: #fff;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        @media (max-width: 600px) {
+          .imcb-footer {
+            padding: 10px 12px;
+            font-size: 11px;
+            margin-top: 4px;
+          }
+        }
       `}</style>
 
       {showStartTrip && (
@@ -1022,6 +1045,10 @@ export default function TravelList() {
                   <button className="pagination-button" onClick={goToNextPage} disabled={currentPage === totalPages}>Next ›</button>
                 </div>
               )}
+              {/* Footer */}
+              <div style={{ textAlign: "center", padding: "10px 16px 14px", borderTop: "1px solid #e8eaed", fontSize: 11, color: "#9aa0a6", fontFamily: "'Google Sans', sans-serif", letterSpacing: "0.01em", flexShrink: 0, marginTop: 8 }}>
+                Powered by <span style={{ fontWeight: 600, color: "#1a73e8" }}>IMCB Solutions LLP</span>
+              </div>
             </div>{/* end mobile-cards-wrapper */}
 
             {/* ── Desktop Table View ── */}
@@ -1265,6 +1292,10 @@ export default function TravelList() {
                 </button>
               </div>
             )}
+            {/* Footer - desktop */}
+            <div style={{ textAlign: "center", padding: "10px 16px", borderTop: "1px solid #e8eaed", fontSize: 12, color: "#9aa0a6", fontFamily: "'Google Sans', sans-serif", letterSpacing: "0.01em", flexShrink: 0 }}>
+              Powered by <span style={{ fontWeight: 600, color: "#1a73e8" }}>IMCB Solutions LLP</span>
+            </div>
           </div>
         </div>
       )}
@@ -1406,6 +1437,7 @@ export default function TravelList() {
           </div>
         </div>
       )}
+
 
     </>
   );

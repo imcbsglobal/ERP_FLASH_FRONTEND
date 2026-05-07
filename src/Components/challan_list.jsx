@@ -626,6 +626,29 @@ export default function ChallanList({ onAdd, onEdit }) {
           .cl-desktop-table { display: block !important; }
           .cl-mobile-scroll-wrapper { display: none !important; }
         }
+      
+        /* ── IMCB Footer ── */
+        .imcb-footer {
+          text-align: center;
+          padding: 12px 16px;
+          margin-top: 8px;
+          border-top: 1px solid #e8eaed;
+          font-size: 12px;
+          color: #9aa0a6;
+          font-family: 'Google Sans', sans-serif;
+          letter-spacing: 0.01em;
+          flex-shrink: 0;
+          background: #fff;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        @media (max-width: 600px) {
+          .imcb-footer {
+            padding: 10px 12px;
+            font-size: 11px;
+            margin-top: 4px;
+          }
+        }
       `}</style>
 
       <div style={{ height: "100%", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -1125,6 +1148,11 @@ export default function ChallanList({ onAdd, onEdit }) {
           </div>
         </div>
       )}
+
+      {/* Footer */}
+      <div className="imcb-footer">
+        Powered by <span style={{ fontWeight: 600, color: "#1a73e8" }}>IMCB Solutions LLP</span>
+      </div>
     </>
   );
 }

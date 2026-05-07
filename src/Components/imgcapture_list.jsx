@@ -347,7 +347,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
         </div>
 
         {/* Styles */}
-        <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} @media (max-width: 600px) { .imgcap-page-title { font-size: 20px !important; } .imgcap-header-wrap { flex-direction: column !important; align-items: flex-start !important; gap: 12px; } .imgcap-btn-group { width: 100%; flex-direction: row !important; } .imgcap-btn-group button { flex: 1; justify-content: center; } }"}</style>
+        <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} @media (max-width: 600px) { .imgcap-page-title { font-size: 20px !important; } .imgcap-header-wrap { flex-direction: column !important; align-items: flex-start !important; gap: 12px; } .imgcap-btn-group { width: 100%; flex-direction: row !important; } .imgcap-btn-group button { flex: 1; justify-content: center; } } .imcb-footer { text-align: center; padding: 12px 16px; margin-top: 8px; border-top: 1px solid #e8eaed; font-size: 12px; color: #9aa0a6; font-family: 'Google Sans', sans-serif; letter-spacing: 0.01em; flex-shrink: 0; background: #fff; width: 100%; box-sizing: border-box; } @media (max-width: 600px) { .imcb-footer { padding: 10px 12px; font-size: 11px; margin-top: 4px; } }"}</style>
 
         {/* Loading / Error */}
         {loading && (
@@ -931,6 +931,11 @@ const ImageCaptureList = ({ onGenerateLink }) => {
           </div>
         </div>
       )}
+
+      {/* Footer */}
+      <div className="imcb-footer">
+        Powered by <span style={{ fontWeight: 600, color: "#1a73e8" }}>IMCB Solutions LLP</span>
+      </div>
     </div>
   );
 };
