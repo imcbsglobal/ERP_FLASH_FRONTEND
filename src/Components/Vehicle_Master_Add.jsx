@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AddAPhotoOutlinedIcon from '@mui/icons-material/AddAPhotoOutlined';
 import { createVehicle, updateVehicle } from '../service/Api';
 
@@ -52,6 +52,15 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
   const [loading, setLoading]   = useState(false);
   const [errors,  setErrors]    = useState({});
   const [apiError, setApiError] = useState('');
+  const [showCamera, setShowCamera] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)');
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
 
   // ── Pre-fill form when in edit mode ─────────────────────────
   useEffect(() => {
@@ -101,6 +110,18 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
   const handlePhotoChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setBasicInfo((prev) => ({
+        ...prev,
+        vehiclePhoto: file,
+        vehiclePhotoPreview: reader.result,
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handlePhotoCapture = (file) => {
     const reader = new FileReader();
     reader.onloadend = () => {
       setBasicInfo((prev) => ({
@@ -272,6 +293,152 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
     ...(hasError ? styles.inputError : {}),
   });
 
+  // ── Camera Modal Component ─────────────────────────────────────────────────
+  const CameraModal = ({ onCapture, onClose }) => {
+    const videoRef = useRef(null);
+    const canvasRef = useRef(null);
+    const streamRef = useRef(null);
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(true);
+    const [capturedData, setCapturedData] = useState(null);
+
+    useEffect(() => {
+      let isMounted = true;
+      const startCamera = async () => {
+        try {
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            throw new Error('Camera API not supported in this browser');
+          }
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: 'user' },
+            audio: false,
+          });
+          if (isMounted && videoRef.current) {
+            videoRef.current.srcObject = stream;
+            streamRef.current = stream;
+            setLoading(false);
+          }
+        } catch (err) {
+          console.error('Camera error:', err);
+          if (isMounted) {
+            setLoading(false);
+            if (err.name === 'NotAllowedError') {
+              setError('Camera permission denied. Please enable it in browser settings.');
+            } else if (err.name === 'NotFoundError') {
+              setError('No camera found on this device.');
+            } else {
+              setError(`Camera error: ${err.message}`);
+            }
+          }
+        }
+      };
+      startCamera();
+      return () => {
+        isMounted = false;
+        if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+      };
+    }, []);
+
+    const handleCapture = () => {
+      if (!videoRef.current || !canvasRef.current) return;
+      try {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+        ctx.restore();
+        canvas.toBlob((blob) => {
+          if (blob) {
+            setCapturedData({ blob, preview: URL.createObjectURL(blob) });
+          }
+        }, 'image/jpeg', 0.95);
+      } catch (err) {
+        console.error('Capture error:', err);
+        setError('Failed to capture photo. Please try again.');
+      }
+    };
+
+    const handleConfirm = () => {
+      if (capturedData?.blob) {
+        const file = new File([capturedData.blob], `vehicle-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        onCapture(file);
+        handleClose();
+      }
+    };
+
+    const handleRetake = () => {
+      if (capturedData?.preview) URL.revokeObjectURL(capturedData.preview);
+      setCapturedData(null);
+    };
+
+    const handleClose = () => {
+      if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+      if (capturedData?.preview) URL.revokeObjectURL(capturedData.preview);
+      onClose();
+    };
+
+    return (
+      <>
+        <div onClick={handleClose} style={{ position: 'fixed', inset: 0, background: 'rgba(0, 0, 0, 0.6)', zIndex: 1001 }} />
+        <div style={{ position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', background: 'var(--surface)', borderRadius: '12px', padding: '20px', boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)', zIndex: 1002, maxWidth: '500px', width: '90vw', maxHeight: '85vh', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>📸 Capture Photo</h2>
+            <button onClick={handleClose} style={{ background: 'transparent', border: 'none', fontSize: '20px', cursor: 'pointer', padding: '4px 8px' }}>✕</button>
+          </div>
+          {!capturedData ? (
+            <>
+              <div style={{ position: 'relative', width: '100%', paddingBottom: '133.33%', background: 'var(--surface2)', borderRadius: '8px', overflow: 'hidden' }}>
+                {(loading || error) && (
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: error ? 'var(--red)' : 'var(--muted)', fontSize: '13px', padding: '16px', textAlign: 'center', background: 'var(--surface2)' }}>
+                    {error ? error : '🔄 Starting camera...'}
+                  </div>
+                )}
+                <video 
+                  ref={videoRef} 
+                  autoPlay 
+                  playsInline 
+                  muted
+                  style={{ 
+                    position: 'absolute', 
+                    inset: 0, 
+                    width: '100%', 
+                    height: '100%', 
+                    objectFit: 'cover',
+                    display: 'block',
+                    opacity: !loading && !error ? 1 : 0,
+                    transition: 'opacity 0.3s ease',
+                    backgroundColor: 'var(--surface2)'
+                  }} 
+                />
+              </div>
+              {!error && !loading && (
+                <button onClick={handleCapture} style={{ padding: '10px 18px', fontSize: '14px', fontWeight: 600, borderRadius: '6px', border: 'none', background: 'rgb(1, 126, 252)', color: 'white', cursor: 'pointer', transition: 'background 0.2s' }} onMouseEnter={e => e.target.style.background = 'rgb(0, 100, 220)'} onMouseLeave={e => e.target.style.background = 'rgb(1, 126, 252)'}>📸 Capture Photo</button>
+              )}
+              <button onClick={handleClose} style={{ padding: '10px 18px', fontSize: '14px', fontWeight: 600, borderRadius: '6px', border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer' }}>Cancel</button>
+            </>
+          ) : (
+            <>
+              <div style={{ position: 'relative', width: '100%', paddingBottom: '133.33%', background: 'var(--surface2)', borderRadius: '8px', overflow: 'hidden' }}>
+                <img src={capturedData.preview} alt="Captured" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+              </div>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--muted)' }}>Is this photo OK?</p>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={handleRetake} style={{ flex: 1, padding: '10px 14px', fontSize: '14px', fontWeight: 600, borderRadius: '6px', border: '1px solid var(--border)', background: 'transparent', cursor: 'pointer' }}>↻ Retake</button>
+                <button onClick={handleConfirm} style={{ flex: 1, padding: '10px 14px', fontSize: '14px', fontWeight: 600, borderRadius: '6px', border: 'none', background: 'rgb(34, 197, 94)', color: 'white', cursor: 'pointer' }}>✓ Use This Photo</button>
+              </div>
+            </>
+          )}
+        </div>
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
+      </>
+    );
+  };
+
   return (
     <div style={styles.container}>
       <style>{`
@@ -376,10 +543,22 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
               <div style={styles.photoArea}>
                 <input type="file" id="vehiclePhoto" accept="image/*"
                   onChange={handlePhotoChange} style={{ display: 'none' }} />
-                <button type="button" style={styles.photoBtn}
-                  onClick={() => document.getElementById('vehiclePhoto').click()}>
-                  <AddAPhotoOutlinedIcon style={{ fontSize: 20 }} />
-                </button>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {/* Upload file button — always visible */}
+                  <button type="button" style={styles.photoBtn}
+                    onClick={() => document.getElementById('vehiclePhoto').click()}>
+                    <AddAPhotoOutlinedIcon style={{ fontSize: 20 }} />
+                    Upload
+                  </button>
+                  {/* Capture button — mobile only */}
+                  {isMobile && (
+                    <button type="button" style={styles.photoBtn}
+                      onClick={() => setShowCamera(true)}
+                      title="Capture using webcam">
+                      📸 Capture
+                    </button>
+                  )}
+                </div>
                 {basicInfo.vehiclePhotoPreview && (
                   <div style={styles.photoPreview}>
                     <img src={basicInfo.vehiclePhotoPreview} alt="Vehicle Preview" style={styles.previewImage} />
@@ -540,6 +719,29 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
           </div>
 
         </form>
+      </div>
+      {/* Camera Modal */}
+      {showCamera && (
+        <CameraModal onCapture={handlePhotoCapture} onClose={() => setShowCamera(false)} />
+      )}
+
+
+      {/* ── IMCB Footer ── */}
+      <div style={{
+        width: '100%',
+        padding: '10px 16px',
+        borderTop: '1px solid #e8eaed',
+        background: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        marginTop: '16px',
+        flexShrink: 0,
+      }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 500 }}>Powered by</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: '#1a73e8' }}>IMCB Solutions LLP</span>
       </div>
     </div>
   );

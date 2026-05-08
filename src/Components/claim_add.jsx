@@ -307,6 +307,10 @@ const RESPONSIVE_CSS = `
     width: 100%;
   }
 
+  .ca-mobile-receipt-btns {
+    display: none;
+  }
+
   /* ── Mobile overrides (≤ 640 px) ───────────────────────────────── */
   @media (max-width: 640px) {
     .ca-page {
@@ -423,6 +427,54 @@ const RESPONSIVE_CSS = `
       font-size: 14px;
       border-radius: 10px;
       min-height: 46px;
+    }
+    .ca-drop-zone-desktop {
+      display: none;
+    }
+    .ca-mobile-receipt-btns {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+    .ca-mobile-receipt-btn {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 14px 8px;
+      border-radius: 12px;
+      font-size: 13px;
+      font-family: 'Google Sans', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      border: 1.5px solid #e2e8f0;
+      background: #f8fafc;
+      color: #1e293b;
+      transition: background 0.15s, border-color 0.15s;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .ca-mobile-receipt-btn:active {
+      background: #eff6ff;
+      border-color: #1a73e8;
+    }
+    .ca-mobile-receipt-btn--camera {
+      border-color: #bfdbfe;
+      background: #eff6ff;
+      color: #1a73e8;
+    }
+    .ca-mobile-receipt-btn--upload {
+      border-color: #e2e8f0;
+      background: #f8fafc;
+      color: #334155;
+    }
+    .ca-mobile-receipt-btn-icon {
+      font-size: 22px;
+      line-height: 1;
     }
     .ca-divider { display: none; }
   }
@@ -638,15 +690,49 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
   /* ── Receipt upload zone ────────────────────────────────────────── */
   const ReceiptZone = () =>
     !receiptPreview ? (
-      <div
-        className={`ca-drop-zone${dragOver ? " ca-drop-zone-active" : ""}`}
-        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <CameraswitchOutlinedIcon style={{ fontSize: 26, color: "#64748b" }} />
-        <div className="ca-drop-text">Tap to upload receipt</div>
+      <>
+        {/* Desktop: drag-and-drop zone */}
+        <div
+          className={`ca-drop-zone ca-drop-zone-desktop${dragOver ? " ca-drop-zone-active" : ""}`}
+          onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+        >
+          <CameraswitchOutlinedIcon style={{ fontSize: 26, color: "#64748b" }} />
+          <div className="ca-drop-text">Tap to upload receipt</div>
+        </div>
+
+        {/* Mobile: two buttons – Camera & Upload */}
+        {/* Using <label> with overlaid <input> so the native tap directly triggers
+            the file/camera picker without a programmatic .click() (blocked on Android) */}
+        <div className="ca-mobile-receipt-btns">
+          <label className="ca-mobile-receipt-btn ca-mobile-receipt-btn--camera" style={{ position: "relative", overflow: "hidden" }}>
+            <span className="ca-mobile-receipt-btn-icon">{"📷"}</span>
+            <span>Take Photo</span>
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }}
+              onChange={(e) => handleFile(e.target.files[0])}
+            />
+          </label>
+
+          <label className="ca-mobile-receipt-btn ca-mobile-receipt-btn--upload" style={{ position: "relative", overflow: "hidden" }}>
+            <span className="ca-mobile-receipt-btn-icon">{"📁"}</span>
+            <span>Upload File</span>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
+              style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }}
+              onChange={(e) => handleFile(e.target.files[0])}
+            />
+          </label>
+        </div>
+
+        {/* Desktop hidden input (for drag-drop zone) */}
         <input
           ref={fileInputRef}
           type="file"
@@ -654,7 +740,7 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
           style={{ display: "none" }}
           onChange={(e) => handleFile(e.target.files[0])}
         />
-      </div>
+      </>
     ) : (
       <div className="ca-receipt-card">
         <div className="ca-receipt-inner">
@@ -802,6 +888,12 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
           </div>
 
         </div>
+      </div>
+      {/* ── IMCB Footer ── */}
+      <div style={{ flexShrink:0, padding:"10px 20px", borderTop:"1px solid #e8eaed", background:"#fff", display:"flex", alignItems:"center", justifyContent:"center", gap:"6px" }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span style={{ fontSize:"11px", color:"#9ca3af", fontWeight:500 }}>Powered by</span>
+        <span style={{ fontSize:"11px", fontWeight:700, color:"#1a73e8" }}>IMCB Solutions LLP</span>
       </div>
     </div>
   );

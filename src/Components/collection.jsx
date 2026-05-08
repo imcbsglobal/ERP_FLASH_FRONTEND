@@ -1283,6 +1283,24 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
           </div>
         </div>
       )}
+
+      {/* ── IMCB Footer ── */}
+      <div style={{
+        width: '100%',
+        padding: '10px 16px',
+        borderTop: '1px solid #e8eaed',
+        background: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '6px',
+        marginTop: '16px',
+        flexShrink: 0,
+      }}>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        <span style={{ fontSize: '11px', color: '#9ca3af', fontWeight: 500 }}>Powered by</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: '#1a73e8' }}>IMCB Solutions LLP</span>
+      </div>
     </div>
   );
 };

@@ -110,10 +110,182 @@ function UserAvatar({ user }) {
   );
 }
 
+// ── Camera Capture Modal ───────────────────────────────────────────────────────
+function CameraModal({ onCapture, onClose }) {
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [capturedData, setCapturedData] = useState(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const startCamera = async () => {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error("Camera API not supported in this browser");
+        }
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, facingMode: "user" },
+          audio: false,
+        });
+        if (isMounted && videoRef.current) {
+          videoRef.current.srcObject = stream;
+          streamRef.current = stream;
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error("Camera error:", err);
+        if (isMounted) {
+          setLoading(false);
+          if (err.name === "NotAllowedError") {
+            setError("Camera permission denied. Please enable it in browser settings.");
+          } else if (err.name === "NotFoundError") {
+            setError("No camera found on this device.");
+          } else {
+            setError(`Camera error: ${err.message}`);
+          }
+        }
+      }
+    };
+    startCamera();
+    return () => {
+      isMounted = false;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
+
+  const handleCapture = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    try {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.save();
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, -canvas.width, 0, canvas.width, canvas.height);
+      ctx.restore();
+      canvas.toBlob((blob) => {
+        if (blob) {
+          setCapturedData({ blob, preview: URL.createObjectURL(blob) });
+        }
+      }, "image/jpeg", 0.95);
+    } catch (err) {
+      console.error("Capture error:", err);
+      setError("Failed to capture photo. Please try again.");
+    }
+  };
+
+  const handleConfirm = () => {
+    if (capturedData?.blob) {
+      const file = new File([capturedData.blob], `profile-${Date.now()}.jpg`, { type: "image/jpeg" });
+      onCapture(file);
+      handleClose();
+    }
+  };
+
+  const handleRetake = () => {
+    if (capturedData?.preview) URL.revokeObjectURL(capturedData.preview);
+    setCapturedData(null);
+  };
+
+  const handleClose = () => {
+    if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
+    if (capturedData?.preview) URL.revokeObjectURL(capturedData.preview);
+    onClose();
+  };
+
+  return (
+    <>
+      <div onClick={handleClose} style={{ position: "fixed", inset: 0, background: "rgba(0, 0, 0, 0.6)", zIndex: 1001 }} />
+      <div style={{ position: "fixed", top: "50%", left: "50%", transform: "translate(-50%, -50%)", background: "var(--surface)", borderRadius: "12px", padding: "20px", boxShadow: "0 4px 20px rgba(0, 0, 0, 0.3)", zIndex: 1002, maxWidth: "500px", width: "90vw", maxHeight: "85vh", display: "flex", flexDirection: "column", gap: "16px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h2 style={{ margin: 0, fontSize: "18px", fontWeight: 600 }}>📸 Capture Photo</h2>
+          <button onClick={handleClose} style={{ background: "transparent", border: "none", fontSize: "20px", cursor: "pointer", padding: "4px 8px" }}>✕</button>
+        </div>
+        {!capturedData ? (
+          <>
+            <div style={{ position: "relative", width: "100%", paddingBottom: "133.33%", background: "var(--surface2)", borderRadius: "8px", overflow: "hidden" }}>
+              {(loading || error) && (
+                <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: error ? "var(--red)" : "var(--muted)", fontSize: "13px", padding: "16px", textAlign: "center", background: "var(--surface2)" }}>
+                  {error ? error : "🔄 Starting camera..."}
+                </div>
+              )}
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted
+                style={{ 
+                  position: "absolute", 
+                  inset: 0, 
+                  width: "100%", 
+                  height: "100%", 
+                  objectFit: "cover",
+                  display: "block",
+                  opacity: !loading && !error ? 1 : 0,
+                  transition: "opacity 0.3s ease",
+                  backgroundColor: "var(--surface2)"
+                }} 
+              />
+            </div>
+            {!error && !loading && (
+              <button onClick={handleCapture} style={{ padding: "10px 18px", fontSize: "14px", fontWeight: 600, borderRadius: "6px", border: "none", background: "rgb(1, 126, 252)", color: "white", cursor: "pointer", transition: "background 0.2s" }} onMouseEnter={e => e.target.style.background = "rgb(0, 100, 220)"} onMouseLeave={e => e.target.style.background = "rgb(1, 126, 252)"}>📸 Capture Photo</button>
+            )}
+            <button onClick={handleClose} style={{ padding: "10px 18px", fontSize: "14px", fontWeight: 600, borderRadius: "6px", border: "1px solid var(--border)", background: "transparent", cursor: "pointer" }}>Cancel</button>
+          </>
+        ) : (
+          <>
+            <div style={{ position: "relative", width: "100%", paddingBottom: "133.33%", background: "var(--surface2)", borderRadius: "8px", overflow: "hidden" }}>
+              <img src={capturedData.preview} alt="Captured" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+            </div>
+            <p style={{ margin: 0, fontSize: "13px", color: "var(--muted)" }}>Is this photo OK?</p>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button onClick={handleRetake} style={{ flex: 1, padding: "10px 14px", fontSize: "14px", fontWeight: 600, borderRadius: "6px", border: "1px solid var(--border)", background: "transparent", cursor: "pointer" }}>↻ Retake</button>
+              <button onClick={handleConfirm} style={{ flex: 1, padding: "10px 14px", fontSize: "14px", fontWeight: 600, borderRadius: "6px", border: "none", background: "rgb(34, 197, 94)", color: "white", cursor: "pointer" }}>✓ Use This Photo</button>
+            </div>
+          </>
+        )}
+      </div>
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+    </>
+  );
+}
+
+// ── Mobile detection hook ─────────────────────────────────────────────────────
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const handler = (e) => setIsMobile(e.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  return isMobile;
+}
+
 // ── Photo upload widget ───────────────────────────────────────────────────────
-function PhotoUpload({ preview, existingUrl, onChange, onClear }) {
+function PhotoUpload({ preview, existingUrl, onChange, onClear, onCaptureClick }) {
   const fileRef = useRef(null);
   const displaySrc = preview || existingUrl || null;
+  const isMobile = useIsMobile();
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Photo must be under 5 MB.");
+      return;
+    }
+    onChange(file);
+    e.target.value = "";
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "10px" }}>
@@ -144,22 +316,48 @@ function PhotoUpload({ preview, existingUrl, onChange, onClear }) {
         )}
       </div>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
-        <button
-          type="button"
-          onClick={() => fileRef.current?.click()}
-          style={{
-            padding: "6px 14px",
-            fontSize: "12px",
-            fontWeight: 600,
-            borderRadius: "6px",
-            border: "1px solid var(--accent)",
-            color: "black",
-            background: "transparent",
-            cursor: "pointer",
-          }}
-        >
-          {displaySrc ? "Change Photo" : "Upload Photo"}
-        </button>
+        <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", justifyContent: "center" }}>
+          {/* Upload file button — always visible on all devices */}
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            style={{
+              padding: "6px 12px",
+              fontSize: "12px",
+              fontWeight: 600,
+              borderRadius: "6px",
+              border: "1px solid var(--accent)",
+              color: "black",
+              background: "transparent",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+            }}
+          >
+            📁 {displaySrc ? "Change" : "Upload"}
+          </button>
+
+          {/* Capture button — mobile only */}
+          {isMobile && (
+            <button
+              type="button"
+              onClick={onCaptureClick}
+              style={{
+                padding: "6px 12px",
+                fontSize: "12px",
+                fontWeight: 600,
+                borderRadius: "6px",
+                border: "1px solid var(--accent)",
+                color: "black",
+                background: "transparent",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+              }}
+              title="Capture using webcam"
+            >
+              📸 Capture
+            </button>
+          )}
+        </div>
         {displaySrc && (
           <button
             type="button"
@@ -178,21 +376,14 @@ function PhotoUpload({ preview, existingUrl, onChange, onClear }) {
           </button>
         )}
       </div>
+
+      {/* Standard file picker (all devices) */}
       <input
         ref={fileRef}
         type="file"
         accept="image/jpeg,image/png,image/webp"
         style={{ display: "none" }}
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (!file) return;
-          if (file.size > 5 * 1024 * 1024) {
-            alert("Photo must be under 5 MB.");
-            return;
-          }
-          onChange(file);
-          e.target.value = "";
-        }}
+        onChange={handleFileChange}
       />
     </div>
   );
@@ -225,6 +416,8 @@ export default function RegisteredUsers() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const deleteInFlight = useRef(false);
+  const [showCameraCreate, setShowCameraCreate] = useState(false);
+  const [showCameraEdit, setShowCameraEdit] = useState(false);
 
   // ── Fetch ───────────────────────────────────────────────────────────────────
   const fetchUsers = useCallback(async () => {
@@ -298,6 +491,14 @@ export default function RegisteredUsers() {
   const handlePhotoClear = () => {
     if (form.photoPreview) URL.revokeObjectURL(form.photoPreview);
     setForm(f => ({ ...f, photo: null, photoPreview: "" }));
+  };
+
+  const handlePhotoCaptureCreate = (file) => {
+    handlePhotoChange(file);
+  };
+
+  const handlePhotoCaptureEdit = (file) => {
+    handleEditPhotoChange(file);
   };
 
   const handleEditPhotoChange = (file) => {
@@ -807,7 +1008,7 @@ export default function RegisteredUsers() {
             </div>
             <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: "16px" }} className="modal-padding">
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <PhotoUpload preview={form.photoPreview} existingUrl={null} onChange={handlePhotoChange} onClear={handlePhotoClear} />
+                <PhotoUpload preview={form.photoPreview} existingUrl={null} onChange={handlePhotoChange} onClear={handlePhotoClear} onCaptureClick={() => setShowCameraCreate(true)} />
               </div>
               <div className="form-group">
                 <label style={{ display: "block", fontSize: "16px", fontWeight: 600, color: "black", marginBottom: "6px", textAlign: "left" }} className="form-label">Username <span style={{ color: "var(--red)" }}>*</span></label>
@@ -899,7 +1100,7 @@ export default function RegisteredUsers() {
             </div>
             <div style={{ padding: "24px 28px", display: "flex", flexDirection: "column", gap: "16px" }} className="modal-padding">
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <PhotoUpload preview={editForm.photoPreview} existingUrl={editingUser?.photo_url || null} onChange={handleEditPhotoChange} onClear={handleEditPhotoClear} />
+                <PhotoUpload preview={editForm.photoPreview} existingUrl={editingUser?.photo_url || null} onChange={handleEditPhotoChange} onClear={handleEditPhotoClear} onCaptureClick={() => setShowCameraEdit(true)} />
               </div>
               <div className="form-group">
                 <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">Username <span style={{ color: "var(--red)" }}>*</span></label>
@@ -960,6 +1161,16 @@ export default function RegisteredUsers() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Camera Modal - Create User */}
+      {showCameraCreate && (
+        <CameraModal onCapture={handlePhotoCaptureCreate} onClose={() => setShowCameraCreate(false)} />
+      )}
+
+      {/* Camera Modal - Edit User */}
+      {showCameraEdit && (
+        <CameraModal onCapture={handlePhotoCaptureEdit} onClose={() => setShowCameraEdit(false)} />
       )}
 
       {/* Delete Confirmation Modal */}
