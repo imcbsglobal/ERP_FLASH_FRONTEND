@@ -34,7 +34,7 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
   };
 
   const statusDisplay = payment.status === 'Failed' ? 'Rejected' : payment.status;
-  const canEditDelete = mode === 'my' || isAdmin;
+  const canEditDelete = isAdmin;
   const statusDisabled = updatingId === payment.id || (mode === 'all' && !isAdmin);
 
   return (
@@ -442,8 +442,13 @@ const PaymentTable = ({ mode = 'all' }) => {
 
   const collectionTypes = ['all', 'Cash', 'Cheque', 'Bank Transfer', 'Credit Card', 'Debit Card', 'Online Payment'];
 
-  // Table headers
-  const headers = ["Sl. no.", "Date", "Client Name", "Branch", "Department", "Payment Type", "Amount", "Paid For", "Cash Received", "Status", "Proof", "Action"];
+  // Table headers — Action column visible to admins only
+  const canActOnRows = isAdmin;
+  const headers = [
+    "Sl. no.", "Date", "Client Name", "Branch",
+    "Payment Type", "Amount", "Paid For", "Cash Received", "Status", "Proof",
+    ...(canActOnRows ? ["Action"] : []),
+  ];
 
   // Table styles - th font size set to 20
   const thStyle = { 
@@ -1094,7 +1099,7 @@ const PaymentTable = ({ mode = 'all' }) => {
                   <thead>
                     <tr>
                       {headers.map(h => (
-                        <th key={h} className={["Department","Paid For","Proof","Cash Received"].includes(h) ? "col-hide-mobile" : ""} style={{ ...thStyle, textAlign: h === "Amount" ? "right" : "left" }}>{h}</th>
+                        <th key={h} className={["Branch","Paid For","Proof","Cash Received"].includes(h) ? "col-hide-mobile" : ""} style={{ ...thStyle, textAlign: h === "Amount" ? "right" : "left" }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -1128,30 +1133,11 @@ const PaymentTable = ({ mode = 'all' }) => {
                         <td style={{ ...tdStyle, textAlign: 'left' }}>
                           <div className="client-info">
                             <div className="client-name">{payment.clientName}</div>
-                            {payment.place && (
-                              <div className="client-place">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
-                                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" />
-                                  <circle cx="12" cy="9" r="2.5" />
-                                </svg>
-                                {payment.place}
-                              </div>
-                            )}
-                            {payment.phoneNumber && (
-                              <div className="client-phone">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="11" height="11">
-                                  <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
-                                </svg>
-                                {payment.phoneNumber}
-                              </div>
-                            )}
+                            
                           </div>
                         </td>
                         
-                        {/* Branch */}
-                        <td className="branch-cell" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 120 }}>{payment.branch}</td>
-                        
-                        {/* Department */}
+                        {/* Branch (formerly Department) */}
                         <td className="col-hide-mobile" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 180 }}>
                           {payment.department ? (
                             <span className="department-badge">
@@ -1222,9 +1208,9 @@ const PaymentTable = ({ mode = 'all' }) => {
                           )}
                         </td>
 
-                        {/* Actions */}
-                        <td style={{ ...tdStyle, textAlign: "left" }}>
-                          {(mode === 'my' || isAdmin) ? (
+                        {/* Actions — admin / my-payments only */}
+                        {canActOnRows && (
+                          <td style={{ ...tdStyle, textAlign: "left" }}>
                             <div style={{ display: "flex", gap: 6 }}>
                               <button 
                                 onClick={() => handleEditClick(payment)} 
@@ -1249,10 +1235,8 @@ const PaymentTable = ({ mode = 'all' }) => {
                                 <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} />
                               </button>
                             </div>
-                          ) : (
-                            <span style={{ color: "#9ca3af", fontSize: 12 }}>—</span>
-                          )}
-                        </td>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
@@ -1433,8 +1417,7 @@ const PaymentTable = ({ mode = 'all' }) => {
 
       {/* ── New Payment Modal ── */}
       {showPaymentForm && (
-        <div className="pt-modal-backdrop"
-          onClick={(e) => { if (e.target === e.currentTarget) setShowPaymentForm(false); }}>
+        <div className="pt-modal-backdrop">
           <div className="pt-modal">
             <div className="pt-modal-header">
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>New Payment</h3>
@@ -1452,8 +1435,7 @@ const PaymentTable = ({ mode = 'all' }) => {
 
       {/* ── Edit Payment Modal ── */}
       {editingPayment && (
-        <div className="pt-modal-backdrop"
-          onClick={(e) => { if (e.target === e.currentTarget) setEditingPayment(null); }}>
+        <div className="pt-modal-backdrop">
           <div className="pt-modal">
             <div className="pt-modal-header">
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>Edit Payment #{editingPayment.id}</h3>

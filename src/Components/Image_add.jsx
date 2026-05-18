@@ -1,6 +1,38 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
+/* ═══════════════════════════════════════════════════════════════
+   EXIF GPS HELPERS
+   Dynamically loads exifr (lite build) from CDN and extracts
+   GPS coordinates embedded in JPEG/HEIC files by phone cameras.
+═══════════════════════════════════════════════════════════════ */
+const loadExifr = () =>
+  new Promise((resolve, reject) => {
+    if (window.exifr) { resolve(window.exifr); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/exifr/dist/lite.umd.js";
+    s.onload  = () => resolve(window.exifr);
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+
+/**
+ * Returns { lat, lng } from the file's EXIF GPS tags, or null if not present.
+ * Works with JPEG files produced by Android / iOS camera apps.
+ */
+const extractExifGps = async (file) => {
+  try {
+    const exifr   = await loadExifr();
+    const gpsData = await exifr.gps(file);
+    if (gpsData && gpsData.latitude != null && gpsData.longitude != null) {
+      return { lat: gpsData.latitude, lng: gpsData.longitude };
+    }
+  } catch (e) {
+    console.warn("EXIF GPS extraction failed:", e);
+  }
+  return null;
+};
+
 export default function ImageAdd() {
   const location  = useLocation();
   const navigate  = useNavigate();
@@ -18,6 +50,9 @@ export default function ImageAdd() {
   const [address, setAddress]       = useState("");
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError, setGpsError]     = useState("");
+  /* NEW: track GPS source */
+  const [gpsSource, setGpsSource]   = useState("live"); // "live" | "exif"
+  const exifFromFileRef             = useRef(false);
   const watchIdRef                  = useRef(null);
 
   // Reverse-geocode with Nominatim (free, no key needed)
@@ -35,10 +70,7 @@ export default function ImageAdd() {
   };
 
   const startLocation = () => {
-    if (!navigator.geolocation) {
-      setGpsError("Geolocation not supported.");
-      return;
-    }
+    if (!navigator.geolocation) { setGpsError("Geolocation not supported."); return; }
     setGpsLoading(true);
     setGpsError("");
     watchIdRef.current = navigator.geolocation.watchPosition(
@@ -48,10 +80,7 @@ export default function ImageAdd() {
         setGpsLoading(false);
         reverseGeocode(lat, lng);
       },
-      (err) => {
-        setGpsError(err.message || "Unable to get location.");
-        setGpsLoading(false);
-      },
+      (err) => { setGpsError(err.message || "Unable to get location."); setGpsLoading(false); },
       { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
     );
   };
@@ -63,24 +92,67 @@ export default function ImageAdd() {
     }
   };
 
-  // Start watching location as soon as a preview is available
+  // Start watching location once preview is available —
+  // but SKIP if EXIF GPS was already extracted from the file.
   useEffect(() => {
-    if (preview) startLocation();
-    else { stopLocation(); setGps(null); setAddress(""); setGpsError(""); }
+    if (preview) {
+      if (!exifFromFileRef.current) {
+        startLocation();
+      }
+    } else {
+      stopLocation();
+      setGps(null); setAddress(""); setGpsError("");
+      setGpsSource("live");
+      exifFromFileRef.current = false;
+    }
     return stopLocation;
   }, [preview]);
 
   const fmt = (n) => Number(n).toFixed(6);
 
+  /* ── Source badge config ── */
+  const sourceBadgeLabel = gpsSource === "exif" ? "Source: EXIF" : "Source: live";
+  const sourceBadgeStyle = gpsSource === "exif"
+    ? { background: "#7c3aed", color: "white" }
+    : { background: "#0ea5e9", color: "white" };
+  const liveBarText   = gpsSource === "exif" ? "Location read from image EXIF data" : "Live location detected";
+  const liveBarColor  = gpsSource === "exif" ? "#7c3aed" : "#15803d";
+  const liveBarBg     = gpsSource === "exif" ? "#f5f3ff" : "#f0fdf4";
+  const liveBarBorder = gpsSource === "exif" ? "#ddd6fe" : "#bbf7d0";
+
   /* ── Upload ───────────────────────────────────────────────────── */
   const showError = (msg) => { setError(msg); setTimeout(() => setError(""), 4000); };
 
+  /* ── FILE PICKER: try EXIF GPS first, fall back to live GPS ── */
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
     if (!file.type.startsWith("image/")) { showError("Please select a valid image file."); return; }
     setImage(file);
-    setPreview(URL.createObjectURL(file));
+
+    // Build object URL for preview immediately
+    const objectUrl = URL.createObjectURL(file);
+
+    // Attempt EXIF extraction then set preview
+    extractExifGps(file).then((exifGps) => {
+      if (exifGps) {
+        // Found GPS in EXIF — use photo's embedded location
+        exifFromFileRef.current = true;
+        setGpsSource("exif");
+        setGps(exifGps);
+        setGpsLoading(false);
+        reverseGeocode(exifGps.lat, exifGps.lng);
+      } else {
+        // No EXIF GPS — useEffect will start browser geolocation
+        exifFromFileRef.current = false;
+        setGpsSource("live");
+      }
+      setPreview(objectUrl); // triggers useEffect
+    }).catch(() => {
+      exifFromFileRef.current = false;
+      setGpsSource("live");
+      setPreview(objectUrl);
+    });
   };
 
   const handleUpload = useCallback(async () => {
@@ -169,7 +241,11 @@ export default function ImageAdd() {
                   {gpsLoading && (
                     <div className="ia-loc-loading">
                       <span className="ia-spinner" />
-                      <span>Getting your GPS coordinates…</span>
+                      <span>
+                        {gpsSource === "exif"
+                          ? "Reading EXIF location from image…"
+                          : "Getting your GPS coordinates…"}
+                      </span>
                     </div>
                   )}
 
@@ -184,7 +260,7 @@ export default function ImageAdd() {
 
                   {gps && !gpsLoading && (
                     <>
-                      {/* Lat / Lng / Address lines — exactly like reference image */}
+                      {/* Lat / Lng / Address lines */}
                       <div className="ia-loc-lines">
                         <div className="ia-loc-row">
                           <span className="ia-loc-label">Latitude:</span>
@@ -201,16 +277,18 @@ export default function ImageAdd() {
                           </div>
                         )}
                         <div className="ia-loc-source-row">
-                          <span className="ia-source-badge">Source: live</span>
+                          <span className="ia-source-badge" style={sourceBadgeStyle}>
+                            {sourceBadgeLabel}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Green "Live location detected" bar */}
-                      <div className="ia-live-bar">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      {/* Status bar */}
+                      <div className="ia-live-bar" style={{ background: liveBarBg, borderTop: `1.5px solid ${liveBarBorder}`, color: liveBarColor }}>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={liveBarColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <polyline points="20 6 9 17 4 12"/>
                         </svg>
-                        Live location detected
+                        {liveBarText}
                       </div>
                     </>
                   )}
@@ -233,7 +311,10 @@ export default function ImageAdd() {
                       </>
                     )}
                   </button>
-                  <button className="ia-retake-btn" onClick={() => { setImage(null); setPreview(null); }}>
+                  <button className="ia-retake-btn" onClick={() => {
+                    setImage(null); setPreview(null);
+                    setGpsSource("live"); exifFromFileRef.current = false;
+                  }}>
                     Retake Photo
                   </button>
                 </div>
@@ -288,13 +369,11 @@ const css = `
     box-sizing: border-box;
   }
 
-  /* Title */
   .ia-title-row { display:flex; align-items:center; gap:8px; }
   .ia-cam-emoji { font-size: 26px; }
   .ia-title { font-size:22px; font-weight:700; color:#1a1a2e; letter-spacing:-0.3px; }
   .ia-subtitle { font-size:13px; color:#6b7280; text-align:center; line-height:1.6; margin-top:-4px; }
 
-  /* Error */
   .ia-error {
     width:100%; background:#fef2f2; border:1px solid #fecaca;
     border-radius:10px; padding:10px 14px;
@@ -302,13 +381,11 @@ const css = `
     font-size:13px; font-weight:500; color:#dc2626;
   }
 
-  /* Preview image */
   .ia-preview {
     width:100%; border-radius:14px; border:2px solid #e0e1f0;
     max-height:260px; object-fit:cover;
   }
 
-  /* Open camera button */
   .ia-open-btn {
     width:100%; padding:15px;
     background:white; color:#0990eb; border:2px solid #e0e1f0; border-radius:12px;
@@ -321,7 +398,6 @@ const css = `
     transform:translateY(-1px);
   }
 
-  /* ── Location block ── */
   .ia-loc-block {
     width:100%; border-radius:14px; overflow:hidden;
     border:1.5px solid #e5e7eb;
@@ -338,7 +414,6 @@ const css = `
     font-size:12px; color:#b91c1c;
   }
 
-  /* Coordinate lines — matches reference image exactly */
   .ia-loc-lines {
     padding: 16px 20px 12px;
     display:flex; flex-direction:column; gap:5px;
@@ -348,36 +423,24 @@ const css = `
     display:flex; align-items:flex-start; gap:5px;
     font-size:14px; line-height:1.6;
   }
-  .ia-loc-label {
-    font-weight:700; color:#1a1a2e; white-space:nowrap; flex-shrink:0;
-  }
-  .ia-loc-val {
-    font-weight:500; color:#374151; font-variant-numeric:tabular-nums;
-  }
+  .ia-loc-label { font-weight:700; color:#1a1a2e; white-space:nowrap; flex-shrink:0; }
+  .ia-loc-val   { font-weight:500; color:#374151; font-variant-numeric:tabular-nums; }
   .ia-loc-addr-row { align-items:flex-start; }
-  .ia-loc-addr {
-    font-weight:500; color:#374151; line-height:1.55;
-  }
-  .ia-loc-source-row {
-    display:flex; justify-content:center; margin-top:8px;
-  }
+  .ia-loc-addr  { font-weight:500; color:#374151; line-height:1.55; }
+  .ia-loc-source-row { display:flex; justify-content:center; margin-top:8px; }
   .ia-source-badge {
     display:inline-block;
-    background:#0ea5e9; color:white;
     font-size:11.5px; font-weight:700;
     padding:4px 14px; border-radius:20px;
     letter-spacing:0.02em;
   }
 
-  /* Green live bar */
   .ia-live-bar {
     display:flex; align-items:center; justify-content:center; gap:7px;
     padding:11px 16px;
-    background:#f0fdf4; border-top:1.5px solid #bbf7d0;
-    font-size:13.5px; font-weight:600; color:#15803d;
+    font-size:13.5px; font-weight:600;
   }
 
-  /* Buttons */
   .ia-btn-group { width:100%; display:flex; flex-direction:column; gap:10px; }
   .ia-submit-btn {
     width:100%; padding:15px;
@@ -400,7 +463,6 @@ const css = `
   }
   .ia-retake-btn:hover { border-color:#0990eb; color:#0990eb; }
 
-  /* Spinner */
   .ia-spinner {
     display:inline-block; width:16px; height:16px;
     border:2px solid rgba(9,144,235,0.25); border-top-color:#0990eb;
@@ -409,7 +471,6 @@ const css = `
   }
   .ia-spinner-white { border-color:rgba(255,255,255,0.3); border-top-color:white; }
 
-  /* Notice */
   .ia-notice {
     width:100%; background:#fffbeb; border:1px solid #fcd34d;
     border-radius:12px; padding:14px 16px;
@@ -420,7 +481,6 @@ const css = `
     font-size:13px; font-weight:700; color:#b45309;
   }
 
-  /* Success */
   .ia-success {
     display:flex; flex-direction:column; align-items:center; gap:14px;
     animation:fadeUp 0.4s ease both;
@@ -435,7 +495,6 @@ const css = `
   .ia-success-title { font-size:20px; font-weight:700; color:#1a1a2e; text-align:center; }
   .ia-success-sub   { font-size:14px; color:#6b7280; text-align:center; line-height:1.6; }
 
-  /* ── Mobile Responsive ── */
   @media (max-width: 480px) {
     .ia-page { padding: 12px; background: #0990eb; }
     .ia-card { padding: 24px 18px 24px; border-radius: 16px; gap: 12px; }

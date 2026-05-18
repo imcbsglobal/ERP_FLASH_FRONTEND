@@ -33,20 +33,39 @@ const ImageCaptureList = ({ onGenerateLink }) => {
     return `${API_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
   };
 
-  const normalize = (item) => ({
-    id:               item.id,
-    clientDetails: {
-      name:    item.client_details?.name    || '',
-      contact: item.client_details?.contact || '',
-      phone:   item.client_details?.phone   || '',
-    },
-    image:            normalizeImageUrl(item.image),
-    location:         item.location         || '',
-    coordinate:       item.coordinate       || '',
-    verificationTime: item.verification_time || '',
-    status:           item.status           || 'pending',
-    manualStatus:     toDisplayStatus(item.manual_status || 'pending'),
-  });
+  const normalize = (item) => {
+    // Raw lat/lng from API (detail endpoint exposes them; list endpoint may not)
+    let lat = item.latitude  != null ? parseFloat(item.latitude)  : null;
+    let lng = item.longitude != null ? parseFloat(item.longitude) : null;
+
+    // Fallback: parse from the "11.123456° N, 75.123456° E" coordinate string
+    if ((lat == null || lng == null) && item.coordinate) {
+      const m = item.coordinate.match(
+        /([-\d.]+)[°\s]*([NS])[,\s]+([-\d.]+)[°\s]*([EW])/i
+      );
+      if (m) {
+        lat = parseFloat(m[1]) * (m[2].toUpperCase() === 'S' ? -1 : 1);
+        lng = parseFloat(m[3]) * (m[4].toUpperCase() === 'W' ? -1 : 1);
+      }
+    }
+
+    return {
+      id:               item.id,
+      clientDetails: {
+        name:    item.client_details?.name    || '',
+        contact: item.client_details?.contact || '',
+        phone:   item.client_details?.phone   || '',
+      },
+      image:            normalizeImageUrl(item.image),
+      location:         item.location         || '',
+      coordinate:       item.coordinate       || '',
+      latitude:         lat,
+      longitude:        lng,
+      verificationTime: item.verification_time || '',
+      status:           item.status           || 'pending',
+      manualStatus:     toDisplayStatus(item.manual_status || 'pending'),
+    };
+  };
 
   // Map backend lowercase values to display labels
   const toDisplayStatus = (v) => {
@@ -171,17 +190,101 @@ const ImageCaptureList = ({ onGenerateLink }) => {
     }
   };
 
+  // ── GPS EXIF helper ───────────────────────────────────────────
+  // Converts a decimal degree value to EXIF rational format:
+  // [[degrees, 1], [minutes, 1], [seconds*100, 100]]
+  const toExifRational = (decimal) => {
+    const d = Math.abs(decimal);
+    const deg = Math.floor(d);
+    const minFull = (d - deg) * 60;
+    const min = Math.floor(minFull);
+    const sec = Math.round((minFull - min) * 60 * 100);
+    return [[deg, 1], [min, 1], [sec, 100]];
+  };
+
+  // ── Download with GPS EXIF embedded ──────────────────────────
   const handleDownload = async (item) => {
     try {
       const response = await fetch(item.image);
       const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${item.clientDetails.name.replace(/\s+/g, '_')}_image.jpg`;
+
+      // Convert blob → base64 data URL (piexifjs requires this format)
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      let finalDataUrl = dataUrl;
+
+      // Embed GPS EXIF only when coordinates are available
+      if (item.latitude != null && item.longitude != null) {
+        const piexif = (await import('piexifjs')).default;
+
+        const exifObj = piexif.load(dataUrl);
+
+        exifObj['GPS'] = {
+          [piexif.GPSIFD.GPSLatitudeRef]:  item.latitude  >= 0 ? 'N' : 'S',
+          [piexif.GPSIFD.GPSLatitude]:     toExifRational(item.latitude),
+          [piexif.GPSIFD.GPSLongitudeRef]: item.longitude >= 0 ? 'E' : 'W',
+          [piexif.GPSIFD.GPSLongitude]:    toExifRational(item.longitude),
+        };
+
+        const exifBytes  = piexif.dump(exifObj);
+        finalDataUrl     = piexif.insert(exifBytes, dataUrl);
+      }
+
+      // Trigger browser download
+      const a      = document.createElement('a');
+      a.href       = finalDataUrl;
+      a.download   = `${item.clientDetails.name.replace(/\s+/g, '_')}_image.jpg`;
       a.click();
-      URL.revokeObjectURL(url);
-    } catch (error) {
+
+    } catch (err) {
+      console.error(err);
+      alert('Failed to download image.');
+    }
+  };
+
+  // ── Download from preview modal (also embeds GPS) ─────────────
+  const handlePreviewDownload = async (previewItem) => {
+    try {
+      const response = await fetch(previewItem.src);
+      const blob = await response.blob();
+
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload  = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      let finalDataUrl = dataUrl;
+
+      if (previewItem.latitude != null && previewItem.longitude != null) {
+        const piexif = (await import('piexifjs')).default;
+
+        const exifObj = piexif.load(dataUrl);
+
+        exifObj['GPS'] = {
+          [piexif.GPSIFD.GPSLatitudeRef]:  previewItem.latitude  >= 0 ? 'N' : 'S',
+          [piexif.GPSIFD.GPSLatitude]:     toExifRational(previewItem.latitude),
+          [piexif.GPSIFD.GPSLongitudeRef]: previewItem.longitude >= 0 ? 'E' : 'W',
+          [piexif.GPSIFD.GPSLongitude]:    toExifRational(previewItem.longitude),
+        };
+
+        const exifBytes = piexif.dump(exifObj);
+        finalDataUrl    = piexif.insert(exifBytes, dataUrl);
+      }
+
+      const a    = document.createElement('a');
+      a.href     = finalDataUrl;
+      a.download = `${previewItem.name.replace(/\s+/g, '_')}_image.jpg`;
+      a.click();
+
+    } catch (err) {
+      console.error(err);
       alert('Failed to download image.');
     }
   };
@@ -284,9 +387,184 @@ const ImageCaptureList = ({ onGenerateLink }) => {
     );
   }
 
+  /* ── GPS Detected badge with hoverable coordinate tooltip ── */
+  const GpsBadge = ({ item }) => {
+    const [copied, setCopied] = React.useState(false);
+
+    if (!item.coordinate) {
+      return (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          background: '#fef2f2', border: '1px solid #fecaca',
+          color: '#dc2626', fontSize: 11, fontWeight: 700,
+          padding: '3px 9px', borderRadius: 20,
+        }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          No GPS
+        </span>
+      );
+    }
+
+    const lat = item.latitude  != null ? Number(item.latitude).toFixed(6)  : null;
+    const lng = item.longitude != null ? Number(item.longitude).toFixed(6) : null;
+    const combined = (lat && lng) ? `${lat}, ${lng}` : (lat || lng || '');
+
+    const copyAll = (e) => {
+      e.stopPropagation();
+      if (!combined) return;
+      navigator.clipboard?.writeText(combined).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      }).catch(() => {});
+    };
+
+    return (
+      <span className="gps-badge-wrap">
+        <span className="gps-badge-pill">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="#15803d"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+          GPS Detected
+        </span>
+
+        {/* Tooltip panel */}
+        <span className="gps-tooltip-panel" onClick={e => e.stopPropagation()}>
+          <span className="gps-tooltip-arrow" />
+
+          {/* Title row */}
+          <span className="gps-tooltip-title">
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="#15803d"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            Coordinates
+          </span>
+
+          {/* Single selectable line: lat, lng */}
+          <span className="gps-coord-row">
+            <span
+              className="gps-coord-combined"
+              style={{
+                userSelect: 'text',
+                WebkitUserSelect: 'text',
+                MozUserSelect: 'text',
+                msUserSelect: 'text',
+              }}
+            >
+              {combined || '—'}
+            </span>
+            {combined && (
+              <button
+                className={`gps-copy-btn${copied ? ' gps-copy-btn--ok' : ''}`}
+                onClick={copyAll}
+                title={copied ? 'Copied!' : 'Copy coordinates'}
+              >
+                {copied
+                  ? <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                  : <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                }
+              </button>
+            )}
+          </span>
+        </span>
+      </span>
+    );
+  };
+
   return (
-    <div className="p-6 bg-white min-h-screen" style={{ fontFamily: "'Google Sans', sans-serif" }}>
-      <div className="max-w-7xl mx-auto">
+    <div className="bg-white" style={{ fontFamily: "'Google Sans', sans-serif", display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+      {/* Styles */}
+      <style>{`
+        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+        @media (max-width: 600px) {
+          .imgcap-page-title { font-size: 20px !important; }
+          .imgcap-header-wrap { flex-direction: column !important; align-items: flex-start !important; gap: 12px; }
+          .imgcap-btn-group { width: 100%; flex-direction: row !important; }
+          .imgcap-btn-group button { flex: 1; justify-content: center; }
+        }
+        .imcb-footer { text-align: center; padding: 14px 16px; border-top: 1.5px solid #e8eaed; font-size: 12px; color: #9aa0a6; font-family: 'Google Sans', sans-serif; letter-spacing: 0.01em; flex-shrink: 0; background: #fff; width: 100%; box-sizing: border-box; position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; }
+        @media (max-width: 600px) { .imcb-footer { padding: 10px 12px; font-size: 11px; } }
+
+        /* ── GPS Badge + Tooltip ── */
+        .gps-badge-wrap {
+          position: relative;
+          display: inline-block;
+        }
+        .gps-badge-pill {
+          display: inline-flex; align-items: center; gap: 4px;
+          background: #f0fdf4; border: 1px solid #bbf7d0;
+          color: #15803d; font-size: 11px; font-weight: 700;
+          padding: 3px 9px; border-radius: 20px;
+          cursor: default;
+          user-select: none;
+          transition: background .15s, box-shadow .15s;
+        }
+        .gps-badge-wrap:hover .gps-badge-pill {
+          background: #dcfce7;
+          box-shadow: 0 0 0 3px rgba(21,128,61,0.12);
+        }
+        /* Tooltip panel — hidden by default, shown on hover */
+        .gps-tooltip-panel {
+          position: absolute;
+          bottom: calc(100% + 9px);
+          left: 50%; transform: translateX(-50%);
+          background: #fff;
+          border: 1.5px solid #e2e8f0;
+          border-radius: 10px;
+          padding: 9px 12px 10px;
+          box-shadow: 0 8px 24px rgba(0,0,0,0.14);
+          min-width: 190px;
+          display: flex; flex-direction: column; gap: 6px;
+          opacity: 0; pointer-events: none;
+          transition: opacity .15s, transform .15s;
+          transform: translateX(-50%) translateY(4px);
+          z-index: 9999;
+        }
+        .gps-badge-wrap:hover .gps-tooltip-panel {
+          opacity: 1; pointer-events: auto;
+          transform: translateX(-50%) translateY(0);
+        }
+        .gps-tooltip-arrow {
+          position: absolute;
+          top: 100%; left: 50%; transform: translateX(-50%);
+          border: 6px solid transparent;
+          border-top-color: #e2e8f0;
+        }
+        .gps-tooltip-arrow::after {
+          content: '';
+          position: absolute;
+          top: -7px; left: -5px;
+          border: 5px solid transparent;
+          border-top-color: #fff;
+        }
+        .gps-tooltip-title {
+          display: flex; align-items: center; gap: 5px;
+          font-size: 10px; font-weight: 700; color: #15803d;
+          text-transform: uppercase; letter-spacing: 0.06em;
+          border-bottom: 1px solid #f0f0f0;
+          padding-bottom: 6px; margin-bottom: 2px;
+        }
+        .gps-coord-row {
+          display: flex; align-items: center; gap: 6px;
+        }
+        .gps-coord-combined {
+          font-size: 12.5px; font-weight: 600; color: #1e293b;
+          font-variant-numeric: tabular-nums; letter-spacing: 0.01em;
+          flex: 1;
+          cursor: text;
+          user-select: text !important;
+          -webkit-user-select: text !important;
+          -moz-user-select: text !important;
+          -ms-user-select: text !important;
+          line-height: 1.5;
+        }
+        .gps-copy-btn {
+          display: inline-flex; align-items: center; justify-content: center;
+          width: 22px; height: 22px; border-radius: 5px;
+          border: 1px solid #e5e7eb; background: #f8fafc;
+          color: #64748b; cursor: pointer; flex-shrink: 0;
+          transition: background .12s, border-color .12s, color .12s;
+          padding: 0;
+        }
+        .gps-copy-btn:hover { background: #e8f3ff; border-color: #93c5fd; color: #0990eb; }
+        .gps-copy-btn--ok   { background: #f0fdf4; border-color: #86efac; color: #16a34a; }
+      `}</style>
+      <div className="max-w-7xl mx-auto p-6" style={{ flex: 1, width: '100%', paddingBottom: '60px' }}>
         {/* Header */}
         <div className="imgcap-header-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
           <div>
@@ -346,9 +624,6 @@ const ImageCaptureList = ({ onGenerateLink }) => {
         </div>
         </div>
 
-        {/* Styles */}
-        <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} @media (max-width: 600px) { .imgcap-page-title { font-size: 20px !important; } .imgcap-header-wrap { flex-direction: column !important; align-items: flex-start !important; gap: 12px; } .imgcap-btn-group { width: 100%; flex-direction: row !important; } .imgcap-btn-group button { flex: 1; justify-content: center; } } .imcb-footer { text-align: center; padding: 12px 16px; margin-top: 8px; border-top: 1px solid #e8eaed; font-size: 12px; color: #9aa0a6; font-family: 'Google Sans', sans-serif; letter-spacing: 0.01em; flex-shrink: 0; background: #fff; width: 100%; box-sizing: border-box; } @media (max-width: 600px) { .imcb-footer { padding: 10px 12px; font-size: 11px; margin-top: 4px; } }"}</style>
-
         {/* Loading / Error */}
         {loading && (
           <div style={{ textAlign: 'center', padding: '48px 0', color: '#6b7280', fontFamily: "'Google Sans', sans-serif" }}>
@@ -375,7 +650,6 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                     <th style={tableStyles.th}>Client Details</th>
                     <th style={tableStyles.th}>Image</th>
                     <th style={tableStyles.th}>Location</th>
-                    <th style={tableStyles.th}>Coordinate</th>
                     <th style={tableStyles.th}>Verification Time</th>
                     <th style={tableStyles.th}>Status</th>
                     <th style={tableStyles.th}>Manual Status</th>
@@ -396,34 +670,13 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                           src={item.image}
                           alt={`Client ${item.clientDetails.name}`}
                           style={{ width: 24, height: 24, borderRadius: 4, objectFit: "cover", border: "1px solid #e5e7eb", cursor: "zoom-in" }}
-                          onClick={() => setPreviewImg({ src: item.image, name: item.clientDetails.name })}
+                          onClick={() => setPreviewImg({ src: item.image, name: item.clientDetails.name, latitude: item.latitude, longitude: item.longitude })}
                         />
                       </td>
-                      <td style={tableStyles.td}>{item.location}</td>
-                      <td style={tableStyles.td} className="font-mono">{item.coordinate}</td>
+                      <td style={{...tableStyles.td, whiteSpace: 'normal', wordWrap: 'break-word', maxWidth: '200px'}}>{item.location}</td>
                       <td style={tableStyles.td}>{item.verificationTime}</td>
                       <td style={tableStyles.td}>
-                        {item.coordinate ? (
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', gap: 4,
-                              background: '#f0fdf4', border: '1px solid #bbf7d0',
-                              color: '#15803d', fontSize: 11, fontWeight: 700,
-                              padding: '3px 9px', borderRadius: 20,
-                            }}>
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="#15803d"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                              GPS Detected
-                            </span>
-                          ) : (
-                            <span style={{
-                              display: 'inline-flex', alignItems: 'center', gap: 4,
-                              background: '#fef2f2', border: '1px solid #fecaca',
-                              color: '#dc2626', fontSize: 11, fontWeight: 700,
-                              padding: '3px 9px', borderRadius: 20,
-                            }}>
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                              No GPS
-                            </span>
-                          )}
+                        <GpsBadge item={item} />
                       </td>
                       <td style={tableStyles.td}>
                         <select
@@ -534,7 +787,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                   <img
                     src={item.image}
                     alt={item.clientDetails.name}
-                    onClick={() => setPreviewImg({ src: item.image, name: item.clientDetails.name })}
+                    onClick={() => setPreviewImg({ src: item.image, name: item.clientDetails.name, latitude: item.latitude, longitude: item.longitude })}
                     style={{ width: 42, height: 42, borderRadius: 8, objectFit: 'cover', border: '1px solid #e5e7eb', cursor: 'zoom-in', flexShrink: 0 }}
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -543,27 +796,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                     </div>
                     <div style={{ fontSize: 12, color: '#6b7280', marginTop: 2 }}>{item.clientDetails.phone}</div>
                   </div>
-                  {item.coordinate ? (
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    background: '#f0fdf4', border: '1px solid #bbf7d0',
-                    color: '#15803d', fontSize: 11, fontWeight: 700,
-                    padding: '3px 9px', borderRadius: 20,
-                  }}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="#15803d"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
-                    GPS Detected
-                  </span>
-                          ) : (
-                  <span style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    background: '#fef2f2', border: '1px solid #fecaca',
-                    color: '#dc2626', fontSize: 11, fontWeight: 700,
-                    padding: '3px 9px', borderRadius: 20,
-                  }}>
-                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                    No GPS
-                  </span>
-                          )}
+                  <GpsBadge item={item} />
                 </div>
 
                 {/* Divider */}
@@ -580,15 +813,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                     <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500, minWidth: 70, flexShrink: 0 }}>Location:</span>
                     <span style={{ fontSize: 12, color: '#111827' }}>{item.location}</span>
                   </div>
-                  {/* Coordinate */}
-                  <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
-                    <svg width="13" height="13" style={{ marginTop: 1, flexShrink: 0 }} fill="none" stroke="#6b7280" viewBox="0 0 24 24">
-                      <circle cx="12" cy="12" r="10" strokeWidth={2} />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2 12h20M12 2a15.3 15.3 0 010 20M12 2a15.3 15.3 0 000 20" />
-                    </svg>
-                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500, minWidth: 70, flexShrink: 0 }}>Coordinate:</span>
-                    <span style={{ fontSize: 12, color: '#111827', fontFamily: 'monospace', wordBreak: 'break-all' }}>{item.coordinate}</span>
-                  </div>
+
                   {/* Verification Time */}
                   <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                     <svg width="13" height="13" style={{ marginTop: 1, flexShrink: 0 }} fill="none" stroke="#6b7280" viewBox="0 0 24 24">
@@ -668,20 +893,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
             />
             <p style={{ color: '#fff', marginTop: 10, fontSize: 14, fontFamily: "'Google Sans', sans-serif", fontWeight: 600 }}>{previewImg.name}</p>
             <button
-              onClick={async () => {
-                try {
-                  const response = await fetch(previewImg.src);
-                  const blob = await response.blob();
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `${previewImg.name.replace(/\s+/g, '_')}_image.jpg`;
-                  a.click();
-                  URL.revokeObjectURL(url);
-                } catch (error) {
-                  alert('Failed to download image.');
-                }
-              }}
+              onClick={() => handlePreviewDownload(previewImg)}
               style={{ marginTop: 10, padding: '8px 16px', borderRadius: 8, border: 'none', background: '#0990eb', color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: "'Google Sans', sans-serif" }}
             >
               Download Image

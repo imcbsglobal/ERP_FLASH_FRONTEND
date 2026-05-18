@@ -352,7 +352,7 @@ This link is valid for ${Math.round(EXPIRES_IN_HOURS * 60)} minutes.`)}`}
                 {loadingBranches ? "Loading branches…" : "All Branches"}
               </option>
               {branches.map((b) => (
-                <option key={b.id} value={b.name}>{b.name}</option>
+                <option key={b.id} value={b.id}>{b.name}</option>
               ))}
             </select>
           </div>

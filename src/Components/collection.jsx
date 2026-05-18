@@ -34,6 +34,76 @@ const sendWhatsAppNotification = async (formData) => {
   }
 };
 
+// ── Resolve logged-in user's branch ─────────────────────────────────────────
+//
+// Api.js stores auth data under these EXACT localStorage keys:
+//   'access_token'  ← JWT access token  (authHeaders line 131)
+//   'user'          ← JSON: { id, username, role, status, branch }  (authService.login line 335)
+//
+// branch comes directly from user.branch — no scanning, no guessing.
+
+/** Decode a base64url JWT payload safely. */
+const _decodeJwtPayload = (token) => {
+  try {
+    const seg = token.split('.')[1];
+    if (!seg) return null;
+    return JSON.parse(atob(seg.replace(/-/g, '+').replace(/_/g, '/')));
+  } catch { return null; }
+};
+
+/**
+ * Read the logged-in user's branch synchronously.
+ *
+ * Priority:
+ *  1. localStorage key 'user'         →  { branch: "BranchName" }   ← authService.login()
+ *  2. JWT payload 'access_token'      →  token["branch"]            ← updated LoginView
+ */
+const getLoggedInUserBranch = () => {
+  try {
+    // 1. 'user' object — set by authService.login in Api.js
+    //    localStorage.setItem('user', JSON.stringify(data.user))
+    //    data.user = { id, username, role, status, branch }
+    const userRaw = localStorage.getItem('user');
+    if (userRaw) {
+      const user = JSON.parse(userRaw);
+      const branch = user?.branch || user?.branch_name;
+      if (branch && typeof branch === 'string' && branch.trim()) return branch.trim();
+    }
+
+    // 2. JWT payload — access_token is the key used by authHeaders() in Api.js
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      const payload = _decodeJwtPayload(token);
+      const branch = payload?.branch;
+      if (branch && typeof branch === 'string' && branch.trim()) return branch.trim();
+    }
+  } catch { /* localStorage unavailable */ }
+  return '';
+};
+
+/**
+ * Async guarantee: fetch branch from GET /api/users/<id>/
+ * Handles the case where user.branch is null in localStorage
+ * (user has no branch assigned yet).
+ */
+const fetchUserBranchFromAPI = async () => {
+  try {
+    const token = localStorage.getItem('access_token');
+    if (!token) return '';
+    const payload = _decodeJwtPayload(token);
+    const userId = payload?.user_id || payload?.id || payload?.sub;
+    if (!userId) return '';
+
+    // ENDPOINTS.user(id) = `${BASE_URL}/users/<id>/`
+    const data = await apiFetch(ENDPOINTS.user(userId), {
+      method: 'GET',
+      headers: authHeaders(),
+    });
+    const branch = data?.branch_name || data?.user?.branch || data?.branch || '';
+    return typeof branch === 'string' ? branch.trim() : '';
+  } catch { return ''; }
+};
+
 // ── Component ──────────────────────────────────────────────────
 const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
   const isEdit = Boolean(initialData?.id ?? initialData?._id ?? initialData?.payment_id);
@@ -44,12 +114,19 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
            window.innerWidth <= 768;
   };
 
+  // ── Branch: read from localStorage('user').branch immediately ──
+  // 'user' key is set by authService.login() in Api.js:
+  //   localStorage.setItem('user', JSON.stringify(data.user))
+  //   data.user = { id, username, role, status, branch }
+  const initialBranch = getLoggedInUserBranch();  // sync — reads 'user' key directly
+  const [userBranch, setUserBranch] = useState(initialBranch);
+
+  // formData declared HERE (before the useEffect that calls setFormData)
   const [formData, setFormData] = useState({
     clientName: '',
     place: '',
     phoneNumber: '',
     department: '',
-    branch: '',
     collectionType: '',
     amount: '',
     paidFor: '',
@@ -57,6 +134,8 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
     paymentProof: null,
     cashReceived: null,
   });
+
+
 
   const [errors, setErrors]            = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -333,7 +412,6 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
         place:          initialData.place          ?? '',
         phoneNumber:    initialData.phoneNumber    ?? '',
         department:     initialData.department     ?? '',
-        branch:         initialData.branch         ?? '',
         collectionType: initialData.collectionType ?? '',
         amount:         initialData.amount !== undefined ? String(initialData.amount) : '',
         paidFor:        initialData.paidFor        ?? '',
@@ -451,13 +529,8 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
   // ── Validation ────────────────────────────────────────────────
   const validateForm = () => {
     const newErrors = {};
-    if (!formData.department.trim())  newErrors.department     = 'Department is required';
+    if (!formData.department.trim())  newErrors.department     = 'Branch is required';
     if (!formData.clientName.trim())  newErrors.clientName     = 'Client name is required';
-    if (!formData.place.trim())       newErrors.place          = 'Place is required';
-    if (!formData.phoneNumber.trim()) newErrors.phoneNumber    = 'Phone number is required';
-    else if (!/^\+?[\d\s\-()]{7,15}$/.test(formData.phoneNumber.trim()))
-      newErrors.phoneNumber = 'Enter a valid phone number';
-    if (!formData.branch.trim())      newErrors.branch         = 'Branch is required';
     if (!formData.collectionType)     newErrors.collectionType = 'Collection type is required';
     if (!formData.amount) {
       newErrors.amount = 'Amount is required';
@@ -477,7 +550,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
   // ── Reset ─────────────────────────────────────────────────────
   const resetForm = () => {
     setFormData({
-      clientName: '', place: '', phoneNumber: '', department: '', branch: '',
+      clientName: '', place: '', phoneNumber: '', department: '',
       collectionType: '', amount: '', paidFor: '', notes: '', paymentProof: null, cashReceived: null,
     });
     setErrors({});
@@ -748,11 +821,11 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
 
       <form onSubmit={handleSubmit} className="payment-form">
 
-        {/* ── Row 1 — Department & Branch (single line) ── */}
+        {/* ── Row 1 — Branch ── */}
         <div className="form-row">
           <div className="form-group">
             <label htmlFor="department">
-              Department <span style={{ color: 'var(--red)' }}>*</span>
+              Branch <span style={{ color: 'var(--red)' }}>*</span>
             </label>
             <select
               id="department"
@@ -763,7 +836,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
               disabled={departmentsLoading}
             >
               <option value="">
-                {departmentsLoading ? 'Loading departments...' : 'Select department'}
+                {departmentsLoading ? 'Loading departments...' : 'Select Branch'}
               </option>
               {departments.map(dept => (
                 <option key={dept.department_id} value={dept.department}>
@@ -779,17 +852,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
             {errors.department && <span className="error-message">{errors.department}</span>}
           </div>
 
-          <div className="form-group">
-            <label htmlFor="branch">Branch <span style={{ color: 'var(--red)' }}>*</span></label>
-            <select
-              id="branch" name="branch" value={formData.branch}
-              onChange={handleChange} className={errors.branch ? 'error' : ''}
-            >
-              <option value="">Select branch</option>
-              {branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-            </select>
-            {errors.branch && <span className="error-message">{errors.branch}</span>}
-          </div>
+
         </div>
 
         {/* ── Row 2 — Client Name, Place, Phone Number (single line) ── */}
@@ -805,7 +868,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
                   type="text"
                   autoComplete="off"
                   className={`debtor-input${showDropdown ? ' dd-open' : ''}${errors.clientName ? ' dd-error' : ''}`}
-                  placeholder={debtorLoading ? 'Loading clients…' : (formData.department ? `Search clients in ${formData.department}...` : 'Select department first')}
+                  placeholder={debtorLoading ? 'Loading clients…' : (formData.department ? `Search clients in ${formData.department}...` : 'Select branch first')}
                   value={debtorSearch !== '' ? debtorSearch : formData.clientName}
                   disabled={debtorLoading || !formData.department}
                   onChange={e => {
@@ -883,7 +946,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="place">Place <span style={{ color: 'var(--red)' }}>*</span></label>
+            <label htmlFor="place">Place</label>
             <input
               type="text" id="place" name="place" value={formData.place}
               onChange={handleChange} placeholder="Enter place"
@@ -893,7 +956,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
           </div>
 
           <div className="form-group">
-            <label htmlFor="phoneNumber">Phone Number <span style={{ color: 'var(--red)' }}>*</span></label>
+            <label htmlFor="phoneNumber">Phone Number</label>
             <input
               type="tel" id="phoneNumber" name="phoneNumber" value={formData.phoneNumber}
               onChange={handleChange} placeholder="Enter phone number"

@@ -457,9 +457,64 @@ export const toggleUserStatus = async (id) => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 export const getBranches = async () => {
-  const doFetch = () => fetch(ENDPOINTS.branches, { method: 'GET', headers: _ah() });
-  return handleResponse(await doFetch(), doFetch);
+  // Step 1: Fetch external departments (FlashERP) — { department_id, department }[]
+  let deptList = [];
+  try {
+    const res  = await _authFetch(ENDPOINTS.departments, { method: 'GET' });
+    const json = await _handlePaymentResponse(res);
+    const raw  = Array.isArray(json) ? json : (json?.data ?? json?.results ?? []);
+    deptList = raw.map(d => ({ deptId: d.department_id, name: d.department }));
+  } catch (e) {
+    console.warn('getBranches: departments fetch failed', e);
+  }
+
+  // Step 2: Fetch local branches (integer FK IDs) — { id, name }[]
+  let localBranches = [];
+  try {
+    const doFetch = () => fetch(ENDPOINTS.branches, { method: 'GET', headers: _ah() });
+    const data = await handleResponse(await doFetch(), doFetch);
+    localBranches = Array.isArray(data) ? data : (data?.results ?? []);
+  } catch (e) {
+    console.warn('getBranches: local branches fetch failed', e);
+  }
+
+  // Step 3: Build a name→id map from local branches (case-insensitive)
+  const nameToId = {};
+  localBranches.forEach(b => { nameToId[b.name.trim().toUpperCase()] = b.id; });
+
+  // Step 4: For each department, find or create a matching local branch
+  const result = [];
+  for (const dept of deptList) {
+    const key = dept.name.trim().toUpperCase();
+    if (nameToId[key] != null) {
+      result.push({ id: nameToId[key], name: dept.name, deptId: dept.deptId });
+    } else {
+      // Auto-create the local branch so it gets an integer FK id
+      try {
+        const doFetch = () => fetch(ENDPOINTS.branches, {
+          method: 'POST', headers: _ah(), body: JSON.stringify({ name: dept.name }),
+        });
+        const created = await handleResponse(await doFetch(), doFetch);
+        if (created?.id) {
+          nameToId[key] = created.id;
+          result.push({ id: created.id, name: dept.name, deptId: dept.deptId });
+        }
+      } catch (e) {
+        console.warn(`getBranches: could not create branch "${dept.name}"`, e);
+        // Fallback: include without integer id so it still shows in dropdown
+        result.push({ id: dept.deptId, name: dept.name, deptId: dept.deptId });
+      }
+    }
+  }
+
+  // If departments API returned nothing, fall back to local branches only
+  if (result.length === 0 && localBranches.length > 0) {
+    return localBranches.map(b => ({ id: b.id, name: b.name, deptId: null }));
+  }
+
+  return result;
 };
+
 
 export const createBranch = async (payload) => {
   const doFetch = () => fetch(ENDPOINTS.branches, {
@@ -925,6 +980,18 @@ export async function fetchDebtors(search = '') {
     phone:   d.phone2  || d.phone || '',   // phone2 is the real number
     place:   d.place   || d.city  || d.area || '',
     address: d.address || '',
+  }));
+}
+
+export async function fetchDepartments() {
+  // Fetch from local /branches/ endpoint → { id, name, created_at }[]
+  // Normalised to { department_id, department } for the branch dropdown in user_list.jsx
+  const doFetch = () => fetch(ENDPOINTS.branches, { method: 'GET', headers: _ah() });
+  const data = await handleResponse(await doFetch(), doFetch);
+  const raw = Array.isArray(data) ? data : (data?.results ?? data?.branches ?? []);
+  return raw.map(d => ({
+    department_id: d.department_id ?? d.id,
+    department:    d.department    ?? d.name,
   }));
 }
 

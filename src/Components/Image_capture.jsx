@@ -3,6 +3,102 @@ import { useParams } from "react-router-dom";
 import API_BASE_URL from "../service/apiConfig";
 
 /* ═══════════════════════════════════════════════════════════════
+   EXIF GPS HELPERS
+   Dynamically loads exifr (lite build) from CDN and extracts
+   GPS coordinates embedded in JPEG/HEIC files by phone cameras.
+═══════════════════════════════════════════════════════════════ */
+const loadExifr = () =>
+  new Promise((resolve, reject) => {
+    if (window.exifr) { resolve(window.exifr); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/exifr/dist/lite.umd.js";
+    s.onload  = () => resolve(window.exifr);
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+
+/**
+ * Returns { lat, lng } from the file's EXIF GPS tags, or null if not present.
+ * Works with JPEG files produced by Android / iOS camera apps.
+ */
+const extractExifGps = async (file) => {
+  try {
+    const exifr   = await loadExifr();
+    const gpsData = await exifr.gps(file);
+    if (gpsData && gpsData.latitude != null && gpsData.longitude != null) {
+      return { lat: gpsData.latitude, lng: gpsData.longitude };
+    }
+  } catch (e) {
+    console.warn("EXIF GPS extraction failed:", e);
+  }
+  return null;
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   PIEXIFJS — inject GPS EXIF into a JPEG blob so downloaded files
+   show the live location map in Windows Photos / macOS Preview.
+═══════════════════════════════════════════════════════════════ */
+const loadPiexif = () =>
+  new Promise((resolve, reject) => {
+    if (window.piexif) { resolve(window.piexif); return; }
+    const s = document.createElement("script");
+    s.src = "https://cdn.jsdelivr.net/npm/piexifjs@1.0.6/piexif.js";
+    s.onload  = () => resolve(window.piexif);
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+
+/**
+ * Returns a new File with GPS EXIF embedded.
+ * Falls back to the original file if anything fails.
+ */
+const injectGpsExif = async (file, lat, lng) => {
+  try {
+    const piexif = await loadPiexif();
+
+    // Convert decimal degrees → [deg, min, sec] as rational pairs
+    const toRational = (val) => {
+      const abs = Math.abs(val);
+      const deg = Math.floor(abs);
+      const minFloat = (abs - deg) * 60;
+      const min = Math.floor(minFloat);
+      const sec = Math.round((minFloat - min) * 60 * 100);
+      return [[deg, 1], [min, 1], [sec, 100]];
+    };
+
+    // Read file as data-URL (piexifjs works on data-URL strings)
+    const dataUrl = await new Promise((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result);
+      r.onerror = rej;
+      r.readAsDataURL(file);
+    });
+
+    // Load existing EXIF (or start fresh)
+    let exifObj;
+    try { exifObj = piexif.load(dataUrl); } catch { exifObj = { "0th": {}, "Exif": {}, "GPS": {} }; }
+    if (!exifObj["GPS"]) exifObj["GPS"] = {};
+
+    const G = piexif.GPSIFD;
+    exifObj["GPS"][G.GPSLatitudeRef]  = lat >= 0 ? "N" : "S";
+    exifObj["GPS"][G.GPSLatitude]     = toRational(lat);
+    exifObj["GPS"][G.GPSLongitudeRef] = lng >= 0 ? "E" : "W";
+    exifObj["GPS"][G.GPSLongitude]    = toRational(lng);
+
+    const exifBytes  = piexif.dump(exifObj);
+    const newDataUrl = piexif.insert(exifBytes, dataUrl);
+
+    // Convert back to File
+    const res  = await fetch(newDataUrl);
+    const blob = await res.blob();
+    return new File([blob], file.name || "capture.jpg", { type: "image/jpeg" });
+  } catch (e) {
+    console.warn("GPS EXIF injection failed, uploading without EXIF:", e);
+    return file; // fallback: upload original
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════════
    CAPTURE PAGE — rendered at /image_capture/capture/:uuid
    Fetches link details from the API then drops straight into
    ImageCaptureFlow — no phone verify, no OTP screen.
@@ -36,7 +132,7 @@ export function CapturePage({ API_BASE }) {
   if (status === "loading") {
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f5f7fa" }}>
-        <div style={{ textAlign: "center", color: "#6b7280", fontFamily: "\'Google Sans\', sans-serif" }}>
+        <div style={{ textAlign: "center", color: "#6b7280", fontFamily: "'Google Sans', sans-serif" }}>
           <div style={{ width: 40, height: 40, border: "3px solid #e5e7eb", borderTopColor: "#0990eb", borderRadius: "50%", animation: "spin 0.7s linear infinite", margin: "0 auto 16px" }} />
           <style>{"@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}"}</style>
           <p style={{ fontSize: 15, fontWeight: 500 }}>Loading…</p>
@@ -49,7 +145,7 @@ export function CapturePage({ API_BASE }) {
     const isExpired = errorMsg.toLowerCase().includes("expired");
     return (
       <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f5f7fa", padding: 24 }}>
-        <div style={{ background: "white", borderRadius: 20, padding: "40px 32px", maxWidth: 420, width: "100%", textAlign: "center", boxShadow: "0 8px 40px rgba(0,0,0,0.10)", fontFamily: "\'Google Sans\', sans-serif" }}>
+        <div style={{ background: "white", borderRadius: 20, padding: "40px 32px", maxWidth: 420, width: "100%", textAlign: "center", boxShadow: "0 8px 40px rgba(0,0,0,0.10)", fontFamily: "'Google Sans', sans-serif" }}>
           <div style={{ width: 60, height: 60, borderRadius: "50%", background: isExpired ? "#fff7ed" : "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 20px" }}>
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke={isExpired ? "#f97316" : "#ef4444"} strokeWidth="2.5" strokeLinecap="round">
               {isExpired ? (
@@ -71,22 +167,7 @@ export function CapturePage({ API_BASE }) {
               </div>
               <button
                 onClick={() => window.location.reload()}
-                style={{
-                  width: "100%",
-                  padding: "12px 20px",
-                  background: "#0990eb",
-                  border: "none",
-                  borderRadius: 12,
-                  color: "white",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 8,
-                  transition: "background 0.2s"
-                }}
+                style={{ width: "100%", padding: "12px 20px", background: "#0990eb", border: "none", borderRadius: 12, color: "white", fontSize: 14, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "background 0.2s" }}
                 onMouseOver={(e) => e.currentTarget.style.background = "#0770b8"}
                 onMouseOut={(e) => e.currentTarget.style.background = "#0990eb"}
               >
@@ -103,7 +184,6 @@ export function CapturePage({ API_BASE }) {
     );
   }
 
-  // status === "ready" — go straight to capture, no phone/OTP
   return (
     <ImageCaptureFlow
       uuid={uuid}
@@ -125,7 +205,6 @@ function LeafletMap({ lat, lng, capturedPhoto }) {
   const circleRef   = useRef(null);
 
   useEffect(() => {
-    // ── Leaflet CSS ──
     if (!document.getElementById("leaflet-css")) {
       const link = Object.assign(document.createElement("link"), {
         id: "leaflet-css", rel: "stylesheet",
@@ -137,159 +216,60 @@ function LeafletMap({ lat, lng, capturedPhoto }) {
     const initMap = () => {
       if (!mapRef.current || instanceRef.current) return;
       const L = window.L;
-
-      // ── Map instance (no default zoom control — we add custom) ──
-      const map = L.map(mapRef.current, {
-        zoomControl: false,
-        scrollWheelZoom: true,
-        attributionControl: false,
-      }).setView([lat, lng], 16);
-
-      // ── Tile layer — Google Maps-like style via CartoDB ──
-      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", {
-        maxZoom: 19,
-        subdomains: "abcd",
-      }).addTo(map);
-
-      // ── Attribution (small, bottom-left) ──
+      const map = L.map(mapRef.current, { zoomControl: false, scrollWheelZoom: true, attributionControl: false }).setView([lat, lng], 16);
+      L.tileLayer("https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png", { maxZoom: 19, subdomains: "abcd" }).addTo(map);
       L.control.attribution({ position: "bottomleft", prefix: false })
         .addAttribution('© <a href="https://www.openstreetmap.org/copyright" style="color:#0990eb">OSM</a>')
         .addTo(map);
-
-      // ── Accuracy circle (light blue ring) ──
-      circleRef.current = L.circle([lat, lng], {
-        radius: 40,
-        color: "#4285F4",
-        fillColor: "#4285F4",
-        fillOpacity: 0.15,
-        weight: 1.5,
-        opacity: 0.6,
-      }).addTo(map);
-
-      // ── Live blue dot marker (Google Maps style) ──
+      circleRef.current = L.circle([lat, lng], { radius: 40, color: "#4285F4", fillColor: "#4285F4", fillOpacity: 0.15, weight: 1.5, opacity: 0.6 }).addTo(map);
       const dotIcon = L.divIcon({
         className: "",
-        html: `
-          <div style="position:relative;width:22px;height:22px;">
-            <div style="
-              position:absolute;inset:0;
-              background:#4285F4;
-              border:3px solid white;
-              border-radius:50%;
-              box-shadow:0 2px 8px rgba(66,133,244,0.6);
-            "></div>
-            <div style="
-              position:absolute;top:50%;left:50%;
-              width:44px;height:44px;
-              margin:-22px 0 0 -22px;
-              border-radius:50%;
-              background:rgba(66,133,244,0.18);
-              animation:gm-pulse 2s ease-out infinite;
-            "></div>
-          </div>
-        `,
-        iconSize: [22, 22],
-        iconAnchor: [11, 11],
+        html: `<div style="position:relative;width:22px;height:22px;"><div style="position:absolute;inset:0;background:#4285F4;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(66,133,244,0.6);"></div><div style="position:absolute;top:50%;left:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:rgba(66,133,244,0.18);animation:gm-pulse 2s ease-out infinite;"></div></div>`,
+        iconSize: [22, 22], iconAnchor: [11, 11],
       });
       markerRef.current = L.marker([lat, lng], { icon: dotIcon }).addTo(map);
-
-      // ── Pulse animation injected once ──
       if (!document.getElementById("gm-pulse-style")) {
         const s = document.createElement("style");
         s.id = "gm-pulse-style";
-        s.textContent = `
-          @keyframes gm-pulse {
-            0%   { transform:scale(0.4); opacity:0.8; }
-            70%  { transform:scale(1.8); opacity:0; }
-            100% { transform:scale(0.4); opacity:0; }
-          }
-        `;
+        s.textContent = `@keyframes gm-pulse{0%{transform:scale(0.4);opacity:0.8}70%{transform:scale(1.8);opacity:0}100%{transform:scale(0.4);opacity:0}}`;
         document.head.appendChild(s);
       }
-
       instanceRef.current = map;
     };
 
-    if (window.L) {
-      initMap();
-    } else {
+    if (window.L) { initMap(); } else {
       const script = document.createElement("script");
       script.src = "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js";
       script.onload = initMap;
       document.head.appendChild(script);
     }
-
-    return () => {
-      if (instanceRef.current) { instanceRef.current.remove(); instanceRef.current = null; }
-    };
+    return () => { if (instanceRef.current) { instanceRef.current.remove(); instanceRef.current = null; } };
   }, [lat, lng]);
 
-  // ── Custom controls ──
-  const zoom = (delta) => {
-    if (instanceRef.current) instanceRef.current.setZoom(instanceRef.current.getZoom() + delta);
-  };
-  const recenter = () => {
-    if (instanceRef.current) instanceRef.current.flyTo([lat, lng], 16, { duration: 0.8 });
-  };
+  const zoom = (delta) => { if (instanceRef.current) instanceRef.current.setZoom(instanceRef.current.getZoom() + delta); };
+  const recenter = () => { if (instanceRef.current) instanceRef.current.flyTo([lat, lng], 16, { duration: 0.8 }); };
 
   return (
     <div style={{ position: "relative", width: "100%", borderRadius: "14px 14px 0 0", overflow: "hidden" }}>
-      {/* Map canvas */}
       <div ref={mapRef} style={{ width: "100%", height: "260px", background: "#e8f4f8" }} />
-
-      {/* ── Google Maps-style zoom + locate controls (right side) ── */}
-      <div style={{
-        position: "absolute", right: 10, bottom: 36, zIndex: 1000,
-        display: "flex", flexDirection: "column", gap: 2,
-      }}>
-        {/* Locate / recenter */}
-        <button onClick={recenter} title="Your location" style={{
-          width: 36, height: 36, background: "white", border: "none",
-          borderRadius: 4, boxShadow: "0 2px 6px rgba(0,0,0,0.28)",
-          cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-          marginBottom: 6,
-        }}>
+      <div style={{ position: "absolute", right: 10, bottom: 36, zIndex: 1000, display: "flex", flexDirection: "column", gap: 2 }}>
+        <button onClick={recenter} title="Your location" style={{ width: 36, height: 36, background: "white", border: "none", borderRadius: 4, boxShadow: "0 2px 6px rgba(0,0,0,0.28)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 6 }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
             <circle cx="12" cy="12" r="3.5" fill="#4285F4"/>
             <circle cx="12" cy="12" r="3.5" stroke="white" strokeWidth="1.5" fill="none"/>
-            <line x1="12" y1="2" x2="12" y2="6"  stroke="#4285F4" strokeWidth="2" strokeLinecap="round"/>
+            <line x1="12" y1="2" x2="12" y2="6" stroke="#4285F4" strokeWidth="2" strokeLinecap="round"/>
             <line x1="12" y1="18" x2="12" y2="22" stroke="#4285F4" strokeWidth="2" strokeLinecap="round"/>
-            <line x1="2"  y1="12" x2="6"  y2="12" stroke="#4285F4" strokeWidth="2" strokeLinecap="round"/>
+            <line x1="2" y1="12" x2="6" y2="12" stroke="#4285F4" strokeWidth="2" strokeLinecap="round"/>
             <line x1="18" y1="12" x2="22" y2="12" stroke="#4285F4" strokeWidth="2" strokeLinecap="round"/>
           </svg>
         </button>
-        {/* Zoom + */}
-        <button onClick={() => zoom(1)} style={{
-          width: 36, height: 36, background: "white", border: "none",
-          borderRadius: "4px 4px 0 0", boxShadow: "0 2px 6px rgba(0,0,0,0.28)",
-          cursor: "pointer", fontSize: 22, fontWeight: 400, color: "#555",
-          lineHeight: 1, borderBottom: "1px solid #e0e0e0",
-        }}>+</button>
-        {/* Zoom − */}
-        <button onClick={() => zoom(-1)} style={{
-          width: 36, height: 36, background: "white", border: "none",
-          borderRadius: "0 0 4px 4px", boxShadow: "0 2px 6px rgba(0,0,0,0.28)",
-          cursor: "pointer", fontSize: 26, fontWeight: 300, color: "#555",
-          lineHeight: 0.9,
-        }}>−</button>
+        <button onClick={() => zoom(1)} style={{ width: 36, height: 36, background: "white", border: "none", borderRadius: "4px 4px 0 0", boxShadow: "0 2px 6px rgba(0,0,0,0.28)", cursor: "pointer", fontSize: 22, fontWeight: 400, color: "#555", lineHeight: 1, borderBottom: "1px solid #e0e0e0" }}>+</button>
+        <button onClick={() => zoom(-1)} style={{ width: 36, height: 36, background: "white", border: "none", borderRadius: "0 0 4px 4px", boxShadow: "0 2px 6px rgba(0,0,0,0.28)", cursor: "pointer", fontSize: 26, fontWeight: 300, color: "#555", lineHeight: 0.9 }}>−</button>
       </div>
-
-      {/* ── Street-View-style photo thumbnail (bottom-left) ── */}
       {capturedPhoto && (
-        <div style={{
-          position: "absolute", left: 10, bottom: 36, zIndex: 1000,
-          width: 72, height: 72, borderRadius: 8,
-          overflow: "hidden", border: "2.5px solid white",
-          boxShadow: "0 2px 10px rgba(0,0,0,0.35)",
-          cursor: "pointer",
-        }}>
+        <div style={{ position: "absolute", left: 10, bottom: 36, zIndex: 1000, width: 72, height: 72, borderRadius: 8, overflow: "hidden", border: "2.5px solid white", boxShadow: "0 2px 10px rgba(0,0,0,0.35)", cursor: "pointer" }}>
           <img src={capturedPhoto} alt="Captured" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-          {/* 360° icon overlay */}
-          <div style={{
-            position: "absolute", bottom: 3, right: 3,
-            background: "rgba(0,0,0,0.55)", borderRadius: 3, padding: "1px 4px",
-            display: "flex", alignItems: "center", gap: 2,
-          }}>
+          <div style={{ position: "absolute", bottom: 3, right: 3, background: "rgba(0,0,0,0.55)", borderRadius: 3, padding: "1px 4px", display: "flex", alignItems: "center", gap: 2 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="white">
               <path d="M12 4C7.58 4 4 7.58 4 12s3.58 8 8 8 8-3.58 8-8-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6s2.69-6 6-6 6 2.69 6 6-2.69 6-6 6z" opacity=".4"/>
               <path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4z"/>
@@ -350,22 +330,17 @@ function VerificationSuccess({ data, onClose }) {
 
       <div className="vs-page">
         <div className="vs-card">
-
           <div className="vs-check">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="20 6 9 17 4 12"/>
             </svg>
           </div>
-
           <p className="vs-title">Verification Successful!</p>
           <p className="vs-subtitle">Thank you for completing the verification process. Your information has been successfully recorded.</p>
-
           <div className="vs-thumb-wrap">
             {preview ? <img src={preview} alt="Captured verification photo" /> : <span className="vs-thumb-placeholder">📷</span>}
           </div>
-
           <div className="vs-rows">
-            {/* Customer Name */}
             <div className="vs-row">
               <div className="vs-icon-wrap">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="white"><path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z"/></svg>
@@ -375,8 +350,6 @@ function VerificationSuccess({ data, onClose }) {
                 <p className="vs-row-value">{customerName || "—"}</p>
               </div>
             </div>
-
-            {/* Phone */}
             <div className="vs-row">
               <div className="vs-icon-wrap">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="white"><path d="M6.62 10.79a15.05 15.05 0 0 0 6.59 6.59l2.2-2.2a1 1 0 0 1 1.01-.24c1.12.37 2.33.57 3.58.57a1 1 0 0 1 1 1V20a1 1 0 0 1-1 1C9.61 21 3 14.39 3 6a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.46.57 3.58a1 1 0 0 1-.25 1.01l-2.2 2.2z"/></svg>
@@ -386,8 +359,6 @@ function VerificationSuccess({ data, onClose }) {
                 <p className="vs-row-value">{phone || "—"}</p>
               </div>
             </div>
-
-            {/* Location */}
             <div className="vs-row">
               <div className="vs-icon-wrap">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="white"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
@@ -418,8 +389,6 @@ function VerificationSuccess({ data, onClose }) {
                 )}
               </div>
             </div>
-
-            {/* Verified At */}
             <div className="vs-row">
               <div className="vs-icon-wrap">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
@@ -430,12 +399,10 @@ function VerificationSuccess({ data, onClose }) {
               </div>
             </div>
           </div>
-
           <button className="vs-close-btn" onClick={onClose}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fcfcfc" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             Close
           </button>
-
         </div>
       </div>
     </>
@@ -477,7 +444,10 @@ export default function ImageCaptureFlow({
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gpsError,   setGpsError]   = useState("");
   const [gpsPulse,   setGpsPulse]   = useState(false);
-  const watchIdRef   = useRef(null);
+  /* NEW: track whether GPS came from EXIF or live browser */
+  const [gpsSource,  setGpsSource]  = useState("live"); // "live" | "exif"
+  const exifFromFileRef             = useRef(false);    // prevents useEffect from starting watchPosition
+  const watchIdRef                  = useRef(null);
 
   const reverseGeocode = async (lat, lng) => {
     try {
@@ -512,8 +482,17 @@ export default function ImageCaptureFlow({
   };
 
   useEffect(() => {
-    if (phase === "preview") startLocation();
-    else if (phase === "idle") { stopLocation(); setGps(null); setAddress(""); setGpsError(""); }
+    if (phase === "preview") {
+      // ── Only start browser geolocation if EXIF GPS was NOT extracted ──
+      if (!exifFromFileRef.current) {
+        startLocation();
+      }
+    } else if (phase === "idle") {
+      stopLocation();
+      setGps(null); setAddress(""); setGpsError("");
+      setGpsSource("live");
+      exifFromFileRef.current = false;
+    }
     return stopLocation;
   }, [phase]);
 
@@ -538,14 +517,40 @@ export default function ImageCaptureFlow({
       setImgFile(new File([blob], "capture.jpg", { type: "image/jpeg" }));
     });
     setImgDataUrl(dataUrl);
+    // Camera snapshots: no EXIF, use live GPS
+    exifFromFileRef.current = false;
+    setGpsSource("live");
     stopStream(); setCameraOpen(false); setPhase("preview");
   };
 
+  /* ── FILE PICKER: try EXIF GPS first, fall back to live GPS ── */
   const handleFile = (e) => {
     const file = e.target.files[0]; if (!file) return;
     setImgFile(file);
+
     const reader = new FileReader();
-    reader.onload = (ev) => { setImgDataUrl(ev.target.result); setPhase("preview"); };
+    reader.onload = async (ev) => {
+      setImgDataUrl(ev.target.result);
+
+      // ── Attempt EXIF GPS extraction ──
+      const exifGps = await extractExifGps(file);
+      if (exifGps) {
+        // Found GPS in EXIF — use photo's embedded location
+        exifFromFileRef.current = true;
+        setGpsSource("exif");
+        setGps(exifGps);
+        setGpsLoading(false);
+        setGpsPulse(true);
+        setTimeout(() => setGpsPulse(false), 600);
+        reverseGeocode(exifGps.lat, exifGps.lng);
+      } else {
+        // No EXIF GPS — useEffect will start browser geolocation
+        exifFromFileRef.current = false;
+        setGpsSource("live");
+      }
+
+      setPhase("preview"); // triggers useEffect → starts live GPS only if no EXIF
+    };
     reader.readAsDataURL(file);
   };
 
@@ -555,6 +560,8 @@ export default function ImageCaptureFlow({
     setImgDataUrl(null); setImgFile(null);
     setPhase("idle"); stopStream(); setCameraOpen(false);
     setGps(null); setAddress(""); setGpsError("");
+    setGpsSource("live");
+    exifFromFileRef.current = false;
     setStep("capture");
   };
 
@@ -567,19 +574,36 @@ export default function ImageCaptureFlow({
 
   const showUploadErr = (msg) => { setUploadErr(msg); setTimeout(() => setUploadErr(""), 4000); };
 
+  /* ── Source badge label & live-bar text ── */
+  const sourceBadgeLabel = gpsSource === "exif" ? "Source: EXIF" : "Source: live";
+  const sourceBadgeStyle = gpsSource === "exif"
+    ? { background: "#7c3aed", color: "white" }   // purple for EXIF
+    : { background: "#0ea5e9", color: "white" };   // blue for live
+  const liveBarText = gpsSource === "exif"
+    ? "Location read from image EXIF data"
+    : "Live location detected";
+  const liveBarColor = gpsSource === "exif" ? "#7c3aed" : "#16a34a";
+  const liveBarBg    = gpsSource === "exif" ? "#f5f3ff" : "#f0fdf4";
+  const liveBarBorder = gpsSource === "exif" ? "#ddd6fe" : "#bbf7d0";
+
   /* ── Submit: POST to /api/upload-image/ ── */
   const handleSubmit = useCallback(async () => {
     if (!imgDataUrl && !imgFile) { showUploadErr("No image found. Please retake."); return; }
     setLoading(true);
     try {
       const formData = new FormData();
-      // Use imgFile if available (file picker), otherwise convert dataUrl blob
       let fileToUpload = imgFile;
       if (!fileToUpload && imgDataUrl) {
         const res  = await fetch(imgDataUrl);
         const blob = await res.blob();
         fileToUpload = new File([blob], "capture.jpg", { type: "image/jpeg" });
       }
+      // ── Embed GPS coordinates into JPEG EXIF so downloaded file
+      //    shows live location map in Windows Photos / macOS Preview ──
+      if (gps) {
+        fileToUpload = await injectGpsExif(fileToUpload, gps.lat, gps.lng);
+      }
+
       formData.append("image", fileToUpload);
       if (uuid)               formData.append("uuid",          uuid);
       if (propCustomerName)   formData.append("customer_name", propCustomerName);
@@ -591,18 +615,11 @@ export default function ImageCaptureFlow({
       }
 
       const base = API_BASE || API_BASE_URL.replace(/\/api$/, "");
-      const r    = await fetch(`${base}/image_capture/api/upload-image/`, {
-        method: "POST",
-        body:   formData,
-      });
+      const r    = await fetch(`${base}/image_capture/api/upload-image/`, { method: "POST", body: formData });
       const data = await r.json();
 
-      if (!r.ok) {
-        showUploadErr(data?.message || data?.detail || "Upload failed. Please try again.");
-        return;
-      }
+      if (!r.ok) { showUploadErr(data?.message || data?.detail || "Upload failed. Please try again."); return; }
 
-      // Success — show success screen with returned or local data
       setSuccessData({
         customerName: data.customer_name || propCustomerName || "Customer",
         phone:        data.phone         || propPhone        || "",
@@ -611,6 +628,10 @@ export default function ImageCaptureFlow({
         lat:          data.lat           ?? gps?.lat ?? null,
         lng:          data.lng           ?? gps?.lng ?? null,
         verifiedAt:   data.verified_at   || new Date().toISOString(),
+        // ── NEW: file info & GPS source ──
+        fileName:     imgFile?.name      || null,
+        fileSize:     imgFile?.size      || null,
+        gpsSource,
       });
       setScreen("success");
       onSuccess?.(imgDataUrl);
@@ -621,16 +642,108 @@ export default function ImageCaptureFlow({
     }
   }, [imgDataUrl, imgFile, uuid, propCustomerName, propPhone, address, gps, API_BASE, onSuccess]);
 
-  const handleClose = () => {
-    window.location.href = "https://www.flashinnovations.in/";
-  };
+  const handleClose = () => { window.location.href = "https://www.flashinnovations.in/"; };
 
-  /* ── Show success screen ── */
   if (screen === "success" && successData) {
     return <VerificationSuccess data={successData} onClose={handleClose} />;
   }
 
-  /* ── Capture + Add screens ── */
+  /* ── Copyable coordinate chip ── */
+  const CopyCoord = ({ value }) => {
+    const [copied, setCopied] = useState(false);
+    const copy = (e) => {
+      e.stopPropagation();
+      navigator.clipboard?.writeText(value).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1800);
+      }).catch(() => {});
+    };
+    return (
+      <span className="icf-coord-chip" onClick={copy}>
+        <span
+          className="icf-coord-text"
+          style={{ userSelect: "text", WebkitUserSelect: "text", MozUserSelect: "text", msUserSelect: "text" }}
+        >
+          {value}
+        </span>
+        <span className="icf-coord-copy-icon">
+          {copied
+            ? <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#0990eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          }
+        </span>
+        <span className={`icf-coord-tooltip${copied ? " icf-coord-tooltip--copied" : ""}`}>
+          {copied ? "✓ Copied!" : "Click to copy"}
+        </span>
+      </span>
+    );
+  };
+
+  /* ── Shared location block (used in both step="capture" preview and step="add") ── */
+  const LocationBlock = () => (
+    <div className="icf-loc-block">
+      {gpsLoading && (
+        <div className="icf-loc-loading">
+          <span className="icf-spinner" />
+          {gpsSource === "exif" ? "Reading EXIF location from image…" : "Getting your GPS coordinates…"}
+        </div>
+      )}
+      {gpsError && !gpsLoading && (
+        <div className="icf-loc-error">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="#dc2626"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          {gpsError}
+        </div>
+      )}
+      {gps && !gpsLoading && (
+        <>
+          <div className={`icf-loc-lines${gpsPulse ? " icf-loc-pulse" : ""}`}>
+            <div className="icf-loc-row">
+              <span className="icf-loc-label">Latitude:</span>
+              <CopyCoord value={fmt(gps.lat)} />
+            </div>
+            <div className="icf-loc-row">
+              <span className="icf-loc-label">Longitude:</span>
+              <CopyCoord value={fmt(gps.lng)} />
+            </div>
+            {address && <div className="icf-loc-row"><span className="icf-loc-label">Location:</span><span className="icf-loc-addr">{address}</span></div>}
+            <div className="icf-loc-source-row">
+              <span className="icf-source-badge" style={sourceBadgeStyle}>{sourceBadgeLabel}</span>
+            </div>
+          </div>
+          <div className="icf-live-bar" style={{ background: liveBarBg, borderTop: `1.5px solid ${liveBarBorder}`, color: liveBarColor }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke={liveBarColor} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            {liveBarText}
+          </div>
+        </>
+      )}
+    </div>
+  );
+
+  /* ── Map section (used in both steps) ── */
+  const MapSection = () => gps ? (
+    <div className="icf-map-section">
+      <button className="icf-map-toggle-btn" onClick={() => setShowMap(p => !p)}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+          <line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
+        </svg>
+        {showMap ? "Hide Map" : "View Map"}
+      </button>
+      {showMap && (
+        <div className="icf-map-wrap">
+          <LeafletMap lat={gps.lat} lng={gps.lng} capturedPhoto={imgDataUrl} />
+          <a
+            href={`https://www.openstreetmap.org/?mlat=${gps.lat}&mlon=${gps.lng}#map=15/${gps.lat}/${gps.lng}`}
+            target="_blank" rel="noopener noreferrer" className="icf-map-link"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+            Open in OpenStreetMap
+          </a>
+        </div>
+      )}
+    </div>
+  ) : null;
+
   return (
     <>
       <style>{css}</style>
@@ -657,8 +770,7 @@ export default function ImageCaptureFlow({
                   <p className="icf-subtitle">Take a photo using your camera to verify your identity</p>
 
                   <button className="icf-cam-btn" onClick={openCamera}>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
-                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
                       <circle cx="12" cy="13" r="4"/>
                     </svg>
@@ -705,57 +817,8 @@ export default function ImageCaptureFlow({
                   <h1 className="icf-title">Preview</h1>
 
                   <img src={imgDataUrl} alt="Captured" className="icf-preview-img" />
-
-                  <div className="icf-loc-block">
-                    {gpsLoading && <div className="icf-loc-loading"><span className="icf-spinner" />Getting your GPS coordinates…</div>}
-                    {gpsError && !gpsLoading && (
-                      <div className="icf-loc-error">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="#dc2626"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-                        {gpsError}
-                      </div>
-                    )}
-                    {gps && !gpsLoading && (
-                      <>
-                        <div className={`icf-loc-lines${gpsPulse ? " icf-loc-pulse" : ""}`}>
-                          <div className="icf-loc-row"><span className="icf-loc-label">Latitude:</span><span className="icf-loc-val">{fmt(gps.lat)}</span></div>
-                          <div className="icf-loc-row"><span className="icf-loc-label">Longitude:</span><span className="icf-loc-val">{fmt(gps.lng)}</span></div>
-                          {address && <div className="icf-loc-row"><span className="icf-loc-label">Location:</span><span className="icf-loc-addr">{address}</span></div>}
-                          <div className="icf-loc-source-row"><span className="icf-source-badge">Source: live</span></div>
-                        </div>
-                        <div className="icf-live-bar">
-                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                          Live location detected
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* View Map */}
-                  {gps && (
-                    <div className="icf-map-section">
-                      <button className="icf-map-toggle-btn" onClick={() => setShowMap(p => !p)}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                          <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
-                          <line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
-                        </svg>
-                        {showMap ? "Hide Map" : "View Map"}
-                      </button>
-                      {showMap && (
-                        <div className="icf-map-wrap">
-                          <LeafletMap lat={gps.lat} lng={gps.lng} capturedPhoto={imgDataUrl} />
-                          <a
-                            href={`https://www.openstreetmap.org/?mlat=${gps.lat}&mlon=${gps.lng}#map=15/${gps.lat}/${gps.lng}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="icf-map-link"
-                          >
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                            Open in OpenStreetMap
-                          </a>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  <LocationBlock />
+                  <MapSection />
 
                   <div className="icf-btn-row">
                     <button className="icf-retake-btn" onClick={retake}>↩ Retake</button>
@@ -785,57 +848,8 @@ export default function ImageCaptureFlow({
               )}
 
               <img src={imgDataUrl} alt="Captured" className="icf-preview-img" />
-
-              <div className="icf-loc-block">
-                {gpsLoading && <div className="icf-loc-loading"><span className="icf-spinner" />Getting your GPS coordinates…</div>}
-                {gpsError && !gpsLoading && (
-                  <div className="icf-loc-error">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="#dc2626"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
-                    {gpsError}
-                  </div>
-                )}
-                {gps && !gpsLoading && (
-                  <>
-                    <div className={`icf-loc-lines${gpsPulse ? " icf-loc-pulse" : ""}`}>
-                      <div className="icf-loc-row"><span className="icf-loc-label">Latitude:</span><span className="icf-loc-val">{fmt(gps.lat)}</span></div>
-                      <div className="icf-loc-row"><span className="icf-loc-label">Longitude:</span><span className="icf-loc-val">{fmt(gps.lng)}</span></div>
-                      {address && <div className="icf-loc-row"><span className="icf-loc-label">Location:</span><span className="icf-loc-addr">{address}</span></div>}
-                      <div className="icf-loc-source-row"><span className="icf-source-badge">Source: live</span></div>
-                    </div>
-                    <div className="icf-live-bar">
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                      Live location detected
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* View Map */}
-              {gps && (
-                <div className="icf-map-section">
-                  <button className="icf-map-toggle-btn" onClick={() => setShowMap(p => !p)}>
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
-                      <line x1="8" y1="2" x2="8" y2="18"/><line x1="16" y1="6" x2="16" y2="22"/>
-                    </svg>
-                    {showMap ? "Hide Map" : "View Map"}
-                  </button>
-                  {showMap && (
-                    <div className="icf-map-wrap">
-                      <LeafletMap lat={gps.lat} lng={gps.lng} capturedPhoto={imgDataUrl} />
-                      <a
-                        href={`https://www.openstreetmap.org/?mlat=${gps.lat}&mlon=${gps.lng}#map=15/${gps.lat}/${gps.lng}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="icf-map-link"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-                        Open in OpenStreetMap
-                      </a>
-                    </div>
-                  )}
-                </div>
-              )}
+              <LocationBlock />
+              <MapSection />
 
               <div className="icf-add-btn-group">
                 <button className="icf-submit-btn" onClick={handleSubmit} disabled={loading}>
@@ -858,7 +872,7 @@ export default function ImageCaptureFlow({
 
         </div>
       </div>
-      {/* ── IMCB Footer ── */}
+      {/* ── Footer ── */}
       <div style={{ flexShrink:0, padding:"10px 20px", borderTop:"1px solid #e8eaed", background:"#fff", display:"flex", alignItems:"center", justifyContent:"center", gap:"6px" }}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         <span style={{ fontSize:"11px", color:"#9ca3af", fontWeight:500 }}>Powered by</span>
@@ -915,10 +929,63 @@ const css = `
   .icf-loc-row     { display:flex; align-items:flex-start; gap:5px; font-size:14px; line-height:1.6; }
   .icf-loc-label   { font-weight:700; color:#1a1a2e; white-space:nowrap; flex-shrink:0; }
   .icf-loc-val     { font-weight:500; color:#374151; font-variant-numeric:tabular-nums; }
+
+  /* ── Coordinate chip: selectable + copy button + tooltip ── */
+  .icf-coord-chip {
+    position: relative;
+    display: inline-flex; align-items: center; gap: 5px;
+    cursor: pointer;
+    padding: 3px 7px 3px 5px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: background .15s, border-color .15s;
+    font-weight: 600; color: #1e3a5f;
+    font-variant-numeric: tabular-nums;
+    font-size: 13.5px;
+  }
+  .icf-coord-chip:hover {
+    background: #e8f3ff;
+    border-color: #bfdbfe;
+  }
+  .icf-coord-text {
+    user-select: text;
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    cursor: text;
+    letter-spacing: 0.01em;
+  }
+  .icf-coord-copy-icon {
+    display: inline-flex; align-items: center;
+    opacity: 0;
+    transition: opacity .15s;
+    flex-shrink: 0;
+  }
+  .icf-coord-chip:hover .icf-coord-copy-icon { opacity: 1; }
+  .icf-coord-tooltip {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 50%; transform: translateX(-50%);
+    background: #1e293b; color: #fff;
+    font-size: 11px; font-weight: 600;
+    padding: 4px 9px; border-radius: 6px;
+    white-space: nowrap; pointer-events: none;
+    opacity: 0; transition: opacity .15s;
+    z-index: 99;
+  }
+  .icf-coord-tooltip::after {
+    content: '';
+    position: absolute; top: 100%; left: 50%; transform: translateX(-50%);
+    border: 4px solid transparent;
+    border-top-color: #1e293b;
+  }
+  .icf-coord-chip:hover .icf-coord-tooltip { opacity: 1; }
+  .icf-coord-tooltip--copied { background: #15803d; }
+  .icf-coord-tooltip--copied::after { border-top-color: #15803d; }
   .icf-loc-addr    { font-weight:500; color:#374151; line-height:1.55; }
   .icf-loc-source-row { display:flex; justify-content:center; margin-top:8px; }
-  .icf-source-badge   { display:inline-block; background:#0ea5e9; color:white; font-size:11.5px; font-weight:700; padding:4px 14px; border-radius:20px; }
-  .icf-live-bar    { display:flex; align-items:center; justify-content:center; gap:7px; padding:11px 16px; background:#f0fdf4; border-top:1.5px solid #bbf7d0; font-size:13.5px; font-weight:600; color:#15803d; }
+  .icf-source-badge   { display:inline-block; font-size:11.5px; font-weight:700; padding:4px 14px; border-radius:20px; }
+  .icf-live-bar    { display:flex; align-items:center; justify-content:center; gap:7px; padding:11px 16px; border-top:1.5px solid #bbf7d0; font-size:13.5px; font-weight:600; }
 
   .icf-btn-row     { display:flex; gap:12px; width:100%; }
   .icf-retake-btn  { flex:1; padding:13px 0; border:1.5px solid #d1d5db; border-radius:12px; background:white; color:#374151; font-weight:600; font-size:14px; cursor:pointer; transition:border-color .15s,color .15s; }
@@ -944,34 +1011,12 @@ const css = `
 
   /* ── Map section ── */
   .icf-map-section { width:100%; display:flex; flex-direction:column; gap:10px; }
-  .icf-map-toggle-btn {
-    width:100%; padding:11px 16px;
-    background:#e6f4ff; border:1.5px solid #7ecbf7; border-radius:12px;
-    color:#0990eb; font-size:14px; font-weight:600; cursor:pointer;
-    display:flex; align-items:center; justify-content:center; gap:8px;
-    transition:background .18s, border-color .18s, transform .15s;
-  }
+  .icf-map-toggle-btn { width:100%; padding:11px 16px; background:#e6f4ff; border:1.5px solid #7ecbf7; border-radius:12px; color:#0990eb; font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:background .18s,border-color .18s,transform .15s; }
   .icf-map-toggle-btn:hover { background:#d0eaff; border-color:#0990eb; transform:translateY(-1px); }
   .icf-map-toggle-btn:active { transform:translateY(0); }
-
-  .icf-map-wrap {
-    width:100%; border-radius:14px; overflow:hidden;
-    border:1.5px solid #e5e7eb;
-    box-shadow:0 4px 16px rgba(9,144,235,0.12);
-    animation:icf-fadeUp 0.3s ease both;
-    display:flex; flex-direction:column;
-  }
-  .icf-map-iframe {
-    width:100%; height:220px; border:none; display:block; display:none;
-  }
-  .icf-map-link {
-    display:flex; align-items:center; justify-content:center; gap:6px;
-    padding:9px 14px;
-    background:#f9fafb; border-top:1px solid #e5e7eb;
-    font-size:12px; font-weight:600; color:#0990eb;
-    text-decoration:none;
-    transition:background .15s;
-  }
+  .icf-map-wrap { width:100%; border-radius:14px; overflow:hidden; border:1.5px solid #e5e7eb; box-shadow:0 4px 16px rgba(9,144,235,0.12); animation:icf-fadeUp 0.3s ease both; display:flex; flex-direction:column; }
+  .icf-map-iframe { width:100%; height:220px; border:none; display:block; display:none; }
+  .icf-map-link { display:flex; align-items:center; justify-content:center; gap:6px; padding:9px 14px; background:#f9fafb; border-top:1px solid #e5e7eb; font-size:12px; font-weight:600; color:#0990eb; text-decoration:none; transition:background .15s; }
   .icf-map-link:hover { background:#e6f4ff; }
 
   /* ── Mobile Responsive ── */
@@ -994,19 +1039,9 @@ const css = `
     .icf-notice { font-size: 11.5px; padding: 12px 14px; }
     .icf-notice-head { font-size: 12px; }
     .icf-map-toggle-btn { padding: 10px 14px; font-size: 13px; }
-    .vs-page { padding: 12px; align-items: flex-start; }
-    .vs-card { padding: 24px 16px 20px; border-radius: 16px; margin-top: 8px; margin-bottom: 8px; }
-    .vs-title { font-size: 19px; }
-    .vs-subtitle { font-size: 12px; margin-bottom: 16px; }
-    .vs-thumb-wrap { width: 130px; height: 110px; margin-bottom: 18px; }
-    .vs-row { padding: 11px 0; gap: 10px; }
-    .vs-icon-wrap { width: 32px; height: 32px; border-radius: 8px; }
-    .vs-row-value { font-size: 14px; }
-    .vs-close-btn { padding: 11px 24px; font-size: 14px; min-height: 46px; }
   }
   @media (max-width: 360px) {
     .icf-card { padding: 20px 12px 20px; }
-    .vs-card { padding: 20px 12px 16px; }
     .icf-btn-row { gap: 8px; }
     .icf-title { font-size: 17px; }
   }`;

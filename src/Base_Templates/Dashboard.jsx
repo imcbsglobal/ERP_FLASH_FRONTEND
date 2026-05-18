@@ -5,7 +5,7 @@
 import { useState, useEffect } from "react";
 import { fetchPayments, normalizePayment, fetchTrips } from '../service/Api';
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://flasherp.in/api';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000/api';
 
 // ── Auth helpers ────────────────────────────────────────────────
 function authHeaders(extra = {}) {
@@ -801,7 +801,7 @@ export default function Dashboard() {
   const yoyChange = prevYear && currYear ? ((currYear.value - prevYear.value) / prevYear.value * 100).toFixed(0) : 0;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f7f8fa', fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif", padding: '16px' }}>
+    <div style={{ minHeight: '100vh', background: '#f7f8fa', fontFamily: "'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif", display: 'flex', flexDirection: 'column', padding: 0 }}>
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap');
         * { box-sizing: border-box; }
@@ -817,6 +817,7 @@ export default function Dashboard() {
           .dash-right-stack > div { flex: 1 1 calc(50% - 8px); min-width: 140px; }
         }
       `}</style>
+      <div style={{ flex: 1, padding: '16px' }}>
 
       {/* ── Main 2-column Grid ── */}
       <div className="dash-grid" style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 320px', gap: 16, maxWidth: 1280, margin: '0 auto' }}>
@@ -915,8 +916,9 @@ export default function Dashboard() {
       {/* ── Active Trips Section ── */}
       <RecentTripsSection />
 
+      </div>
       {/* ── IMCB Footer ── */}
-      <div style={{ flexShrink:0, padding:"10px 20px", borderTop:"1px solid #e8eaed", background:"#fff", display:"flex", alignItems:"center", justifyContent:"center", gap:"6px", marginTop:"auto" }}>
+      <div style={{ flexShrink: 0, padding: '14px 20px', borderTop: '1.5px solid #e8eaed', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
         <span style={{ fontSize:"11px", color:"#9ca3af", fontWeight:500 }}>Powered by</span>
         <span style={{ fontSize:"11px", fontWeight:700, color:"#1a73e8" }}>IMCB Solutions LLP</span>

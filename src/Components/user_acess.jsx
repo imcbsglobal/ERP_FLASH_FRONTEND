@@ -258,6 +258,17 @@ export default function RoleAccess() {
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
+  // Refresh user list on page visibility change
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        fetchUsers();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [fetchUsers]);
+
   // ── Load permissions when user changes ───────────────────────────────────────
   const fetchPermissionsForUser = useCallback(async (userId) => {
     setPermLoading(true);
@@ -266,12 +277,15 @@ export default function RoleAccess() {
       const data = await apiFetch(ENDPOINTS.userPermissions(userId), {
         headers: authHeaders({ "Content-Type": "application/json" }),
       });
-      setPerms(p => ({ ...p, [userId]: normalizePerms(data) }));
+      const normalized = normalizePerms(data);
+      setPerms(p => ({ ...p, [userId]: normalized }));
       setUsers(prev =>
-        prev.map(u => u.id === userId ? { ...u, menu_permissions: data } : u)
+        prev.map(u => u.id === userId ? { ...u, menu_permissions: normalized } : u)
       );
     } catch (error) {
       console.error("Error loading permissions:", error);
+      // Set default permissions on error
+      setPerms(p => ({ ...p, [userId]: buildDefaultPerms() }));
     } finally {
       setPermLoading(false);
     }
@@ -280,11 +294,8 @@ export default function RoleAccess() {
   useEffect(() => {
     if (!selectedUser) return;
     const uid = selectedUser.id;
-    if (!(uid in perms)) {
-      fetchPermissionsForUser(uid);
-    } else {
-      setPermLoading(false);
-    }
+    // Always fetch fresh permissions when user is selected
+    fetchPermissionsForUser(uid);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedUser?.id, fetchPermissionsForUser]);
 
@@ -295,6 +306,10 @@ export default function RoleAccess() {
     const q     = search.toLowerCase();
     return (!q || name.includes(q) || email.includes(q)) &&
            (roleFilter === "All Job Roles" || u.role === roleFilter);
+  }).sort((a, b) => {
+    const nameA = (a.full_name || a.username || "").toLowerCase();
+    const nameB = (b.full_name || b.username || "").toLowerCase();
+    return nameA.localeCompare(nameB);
   });
 
   // ── Permission helpers ───────────────────────────────────────────────────────
@@ -523,9 +538,23 @@ export default function RoleAccess() {
         flexDirection: "column", height: "100%",
       }}>
         <div style={{ padding: "18px 16px 12px", borderBottom: "1px solid #e8eaed", flexShrink: 0 }}>
-          <div style={{ display: "flex", alignItems: "baseline", gap: "8px", marginBottom: "12px" }}>
-            <span style={{ fontSize: "15px", fontWeight: 700, color: "#202124" }}>Users</span>
-            <span style={{ fontSize: "13px", color: "#0f0f0f" }}>{users.length}</span>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
+            <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
+              <span style={{ fontSize: "15px", fontWeight: 700, color: "#202124" }}>Users</span>
+              <span style={{ fontSize: "13px", color: "#0f0f0f" }}>{users.length}</span>
+            </div>
+            <button onClick={fetchUsers} disabled={usersLoading} style={{
+              padding: "4px 8px", borderRadius: "6px", fontSize: "12px",
+              border: "1px solid #e8eaed", background: "#fff",
+              color: usersLoading ? "#9aa0a6" : "#1a73e8",
+              cursor: usersLoading ? "not-allowed" : "pointer", fontWeight: 500,
+              display: "flex", alignItems: "center", gap: "4px",
+            }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" style={{ transform: usersLoading ? "rotate(360deg)" : "rotate(0deg)", transition: "transform 0.6s" }}>
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Refresh
+            </button>
           </div>
 
           <div style={{ position: "relative", marginBottom: "8px" }}>

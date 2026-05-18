@@ -1,13 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getUsers, createUser, deleteUser, patchUser, getBranches, createBranch } from "../service/Api";
+import { getUsers, createUser, deleteUser, patchUser, getBranches } from "../service/Api";
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const ROLES    = ["Admin", "Super Admin", "User"];
+const ROLES    = ["Admin", "User"];
 const STATUSES = ["Active", "Inactive"];
 const EMPTY_FORM = {
-  username: "", address: "", phone: "", branch: "",
+  username: "", address: "", phone: "", department: "",
   password: "", role: "", status: "",
   photo: null, photoPreview: "",
 };
@@ -392,7 +392,7 @@ function PhotoUpload({ preview, existingUrl, onChange, onClear, onCaptureClick }
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function RegisteredUsers() {
   const [users, setUsers] = useState([]);
-  const [branches, setBranches] = useState([]);
+  const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [apiError, setApiError] = useState("");
   const [open, setOpen] = useState(false);
@@ -409,10 +409,6 @@ export default function RegisteredUsers() {
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [newBranchMode, setNewBranchMode] = useState(false);
-  const [newBranchName, setNewBranchName] = useState("");
-  const [newBranchError, setNewBranchError] = useState("");
-  const [creatingBranch, setCreatingBranch] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const deleteInFlight = useRef(false);
@@ -425,7 +421,12 @@ export default function RegisteredUsers() {
     setApiError("");
     try {
       const data = await getUsers();
-      setUsers(data.results || []);
+      const sortedUsers = (data.results || []).sort((a, b) => {
+        const nameA = (a.username || "").toLowerCase();
+        const nameB = (b.username || "").toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+      setUsers(sortedUsers);
     } catch (err) {
       setApiError("Failed to load users. Please try again.");
       console.error("Fetch users error:", err);
@@ -434,21 +435,18 @@ export default function RegisteredUsers() {
     }
   }, []);
 
-  const fetchBranches = useCallback(async () => {
+  const fetchDepartmentsList = useCallback(async () => {
     try {
-      const data = await getBranches();
-      let list = [];
-      if (Array.isArray(data)) list = data;
-      else if (data.results && Array.isArray(data.results)) list = data.results;
-      else if (data.data && Array.isArray(data.data)) list = data.data;
-      setBranches(list);
+      // getBranches() merges FlashERP departments with local /branches/
+      // Returns { id (integer FK), name, deptId (string like "CL") }[]
+      const list = await getBranches();
+      setDepartments(list || []);
     } catch (err) {
       console.error("Failed to fetch branches:", err);
-      setApiError("Failed to load branches. Please refresh the page.");
     }
   }, []);
 
-  useEffect(() => { fetchUsers(); fetchBranches(); }, [fetchUsers, fetchBranches]);
+  useEffect(() => { fetchUsers(); fetchDepartmentsList(); }, [fetchUsers, fetchDepartmentsList]);
 
   // ── Helpers ─────────────────────────────────────────────────────────────────
   const handleInput = (e) => {
@@ -468,7 +466,7 @@ export default function RegisteredUsers() {
     if (!form.address.trim()) e.address = "Address is required";
     if (!form.phone.trim()) e.phone = "Phone number is required";
     else if (!/^\+?[\d\s\-()]{7,15}$/.test(form.phone)) e.phone = "Invalid phone number";
-    if (!form.branch) e.branch = "Please select a branch";
+    if (!form.department) e.department = "Please select a branch";
     if (!form.password) e.password = "Password is required";
     if (form.password && form.password.length < 8) e.password = "Password must be at least 8 characters";
     if (!form.role) e.role = "Please select a role";
@@ -476,10 +474,17 @@ export default function RegisteredUsers() {
     return e;
   };
 
-  const getBranchName = (branchId) => {
-    if (!branchId) return "—";
-    const b = branches.find(b => b.id === parseInt(branchId) || b.id === branchId);
-    return b ? b.name : branchId;
+  const getBranchName = (user) => {
+    // Prefer the backend-supplied branch_name (from local Branch FK)
+    if (user.branch_name) return user.branch_name;
+    // Fall back: look up departments list by branch_id
+    if (user.branch_id != null) {
+      const match = departments.find(
+        d => String(d.id) === String(user.branch_id) || String(d.deptId) === String(user.branch_id)
+      );
+      if (match) return match.name;
+    }
+    return "—";
   };
 
   // ── Photo helpers ───────────────────────────────────────────────────────────
@@ -523,7 +528,7 @@ export default function RegisteredUsers() {
         address: form.address.trim(),
         phone: form.phone.trim(),
         password: form.password,
-        branch_id: parseInt(form.branch, 10),
+        branch_id: form.department ? (isNaN(parseInt(form.department, 10)) ? form.department : parseInt(form.department, 10)) : null,
         role: form.role,
         status: form.status,
         ...(form.photo ? { photo: form.photo } : {}),
@@ -542,7 +547,7 @@ export default function RegisteredUsers() {
     } catch (err) {
       console.error("Create user error raw:", err, err?.data);
       const data = err?.data || {};
-      const fieldMap = { username: "username", address: "address", phone: "phone", branch_id: "branch", role: "role", status: "status" };
+      const fieldMap = { username: "username", address: "address", phone: "phone", branch_id: "department", role: "role", status: "status" };
       const fieldErrors = {};
       Object.entries(data).forEach(([k, v]) => {
         const mapped = fieldMap[k];
@@ -594,20 +599,25 @@ export default function RegisteredUsers() {
     setErrors({});
     setSuccess(false);
     setApiError("");
-    setNewBranchMode(false);
-    setNewBranchName("");
-    setNewBranchError("");
   };
 
   // ── Edit ────────────────────────────────────────────────────────────────────
   const handleOpenEdit = (user) => {
     setEditingUser(user);
-    const branchVal = user.branch_id ?? user.branch ?? null;
+    // Match user.branch_id against the departments list to find the right option value
+    // departments entries have { id (integer), name, deptId (string) }
+    let branchValue = "";
+    if (user.branch_id != null) {
+      const match = departments.find(
+        d => String(d.id) === String(user.branch_id) || String(d.deptId) === String(user.branch_id)
+      );
+      branchValue = match ? String(match.id) : String(user.branch_id);
+    }
     setEditForm({
       username: user.username || "",
       address: user.address || "",
       phone: user.phone || "",
-      branch: branchVal != null ? String(branchVal) : "",
+      department: branchValue,
       password: "",
       role: user.role || "",
       status: user.status || "",
@@ -637,7 +647,7 @@ export default function RegisteredUsers() {
     if (!editForm.address.trim()) e.address = "Address is required";
     if (!editForm.phone.trim()) e.phone = "Phone number is required";
     else if (!/^\+?[\d\s\-()]{7,15}$/.test(editForm.phone)) e.phone = "Invalid phone number";
-    if (!editForm.branch) e.branch = "Please select a branch";
+    if (!editForm.department) e.department = "Please select a branch";
     if (!editForm.role) e.role = "Please select a role";
     if (!editForm.status) e.status = "Please select a status";
     if (editForm.password && editForm.password.length < 8) e.password = "Password must be at least 8 characters";
@@ -660,7 +670,7 @@ export default function RegisteredUsers() {
         username: editForm.username.trim(),
         address: editForm.address.trim(),
         phone: editForm.phone.trim(),
-        branch_id: parseInt(editForm.branch, 10),
+        branch_id: editForm.department ? (isNaN(parseInt(editForm.department, 10)) ? editForm.department : parseInt(editForm.department, 10)) : null,
         role: editForm.role,
         status: editForm.status,
         ...(editForm.password ? { password: editForm.password } : {}),
@@ -680,7 +690,7 @@ export default function RegisteredUsers() {
         return;
       }
       const data = err?.data || {};
-      const fieldMap = { username: "username", address: "address", phone: "phone", branch_id: "branch", role: "role", status: "status", password: "password" };
+      const fieldMap = { username: "username", address: "address", phone: "phone", branch_id: "department", role: "role", status: "status", password: "password" };
       const fieldErrors = {};
       Object.entries(data).forEach(([k, v]) => {
         const mapped = fieldMap[k];
@@ -698,25 +708,7 @@ export default function RegisteredUsers() {
     }
   };
 
-  // ── Inline branch creation ─────────────────────────────────────────────────
-  const handleCreateBranch = async () => {
-    const name = newBranchName.trim();
-    if (!name) { setNewBranchError("Branch name is required."); return; }
-    setCreatingBranch(true);
-    setNewBranchError("");
-    try {
-      const created = await createBranch({ name });
-      setBranches(prev => [...prev, created]);
-      setForm(f => ({ ...f, branch: String(created.id) }));
-      setNewBranchMode(false);
-      setNewBranchName("");
-      if (errors.branch) setErrors(e => ({ ...e, branch: "" }));
-    } catch (err) {
-      setNewBranchError(err?.name?.[0] || err?.detail || "Failed to create branch.");
-    } finally {
-      setCreatingBranch(false);
-    }
-  };
+
 
   const inputStyle = (err) => ({
     width: "100%",
@@ -926,8 +918,8 @@ export default function RegisteredUsers() {
                   </td>
                   <td className="col-hide-mobile" style={tdStyle(COLS[2], { color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" })} title={u.address}>{u.address}</td>
                   <td className="col-hide-mobile" style={tdStyle(COLS[3])}>{u.phone}</td>
-                  <td style={tdStyle(COLS[4], { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" })} title={u.branch_name || getBranchName(u.branch_id) || "—"}>
-                    {u.branch_name || getBranchName(u.branch_id) || "—"}
+                  <td style={tdStyle(COLS[4], { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" })} title={getBranchName(u)}>
+                    {getBranchName(u)}
                   </td>
                   <td style={tdStyle(COLS[5])}>{u.role}</td>
                   <td style={tdStyle(COLS[6])}>
@@ -974,7 +966,7 @@ export default function RegisteredUsers() {
                 {/* Details */}
                 <div className="user-card-row">
                   <span className="user-card-label">Branch</span>
-                  <span className="user-card-value">{u.branch_name || getBranchName(u.branch_id) || "—"}</span>
+                  <span className="user-card-value">{getBranchName(u)}</span>
                 </div>
                 <div className="user-card-row">
                   <span className="user-card-label">Phone</span>
@@ -1036,28 +1028,12 @@ export default function RegisteredUsers() {
                 {errors.phone && <p style={{ fontSize: "12px", color: "var(--red)", marginTop: "4px" }}>{errors.phone}</p>}
               </div>
               <div className="form-group">
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "6px" }}>
-                  <label style={{ fontSize: "16px", fontWeight: 600, color: "black" }} className="form-label">Branch <span style={{ color: "var(--red)" }}>*</span></label>
-                  {!newBranchMode && (
-                    <button type="button" onClick={() => { setNewBranchMode(true); setNewBranchName(""); setNewBranchError(""); }} style={{ fontSize: "14px", fontWeight: 600, color: "black", background: "none", border: "none", cursor: "pointer", padding: 0 }}>+ New Branch</button>
-                  )}
-                </div>
-                {newBranchMode ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }} className="branch-inline">
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                      <input autoFocus value={newBranchName} onChange={e => { setNewBranchName(e.target.value); setNewBranchError(""); }} onKeyDown={e => { if (e.key === "Enter") handleCreateBranch(); if (e.key === "Escape") setNewBranchMode(false); }} placeholder="Branch name e.g. SYSMAC" style={{ ...inputStyle(newBranchError), flex: 1 }} className="branch-input" />
-                      <button type="button" onClick={handleCreateBranch} disabled={creatingBranch} style={{ padding: "8px 14px", borderRadius: "6px", border: "none", background: "var(--accent)", color: "#fff", fontSize: "12px", fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap", opacity: creatingBranch ? 0.7 : 1 }}>{creatingBranch ? "Saving…" : "Save"}</button>
-                      <button type="button" onClick={() => { setNewBranchMode(false); setNewBranchName(""); setNewBranchError(""); }} style={{ padding: "8px 10px", borderRadius: "6px", border: "1px solid var(--border)", background: "var(--surface)", fontSize: "12px", cursor: "pointer", color: "var(--muted)" }}>Cancel</button>
-                    </div>
-                    {newBranchError && <p style={{ fontSize: "11px", color: "var(--red)", margin: 0 }}>{newBranchError}</p>}
-                  </div>
-                ) : (
-                  <select value={form.branch} onChange={e => handleSelect("branch")(e.target.value)} style={inputStyle(errors.branch)} className="form-select">
-                    <option value="">{branches.length === 0 ? "No branches — create one above" : "Select Branch"}</option>
-                    {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select>
-                )}
-                {errors.branch && <p style={{ fontSize: "11px", color: "var(--red)", marginTop: "4px" }}>{errors.branch}</p>}
+                <label style={{ display: "block", fontSize: "16px", fontWeight: 600, color: "black", marginBottom: "6px", textAlign: "left" }} className="form-label">Branch <span style={{ color: "var(--red)" }}>*</span></label>
+                <select value={form.department} onChange={e => handleSelect("department")(e.target.value)} style={inputStyle(errors.department)} className="form-select">
+                  <option value="">{departments.length === 0 ? "Loading branches..." : "Select Branch"}</option>
+                  {departments.map(d => <option key={d.id} value={String(d.id)}>{d.name}</option>)}
+                </select>
+                {errors.department && <p style={{ fontSize: "12px", color: "var(--red)", marginTop: "4px" }}>{errors.department}</p>}
               </div>
               <div className="form-group">
                 <label style={{ display: "block", fontSize: "16px", fontWeight: 600, color: "black", marginBottom: "6px", textAlign: "left" }} className="form-label">Role <span style={{ color: "var(--red)" }}>*</span></label>
@@ -1129,11 +1105,11 @@ export default function RegisteredUsers() {
               </div>
               <div className="form-group">
                 <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">Branch <span style={{ color: "var(--red)" }}>*</span></label>
-                <select value={editForm.branch} onChange={e => { setEditForm(f => ({ ...f, branch: e.target.value })); if (editErrors.branch) setEditErrors(er => ({ ...er, branch: "" })); }} style={inputStyle(editErrors.branch)} className="form-select">
-                  <option value="">Select Branch</option>
-                  {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                <select value={editForm.department} onChange={e => { setEditForm(f => ({ ...f, department: e.target.value })); if (editErrors.department) setEditErrors(er => ({ ...er, department: "" })); }} style={inputStyle(editErrors.department)} className="form-select">
+                  <option value="">{departments.length === 0 ? "Loading branches..." : "Select Branch"}</option>
+                  {departments.map(d => <option key={d.id} value={String(d.id)}>{d.name}</option>)}
                 </select>
-                {editErrors.branch && <p style={{ fontSize: "11px", color: "var(--red)", marginTop: "4px" }}>{editErrors.branch}</p>}
+                {editErrors.department && <p style={{ fontSize: "11px", color: "var(--red)", marginTop: "4px" }}>{editErrors.department}</p>}
               </div>
               <div className="form-group">
                 <label style={{ display: "block", fontSize: "14px", fontWeight: 600, color: "var(--accent)", marginBottom: "6px", textAlign: "left" }} className="form-label">Role <span style={{ color: "var(--red)" }}>*</span></label>

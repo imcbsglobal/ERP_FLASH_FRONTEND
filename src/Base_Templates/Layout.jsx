@@ -345,19 +345,24 @@ export default function Layout({ children }) {
         .sb-child.active .sb-child-icon { color:#1a73e8; }
         .sb-child-label { transition:opacity 0.3s cubic-bezier(0.4,0,0.2,1); }
         .sidebar.collapsed .sb-child-label { display:none; }
-        .sb-footer { padding:12px 16px; border-top:1px solid #e8eaed; display:flex; flex-direction:column; gap:10px; flex-shrink:0; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); }
-        .sidebar.collapsed .sb-footer { padding:12px 8px; }
+        .sb-footer { padding:12px 16px 46px; border-top:1px solid #e8eaed; display:flex; flex-direction:column; gap:10px; flex-shrink:0; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); }
+        .sidebar.collapsed .sb-footer { padding:12px 8px 46px; }
         .sb-user-section { display:flex; align-items:center; gap:10px; justify-content:flex-start; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); }
         .sidebar.collapsed .sb-user-section { justify-content:center; }
         .sb-av { width:32px; height:32px; border-radius:8px; background:var(--accent); display:grid; place-items:center; font-size:12px; font-weight:700; color:#ffffff; flex-shrink:0; }
         .sidebar.collapsed .sb-user-info { display:none; }
-        .sb-uname { font-size:13px; font-weight:600; color:#202124; white-space:nowrap; }
+        .sb-uname { font-size:13px; font-weight:600; color:#202124; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px; }
         .sb-urole { font-size:10px; color:#5f6368; margin-top:1px; white-space:nowrap; }
-        .logout-btn { display:flex; align-items:center; justify-content:center; gap:6px; padding:8px; border-radius:8px; border:1px solid #e8eaed; background:#f8f9fa; cursor:pointer; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); width:100%; margin-top:4px; }
-        .logout-btn:hover { background:rgba(217,48,37,0.08); border-color:var(--red); transform:scale(1.05); }
-        .logout-icon { color:#5f6368; font-size:25px; font-weight:600; display:inline-block; transition:transform 0.3s cubic-bezier(0.4,0,0.2,1); }
-        .logout-btn:hover .logout-icon { transform:rotate(90deg); }
-        .logout-text { font-size:13px; font-weight:500; color:#202124; }
+        .logout-btn { display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 12px; border-radius:8px; border:1px solid #e8eaed; background:#f8f9fa; cursor:pointer; transition:all 0.3s cubic-bezier(0.4,0,0.2,1); width:100%; margin-top:4px; white-space:nowrap; overflow:hidden; }
+        .logout-btn:hover { background:rgba(217,48,37,0.08); border-color:var(--red); }
+        .logout-icon { color:#d93025; font-size:18px; font-weight:600; display:inline-flex; align-items:center; flex-shrink:0; transition:transform 0.3s cubic-bezier(0.4,0,0.2,1); }
+        .logout-btn:hover .logout-icon { transform:translateX(-2px); }
+        .logout-text { font-size:13px; font-weight:600; color:#d93025; transition:opacity 0.3s; }
+        .sidebar.collapsed .logout-text { display:none; }
+        .sidebar.collapsed .logout-btn { padding:8px; justify-content:center; }
+        .app-footer { position:fixed; bottom:0; left:0; right:0; z-index:50; text-align:center; padding:7px 16px; font-size:11px; color:#9aa0a6; border-top:1px solid #e8eaed; background:#fff; }
+        .app-footer a { color:var(--accent); text-decoration:none; font-weight:600; }
+        .app-footer a:hover { text-decoration:underline; }
         .main { flex:1; min-width:0; display:flex; flex-direction:column; height:100vh; overflow:hidden; background:var(--bg); }
         .mobile-topbar { display: none; align-items: center; gap: 12px; padding: 0 16px; height: 52px; background: #fff; border-bottom: 1px solid #e8eaed; flex-shrink: 0; position: sticky; top: 0; z-index: 100; }
         .hamburger-btn { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; border: none; background: none; cursor: pointer; border-radius: 8px; padding: 6px; transition: background 0.15s; }
@@ -374,10 +379,12 @@ export default function Layout({ children }) {
           .sidebar.collapsed .sb-sec-lbl, .sidebar.collapsed .sb-child-label, .sidebar.collapsed .sb-chevron, .sidebar.collapsed .sb-group-label { display: block !important; }
           .sidebar.collapsed .sb-sec { justify-content: flex-start !important; padding: 11px 22px !important; }
           .sidebar.collapsed .sb-child { justify-content: flex-start !important; padding: 8px 22px 8px 46px !important; }
-          .sidebar.collapsed .sb-footer { padding: 12px 16px !important; }
+          .sidebar.collapsed .sb-footer { padding: 12px 16px 46px !important; }
           .sidebar.collapsed .sb-user-section { justify-content: flex-start !important; }
           .sidebar.collapsed .sb-user-info { display: block !important; }
           .sidebar.collapsed .sb-divider { margin: 6px 22px !important; }
+          .sidebar.collapsed .logout-text { display: inline !important; }
+          .sidebar.collapsed .logout-btn { padding: 8px 12px !important; justify-content: center !important; }
           .mobile-topbar { display: flex; }
           .main { width: 100vw; }
         }
@@ -500,8 +507,14 @@ export default function Layout({ children }) {
                 </div>
               )}
             </div>
-            <button className="logout-btn" onClick={handleLogout}>
-              <span className="logout-icon">⎋</span>
+            <button className="logout-btn" onClick={handleLogout} title="Sign Out">
+              <span className="logout-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{color:'#d93025'}}>
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+              </span>
               <span className="logout-text">Sign Out</span>
             </button>
           </div>
@@ -619,6 +632,10 @@ export default function Layout({ children }) {
 
           {children}
         </div>
+
+        <footer className="app-footer">
+          Powered by <a href="https://imcbsolutions.com" target="_blank" rel="noopener noreferrer">IMCB Solutions LLP</a>
+        </footer>
       </div>
     </>
   );
