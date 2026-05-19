@@ -5,6 +5,7 @@ import { getAllCaptures, updateCaptureManualStatus, deleteCapture } from '../ser
 import API_BASE_URL from '../service/apiConfig';
 
 const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
+const CAPTURE_BASE = `${API_ORIGIN}/image_capture/api/captures`;
 
 const ImageCaptureList = ({ onGenerateLink }) => {
   // ── Mobile detection ──────────────────────────────────────────
@@ -205,7 +206,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
   // ── Download with GPS EXIF embedded ──────────────────────────
   const handleDownload = async (item) => {
     try {
-      const response = await fetch(item.image);
+      const response = await fetch(`${CAPTURE_BASE}/${item.id}/download/`);
       const blob = await response.blob();
 
       // Convert blob → base64 data URL (piexifjs requires this format)
@@ -250,7 +251,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
   // ── Download from preview modal (also embeds GPS) ─────────────
   const handlePreviewDownload = async (previewItem) => {
     try {
-      const response = await fetch(previewItem.src);
+      const response = await fetch(`${CAPTURE_BASE}/${previewItem.id}/download/`);
       const blob = await response.blob();
 
       const dataUrl = await new Promise((resolve, reject) => {
@@ -670,7 +671,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                           src={item.image}
                           alt={`Client ${item.clientDetails.name}`}
                           style={{ width: 24, height: 24, borderRadius: 4, objectFit: "cover", border: "1px solid #e5e7eb", cursor: "zoom-in" }}
-                          onClick={() => setPreviewImg({ src: item.image, name: item.clientDetails.name, latitude: item.latitude, longitude: item.longitude })}
+                          onClick={() => setPreviewImg({ id: item.id, src: item.image, name: item.clientDetails.name, latitude: item.latitude, longitude: item.longitude })}
                         />
                       </td>
                       <td style={{...tableStyles.td, whiteSpace: 'normal', wordWrap: 'break-word', maxWidth: '200px'}}>{item.location}</td>
@@ -787,7 +788,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                   <img
                     src={item.image}
                     alt={item.clientDetails.name}
-                    onClick={() => setPreviewImg({ src: item.image, name: item.clientDetails.name, latitude: item.latitude, longitude: item.longitude })}
+                    onClick={() => setPreviewImg({ id: item.id, src: item.image, name: item.clientDetails.name, latitude: item.latitude, longitude: item.longitude })}
                     style={{ width: 42, height: 42, borderRadius: 8, objectFit: 'cover', border: '1px solid #e5e7eb', cursor: 'zoom-in', flexShrink: 0 }}
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
