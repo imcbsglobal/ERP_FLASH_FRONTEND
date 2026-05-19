@@ -633,9 +633,7 @@ export default function Layout({ children }) {
           {children}
         </div>
 
-        <footer className="app-footer">
-          Powered by <a href="https://imcbsolutions.com" target="_blank" rel="noopener noreferrer">IMCB Solutions LLP</a>
-        </footer>
+       
       </div>
     </>
   );

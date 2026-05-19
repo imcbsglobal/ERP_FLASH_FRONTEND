@@ -1,5 +1,5 @@
 // claim_add.jsx – Fully mobile-responsive (single unified layout + CSS media queries)
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import CameraswitchOutlinedIcon from "@mui/icons-material/CameraswitchOutlined";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CloseIcon from "@mui/icons-material/Close"; // used in receipt remove button
@@ -28,6 +28,20 @@ const initialForm = {
   notes: "",
   receipt: null,
 };
+
+
+/* ─── Detect real mobile device (touch + UA, evaluated at runtime) ── */
+function isMobileDevice() {
+  if (typeof navigator === "undefined") return false;
+  // Check touch support AND mobile UA — both must match to avoid
+  // false-positive from DevTools emulation (UA spoofed but not a real device)
+  const hasTouchPoints = navigator.maxTouchPoints > 0;
+  const mobileUA = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  // On a real mobile device BOTH will be true.
+  // On DevTools emulation only one may be true depending on settings.
+  // We use UA as the primary signal since capture= only works on real devices.
+  return mobileUA;
+}
 
 /* ─── Injected responsive CSS ─────────────────────────────────────── */
 const RESPONSIVE_CSS = `
@@ -136,6 +150,11 @@ const RESPONSIVE_CSS = `
     color: #b91c1c;
     font-size: 13px;
   }
+  .ca-api-banner--info {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+  }
   .ca-drop-zone {
     display: flex;
     align-items: center;
@@ -177,10 +196,10 @@ const RESPONSIVE_CSS = `
     min-width: 0;
   }
   .ca-thumb-img {
-    width: 30px;
-    height: 30px;
+    width: 40px;
+    height: 40px;
     object-fit: cover;
-    border-radius: 6px;
+    border-radius: 8px;
     flex-shrink: 0;
   }
   .ca-receipt-name {
@@ -189,6 +208,10 @@ const RESPONSIVE_CSS = `
     font-weight: 500;
     word-break: break-all;
     flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 180px;
   }
   .ca-remove-btn {
     background: none;
@@ -429,7 +452,7 @@ const RESPONSIVE_CSS = `
       min-height: 46px;
     }
     .ca-drop-zone-desktop {
-      display: none;
+      display: none !important;
     }
     .ca-mobile-receipt-btns {
       display: flex;
@@ -510,6 +533,113 @@ const RESPONSIVE_CSS = `
       min-width: 120px;
     }
   }
+
+  /* ── Webcam modal ───────────────────────────────────────────────── */
+  .ca-webcam-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+  }
+  .ca-webcam-modal {
+    background: #1a1a2e;
+    border-radius: 16px;
+    overflow: hidden;
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+  }
+  .ca-webcam-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    background: #0f0f1a;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: 'Google Sans', sans-serif;
+  }
+  .ca-webcam-close {
+    background: none;
+    border: none;
+    color: #aaa;
+    font-size: 22px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 6px;
+  }
+  .ca-webcam-close:hover { color: #fff; background: rgba(255,255,255,0.1); }
+  .ca-webcam-video-wrap {
+    position: relative;
+    width: 100%;
+    background: #000;
+    aspect-ratio: 4/3;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ca-webcam-video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+  .ca-webcam-canvas { display: none; }
+  .ca-webcam-error {
+    color: #fca5a5;
+    font-size: 13px;
+    text-align: center;
+    padding: 24px 16px;
+    font-family: 'Google Sans', sans-serif;
+  }
+  .ca-webcam-footer {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 18px;
+    background: #0f0f1a;
+  }
+  .ca-webcam-shutter {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: #fff;
+    border: 4px solid #aaa;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 26px;
+    transition: transform 0.1s, background 0.1s;
+    box-shadow: 0 0 0 3px rgba(255,255,255,0.2);
+  }
+  .ca-webcam-shutter:hover { background: #e2e8f0; transform: scale(1.06); }
+  .ca-webcam-shutter:active { transform: scale(0.95); }
+  .ca-webcam-switch {
+    background: rgba(255,255,255,0.1);
+    border: none;
+    color: #fff;
+    font-size: 22px;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .ca-webcam-switch:hover { background: rgba(255,255,255,0.2); }
 `;
 
 /* ─── Field wrapper ────────────────────────────────────────────────── */
@@ -538,6 +668,80 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
   const [departments, setDepartments] = useState([{ value: "", label: "Select Department" }]);
   const [deptLoading, setDeptLoading] = useState(true);
   const fileInputRef = useRef();
+  const videoRef = useRef();
+  const canvasRef = useRef();
+  const streamRef = useRef(null);
+  const [showWebcam, setShowWebcam] = useState(false);
+  const [webcamError, setWebcamError] = useState("");
+  const [facingMode, setFacingMode] = useState("environment");
+
+
+  /* ── Webcam logic ────────────────────────────────────────────────── */
+  const startWebcam = useCallback(async (mode) => {
+    const facing = mode || facingMode;
+    setWebcamError("");
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: facing, width: { ideal: 1280 }, height: { ideal: 960 } },
+        audio: false,
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play().catch(() => {});
+      }
+    } catch (err) {
+      setWebcamError("Camera access denied or not available. Please allow camera permission and try again.");
+    }
+  }, [facingMode]);
+
+  const stopWebcam = useCallback(() => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) videoRef.current.srcObject = null;
+  }, []);
+
+  const openWebcam = useCallback(() => {
+    setShowWebcam(true);
+    setWebcamError("");
+    setTimeout(() => startWebcam(facingMode), 150);
+  }, [facingMode, startWebcam]);
+
+  const closeWebcam = useCallback(() => {
+    stopWebcam();
+    setShowWebcam(false);
+    setWebcamError("");
+  }, [stopWebcam]);
+
+  const switchCamera = useCallback(() => {
+    const newMode = facingMode === "environment" ? "user" : "environment";
+    setFacingMode(newMode);
+    startWebcam(newMode);
+  }, [facingMode, startWebcam]);
+
+  const capturePhoto = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 960;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      const file = new File([blob], `photo_${Date.now()}.jpg`, { type: "image/jpeg" });
+      await handleFile(file);
+      closeWebcam();
+    }, "image/jpeg", 0.92);
+  }, [closeWebcam]);
+
+  useEffect(() => () => stopWebcam(), [stopWebcam]);
 
   /* Inject responsive CSS once */
   useEffect(() => {
@@ -598,32 +802,92 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
     if (apiError) setApiError("");
   };
 
-  const handleFile = (file) => {
+  /**
+   * compressImage: resizes + re-encodes an image file to JPEG ≤ maxSizeBytes.
+   * Mobile camera shots can be 4-8 MB; this brings them under the server 413 limit.
+   */
+  const compressImage = (file, maxSizeBytes = 1 * 1024 * 1024, maxDim = 1920) =>
+    new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const img = new Image();
+        img.onload = () => {
+          // Calculate new dimensions (maintain aspect, cap at maxDim)
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) { height = Math.round(height * maxDim / width); width = maxDim; }
+            else                { width  = Math.round(width  * maxDim / height); height = maxDim; }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width  = width;
+          canvas.height = height;
+          canvas.getContext("2d").drawImage(img, 0, 0, width, height);
+
+          // Try quality 0.85 first, drop to 0.7 / 0.5 if still too large
+          const tryQuality = (quality) => {
+            canvas.toBlob((blob) => {
+              if (!blob) { resolve(file); return; } // fallback to original
+              if (blob.size <= maxSizeBytes || quality <= 0.4) {
+                const compressed = new File([blob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
+                resolve(compressed);
+              } else {
+                tryQuality(Math.max(quality - 0.15, 0.4));
+              }
+            }, "image/jpeg", quality);
+          };
+          tryQuality(0.85);
+        };
+        img.onerror = () => resolve(file); // fallback to original on error
+        img.src = ev.target.result;
+      };
+      reader.onerror = () => resolve(file);
+      reader.readAsDataURL(file);
+    });
+
+  const handleFile = async (file) => {
     if (!file) return;
-    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-    if (!allowed.includes(file.type)) {
+    const isImage = file.type.startsWith("image/");
+    const isPDF   = file.type === "application/pdf";
+
+    if (!isImage && !isPDF) {
       setErrors((prev) => ({ ...prev, receipt: "Only JPG, PNG, WEBP or PDF allowed." }));
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      setErrors((prev) => ({ ...prev, receipt: "File size must be under 5 MB." }));
+
+    // Hard cap: reject files over 20 MB before even trying to compress
+    if (file.size > 20 * 1024 * 1024) {
+      setErrors((prev) => ({ ...prev, receipt: "File is too large (max 20 MB)." }));
       return;
     }
-    setForm((prev) => ({ ...prev, receipt: file }));
+
+    let finalFile = file;
+
+    // Compress images that are over 1 MB so the server never sees a 413
+    if (isImage && file.size > 1 * 1024 * 1024) {
+      setErrors((prev) => ({ ...prev, receipt: undefined }));
+      // Show a brief "compressing…" note so the user knows something is happening
+      setApiError("⏳ Compressing image…");
+      finalFile = await compressImage(file, 1 * 1024 * 1024, 1920);
+      setApiError("");
+    }
+
+    setForm((prev) => ({ ...prev, receipt: finalFile }));
     setErrors((prev) => ({ ...prev, receipt: undefined }));
-    if (file.type.startsWith("image/")) {
+
+    if (isImage) {
       const reader = new FileReader();
-      reader.onload = (ev) => setReceiptPreview(ev.target.result);
-      reader.readAsDataURL(file);
+      reader.onload  = (ev) => setReceiptPreview(ev.target.result);
+      reader.onerror = ()   => setReceiptPreview("image_fallback");
+      reader.readAsDataURL(finalFile);
     } else {
       setReceiptPreview("pdf");
     }
   };
 
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault();
     setDragOver(false);
-    handleFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files[0]) await handleFile(e.dataTransfer.files[0]);
   };
 
   const removeReceipt = () => {
@@ -703,33 +967,66 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
           <div className="ca-drop-text">Tap to upload receipt</div>
         </div>
 
-        {/* Mobile: two buttons – Camera & Upload */}
-        {/* Using <label> with overlaid <input> so the native tap directly triggers
-            the file/camera picker without a programmatic .click() (blocked on Android) */}
+        {/* Camera & Upload buttons — shown on mobile only (desktop uses drag-drop zone) */}
         <div className="ca-mobile-receipt-btns">
-          <label className="ca-mobile-receipt-btn ca-mobile-receipt-btn--camera" style={{ position: "relative", overflow: "hidden" }}>
-            <span className="ca-mobile-receipt-btn-icon">{"📷"}</span>
-            <span>Take Photo</span>
-            <input
-              type="file"
-              accept="image/*"
-              capture="environment"
-              style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }}
-              onChange={(e) => handleFile(e.target.files[0])}
-            />
-          </label>
 
-          <label className="ca-mobile-receipt-btn ca-mobile-receipt-btn--upload" style={{ position: "relative", overflow: "hidden" }}>
+          {/* Take Photo:
+              - Real mobile (Android/iOS): native <input capture> opens camera directly
+              - Desktop / DevTools emulation: opens webcam modal via getUserMedia      */}
+          {isMobileDevice()
+            ? (
+              /* ── Real mobile: native camera input ── */
+              <label
+                className="ca-mobile-receipt-btn ca-mobile-receipt-btn--camera"
+                style={{ position: "relative", overflow: "hidden", cursor: "pointer" }}
+              >
+                <span className="ca-mobile-receipt-btn-icon">{"📷"}</span>
+                <span>Take Photo</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", fontSize: 0, cursor: "pointer" }}
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (file) handleFile(file);
+                    setTimeout(() => { try { e.target.value = ""; } catch(_){} }, 600);
+                  }}
+                />
+              </label>
+            )
+            : (
+              /* ── Desktop / emulation: open webcam modal ── */
+              <button
+                type="button"
+                className="ca-mobile-receipt-btn ca-mobile-receipt-btn--camera"
+                onClick={openWebcam}
+              >
+                <span className="ca-mobile-receipt-btn-icon">{"📷"}</span>
+                <span>Take Photo</span>
+              </button>
+            )
+          }
+
+          {/* Upload File: always a file-picker */}
+          <label
+            className="ca-mobile-receipt-btn ca-mobile-receipt-btn--upload"
+            style={{ position: "relative", overflow: "hidden", cursor: "pointer" }}
+          >
             <span className="ca-mobile-receipt-btn-icon">{"📁"}</span>
             <span>Upload File</span>
             <input
-              ref={fileInputRef}
               type="file"
               accept="image/jpeg,image/png,image/webp,application/pdf"
-              style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", cursor: "pointer" }}
-              onChange={(e) => handleFile(e.target.files[0])}
+              style={{ position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%", fontSize: 0, cursor: "pointer" }}
+              onChange={async (e) => {
+                const file = e.target.files[0];
+                if (file) await handleFile(file);
+                setTimeout(() => { try { e.target.value = ""; } catch(_){} }, 600);
+              }}
             />
           </label>
+
         </div>
 
         {/* Desktop hidden input (for drag-drop zone) */}
@@ -738,15 +1035,15 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
           type="file"
           accept="image/jpeg,image/png,image/webp,application/pdf"
           style={{ display: "none" }}
-          onChange={(e) => handleFile(e.target.files[0])}
+          onChange={async (e) => { if (e.target.files[0]) await handleFile(e.target.files[0]); }}
         />
       </>
     ) : (
       <div className="ca-receipt-card">
         <div className="ca-receipt-inner">
-          {receiptPreview === "pdf" ? (
+          {receiptPreview === "pdf" || receiptPreview === "image_fallback" ? (
             <>
-              <span>📄</span>
+              <span>{receiptPreview === "pdf" ? "📄" : "🖼️"}</span>
               <span className="ca-receipt-name">{form.receipt?.name}</span>
             </>
           ) : (
@@ -779,7 +1076,9 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
 
         {/* API error banner */}
         {apiError && (
-          <div className="ca-api-banner">⚠️ {apiError}</div>
+          <div className={apiError.startsWith("⏳") ? "ca-api-banner ca-api-banner--info" : "ca-api-banner"}>
+            {apiError.startsWith("⏳") ? apiError : `⚠️ ${apiError}`}
+          </div>
         )}
 
         {/* Form body */}
@@ -889,6 +1188,32 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
 
         </div>
       </div>
+      {/* ── Webcam Modal ── */}
+      {showWebcam && (
+        <div className="ca-webcam-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeWebcam(); }}>
+          <div className="ca-webcam-modal">
+            <div className="ca-webcam-header">
+              <span>📷 Take Photo</span>
+              <button className="ca-webcam-close" onClick={closeWebcam} title="Close">✕</button>
+            </div>
+            <div className="ca-webcam-video-wrap">
+              {webcamError
+                ? <div className="ca-webcam-error">{webcamError}</div>
+                : <video ref={videoRef} className="ca-webcam-video" autoPlay playsInline muted />
+              }
+            </div>
+            <canvas ref={canvasRef} className="ca-webcam-canvas" />
+            {!webcamError && (
+              <div className="ca-webcam-footer">
+                <button className="ca-webcam-switch" onClick={switchCamera} title="Switch camera">🔄</button>
+                <button className="ca-webcam-shutter" onClick={capturePhoto} title="Capture photo">📸</button>
+                <button className="ca-webcam-switch" onClick={closeWebcam} title="Cancel">✕</button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ── IMCB Footer ── */}
       <div style={{ flexShrink:0, padding:"10px 20px", borderTop:"1px solid #e8eaed", background:"#fff", display:"flex", alignItems:"center", justifyContent:"center", gap:"6px" }}>
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#1a73e8" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
