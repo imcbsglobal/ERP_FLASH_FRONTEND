@@ -448,7 +448,6 @@ export default function ImageCaptureFlow({
   const [gpsSource,  setGpsSource]  = useState("live"); // "live" | "exif"
   const exifFromFileRef             = useRef(false);    // prevents useEffect from starting watchPosition
   const watchIdRef                  = useRef(null);
-  const gpsAcquiredRef              = useRef(false);  // prevents repeated pulse on every watchPosition tick
 
   const reverseGeocode = async (lat, lng) => {
     try {
@@ -466,11 +465,8 @@ export default function ImageCaptureFlow({
         const { latitude: lat, longitude: lng } = pos.coords;
         setGps({ lat, lng });
         setGpsLoading(false);
-        if (!gpsAcquiredRef.current) {
-          gpsAcquiredRef.current = true;
-          setGpsPulse(true);
-          setTimeout(() => setGpsPulse(false), 600);
-        }
+        setGpsPulse(true);
+        setTimeout(() => setGpsPulse(false), 600);
         reverseGeocode(lat, lng);
       },
       (err) => { setGpsError(err.message || "Unable to get location."); setGpsLoading(false); },
@@ -496,7 +492,6 @@ export default function ImageCaptureFlow({
       setGps(null); setAddress(""); setGpsError("");
       setGpsSource("live");
       exifFromFileRef.current = false;
-      gpsAcquiredRef.current = false;
     }
     return stopLocation;
   }, [phase]);
@@ -898,6 +893,7 @@ const css = `
   @keyframes icf-fadeUp  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
   @keyframes icf-popIn   { 0%{transform:scale(0.3);opacity:0} 70%{transform:scale(1.18)} 100%{transform:scale(1);opacity:1} }
   @keyframes icf-spin    { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  @keyframes icf-locPulse{ 0%{background:#dbeafe} 100%{background:white} }
 
   .icf-page { min-height:100vh; min-height:-webkit-fill-available; display:flex; align-items:center; justify-content:center; padding:24px 16px;  }
   .icf-card { background:white; border-radius:22px; padding:36px 28px 32px; width:100%; max-width:420px; box-sizing:border-box; box-shadow:0 8px 40px rgba(9,144,235,0.18),0 2px 8px rgba(0,0,0,0.08); display:flex; flex-direction:column; align-items:center; gap:15px; }
@@ -925,11 +921,11 @@ const css = `
 
   .icf-preview-img { width:100%; border-radius:14px; border:2px solid #e0e1f0; max-height:260px; object-fit:cover; }
 
-  .icf-loc-block   { width:100%; border-radius:14px; overflow:hidden; border:1.5px solid #e5e7eb; }
+  .icf-loc-block   { width:100%; border-radius:14px; overflow:hidden; border:1.5px solid #e5e7eb; animation:icf-fadeUp 0.35s ease both; }
   .icf-loc-loading { display:flex; align-items:center; gap:10px; padding:14px 16px; font-size:13px; color:#6b7280; background:white; }
   .icf-loc-error   { display:flex; align-items:center; gap:8px; padding:12px 16px; background:#fef2f2; font-size:12px; color:#b91c1c; }
-  .icf-loc-lines   { padding:16px 20px 12px; display:flex; flex-direction:column; gap:5px; background:white; }
-  .icf-loc-pulse   { }
+  .icf-loc-lines   { padding:16px 20px 12px; display:flex; flex-direction:column; gap:5px; background:white; transition:background .3s; }
+  .icf-loc-pulse   { animation:icf-locPulse 0.5s ease; }
   .icf-loc-row     { display:flex; align-items:flex-start; gap:5px; font-size:14px; line-height:1.6; }
   .icf-loc-label   { font-weight:700; color:#1a1a2e; white-space:nowrap; flex-shrink:0; }
   .icf-loc-val     { font-weight:500; color:#374151; font-variant-numeric:tabular-nums; }
@@ -1043,6 +1039,12 @@ const css = `
     .icf-notice { font-size: 11.5px; padding: 12px 14px; }
     .icf-notice-head { font-size: 12px; }
     .icf-map-toggle-btn { padding: 10px 14px; font-size: 13px; }
+
+    /* ── Remove all location-block blinking on mobile ── */
+    .icf-loc-block   { animation: none; }
+    .icf-loc-lines   { transition: none; background: white; }
+    .icf-loc-pulse   { animation: none; }
+    .icf-map-wrap    { animation: none; }
   }
   @media (max-width: 360px) {
     .icf-card { padding: 20px 12px 20px; }
