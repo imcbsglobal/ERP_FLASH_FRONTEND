@@ -1011,7 +1011,6 @@ export function normalizePayment(p) {
     paymentProofUrl: p.payment_proof_url || null,
     status:          p.status,
     cashReceived:    p.cash_received      ?? null,
-    cashAmount:      p.cash_amount        ?? null,
     date:            p.date,
     createdByName:   p.created_by_name   || null,
     created_by_name: p.created_by_name   || null,

@@ -224,16 +224,10 @@ function LeafletMap({ lat, lng, capturedPhoto }) {
       circleRef.current = L.circle([lat, lng], { radius: 40, color: "#4285F4", fillColor: "#4285F4", fillOpacity: 0.15, weight: 1.5, opacity: 0.6 }).addTo(map);
       const dotIcon = L.divIcon({
         className: "",
-        html: `<div style="position:relative;width:22px;height:22px;"><div style="position:absolute;inset:0;background:#4285F4;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(66,133,244,0.6);"></div><div style="position:absolute;top:50%;left:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:rgba(66,133,244,0.18);animation:gm-pulse 2s ease-out infinite;"></div></div>`,
+        html: `<div style="position:relative;width:22px;height:22px;"><div style="position:absolute;inset:0;background:#4285F4;border:3px solid white;border-radius:50%;box-shadow:0 2px 8px rgba(66,133,244,0.6);"></div><div style="position:absolute;top:50%;left:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:rgba(66,133,244,0.18);"></div></div>`,
         iconSize: [22, 22], iconAnchor: [11, 11],
       });
       markerRef.current = L.marker([lat, lng], { icon: dotIcon }).addTo(map);
-      if (!document.getElementById("gm-pulse-style")) {
-        const s = document.createElement("style");
-        s.id = "gm-pulse-style";
-        s.textContent = `@keyframes gm-pulse{0%{transform:scale(0.4);opacity:0.8}70%{transform:scale(1.8);opacity:0}100%{transform:scale(0.4);opacity:0}}`;
-        document.head.appendChild(s);
-      }
       instanceRef.current = map;
     };
 
@@ -893,12 +887,11 @@ const css = `
   @keyframes icf-fadeUp  { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:translateY(0)} }
   @keyframes icf-popIn   { 0%{transform:scale(0.3);opacity:0} 70%{transform:scale(1.18)} 100%{transform:scale(1);opacity:1} }
   @keyframes icf-spin    { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-  @keyframes icf-locPulse{ 0%{background:#dbeafe} 100%{background:white} }
 
   .icf-page { min-height:100vh; min-height:-webkit-fill-available; display:flex; align-items:center; justify-content:center; padding:24px 16px;  }
   .icf-card { background:white; border-radius:22px; padding:36px 28px 32px; width:100%; max-width:420px; box-sizing:border-box; box-shadow:0 8px 40px rgba(9,144,235,0.18),0 2px 8px rgba(0,0,0,0.08); display:flex; flex-direction:column; align-items:center; gap:15px; }
-  .icf-card-anim { animation: icf-cardIn 0.4s cubic-bezier(.22,1,.36,1) both; }
-  .icf-fade-up   { animation: icf-fadeUp 0.4s ease both; }
+  .icf-card-anim { animation: none; }
+  .icf-fade-up   { animation: none; }
   .icf-pop-in    { animation: icf-popIn  0.5s cubic-bezier(.34,1.56,.64,1) both; }
 
   .icf-icon-wrap { width:68px; height:68px; background:#f5f7fa; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-bottom:2px; }
@@ -921,11 +914,11 @@ const css = `
 
   .icf-preview-img { width:100%; border-radius:14px; border:2px solid #e0e1f0; max-height:260px; object-fit:cover; }
 
-  .icf-loc-block   { width:100%; border-radius:14px; overflow:hidden; border:1.5px solid #e5e7eb; animation:icf-fadeUp 0.35s ease both; }
+  .icf-loc-block   { width:100%; border-radius:14px; overflow:hidden; border:1.5px solid #e5e7eb; animation:none; }
   .icf-loc-loading { display:flex; align-items:center; gap:10px; padding:14px 16px; font-size:13px; color:#6b7280; background:white; }
   .icf-loc-error   { display:flex; align-items:center; gap:8px; padding:12px 16px; background:#fef2f2; font-size:12px; color:#b91c1c; }
-  .icf-loc-lines   { padding:16px 20px 12px; display:flex; flex-direction:column; gap:5px; background:white; transition:background .3s; }
-  .icf-loc-pulse   { animation:icf-locPulse 0.5s ease; }
+  .icf-loc-lines   { padding:16px 20px 12px; display:flex; flex-direction:column; gap:5px; background:white; transition:none; }
+  .icf-loc-pulse   { background:white; }
   .icf-loc-row     { display:flex; align-items:flex-start; gap:5px; font-size:14px; line-height:1.6; }
   .icf-loc-label   { font-weight:700; color:#1a1a2e; white-space:nowrap; flex-shrink:0; }
   .icf-loc-val     { font-weight:500; color:#374151; font-variant-numeric:tabular-nums; }
@@ -1014,7 +1007,7 @@ const css = `
   .icf-map-toggle-btn { width:100%; padding:11px 16px; background:#e6f4ff; border:1.5px solid #7ecbf7; border-radius:12px; color:#0990eb; font-size:14px; font-weight:600; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; transition:background .18s,border-color .18s,transform .15s; }
   .icf-map-toggle-btn:hover { background:#d0eaff; border-color:#0990eb; transform:translateY(-1px); }
   .icf-map-toggle-btn:active { transform:translateY(0); }
-  .icf-map-wrap { width:100%; border-radius:14px; overflow:hidden; border:1.5px solid #e5e7eb; box-shadow:0 4px 16px rgba(9,144,235,0.12); animation:icf-fadeUp 0.3s ease both; display:flex; flex-direction:column; }
+  .icf-map-wrap { width:100%; border-radius:14px; overflow:hidden; border:1.5px solid #e5e7eb; box-shadow:0 4px 16px rgba(9,144,235,0.12); animation:none; display:flex; flex-direction:column; }
   .icf-map-iframe { width:100%; height:220px; border:none; display:block; display:none; }
   .icf-map-link { display:flex; align-items:center; justify-content:center; gap:6px; padding:9px 14px; background:#f9fafb; border-top:1px solid #e5e7eb; font-size:12px; font-weight:600; color:#0990eb; text-decoration:none; transition:background .15s; }
   .icf-map-link:hover { background:#e6f4ff; }
@@ -1040,11 +1033,13 @@ const css = `
     .icf-notice-head { font-size: 12px; }
     .icf-map-toggle-btn { padding: 10px 14px; font-size: 13px; }
 
-    /* ── Remove all location-block blinking on mobile ── */
-    .icf-loc-block   { animation: none; }
-    .icf-loc-lines   { transition: none; background: white; }
-    .icf-loc-pulse   { animation: none; }
-    .icf-map-wrap    { animation: none; }
+    /* ── Kill all blinking/re-animation on mobile ── */
+    .icf-card-anim  { animation: none; }
+    .icf-loc-block  { animation: none; }
+    .icf-loc-lines  { transition: none; background: white; }
+    .icf-loc-pulse  { animation: none; }
+    .icf-map-wrap   { animation: none; }
+    .icf-fade-up    { animation: none; }
   }
   @media (max-width: 360px) {
     .icf-card { padding: 20px 12px 20px; }
