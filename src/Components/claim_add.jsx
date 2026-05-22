@@ -1,5 +1,6 @@
 // claim_add.jsx – Fully mobile-responsive (single unified layout + CSS media queries)
 import { useState, useRef, useEffect, useCallback } from "react";
+import ReactDOM from "react-dom";
 import CameraswitchOutlinedIcon from "@mui/icons-material/CameraswitchOutlined";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import CloseIcon from "@mui/icons-material/Close"; // used in receipt remove button
@@ -14,6 +15,7 @@ const expenseTypes = [
   { value: "fuel", label: "Fuel Expense" },
   { value: "parking", label: "Parking Expense" },
   { value: "toll", label: "Toll Expense" },
+  { value: "other", label: "Other" },
 ];
 
 import { createClaim, saveDraftClaim, ENDPOINTS, authHeaders, apiFetch } from '../service/Api';
@@ -141,6 +143,17 @@ const RESPONSIVE_CSS = `
     color: #e11d48;
     font-family: 'Courier New', monospace;
   }
+
+  /* ── Expense type combobox ── */
+  .ca-combo-wrap { position: relative; width: 100%; }
+  .ca-combo-arrow {
+    position: absolute; right: 12px; top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none; color: #64748b; font-size: 11px;
+    transition: transform 0.15s;
+  }
+  .ca-combo-arrow--open { transform: translateY(-50%) rotate(180deg); }
+  .ca-combo-input { padding-right: 32px !important; }
   .ca-api-banner {
     margin: 0 40px 4px;
     padding: 10px 16px;
@@ -642,6 +655,124 @@ const RESPONSIVE_CSS = `
   .ca-webcam-switch:hover { background: rgba(255,255,255,0.2); }
 `;
 
+/* ─── Expense Type Combobox (portal – escapes overflow:hidden) ─── */
+function ExpenseTypeCombobox({ value, onChange, hasError }) {
+  const [open, setOpen]       = useState(false);
+  const [query, setQuery]     = useState(value || "");
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
+  const inputRef              = useRef(null);
+  const dropRef               = useRef(null);
+
+  useEffect(() => { setQuery(value || ""); }, [value]);
+
+  useEffect(() => {
+    if (open && inputRef.current) {
+      const r = inputRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + window.scrollY + 4, left: r.left + window.scrollX, width: r.width });
+    }
+  }, [open]);
+
+  useEffect(() => {
+    function onDown(e) {
+      if (
+        inputRef.current && !inputRef.current.contains(e.target) &&
+        dropRef.current  && !dropRef.current.contains(e.target)
+      ) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    function onScroll(e) {
+      // Don't close when scrolling inside the dropdown list itself
+      if (dropRef.current && dropRef.current.contains(e.target)) return;
+      setOpen(false);
+    }
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, [open]);
+
+  const allOpts = expenseTypes.filter(t => t.value);
+  const filtered = query.trim()
+    ? allOpts.filter(t => t.label.toLowerCase().includes(query.toLowerCase()))
+    : allOpts;
+
+  function select(label) {
+    setQuery(label);
+    onChange({ target: { name: "expenseType", value: label } });
+    setOpen(false);
+  }
+
+  function handleInput(e) {
+    setQuery(e.target.value);
+    onChange({ target: { name: "expenseType", value: e.target.value } });
+    setOpen(true);
+  }
+
+  const dropdown = open ? ReactDOM.createPortal(
+    <div
+      ref={dropRef}
+      style={{
+        position: "absolute",
+        top: dropPos.top, left: dropPos.left, width: dropPos.width,
+        background: "#fff",
+        border: "1.5px solid #1a73e8",
+        borderRadius: 10,
+        boxShadow: "0 8px 28px rgba(0,0,0,0.14)",
+        zIndex: 99999,
+        maxHeight: 240,
+        overflowY: "auto",
+        fontFamily: "'Google Sans', sans-serif",
+      }}
+    >
+      {filtered.length > 0
+        ? filtered.map(t => (
+            <div
+              key={t.value}
+              onMouseDown={() => select(t.label)}
+              style={{
+                padding: "10px 14px", fontSize: 14,
+                color: value === t.label ? "#1a73e8" : "#1e293b",
+                background: value === t.label ? "#eff6ff" : "transparent",
+                cursor: "pointer",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "#eff6ff"}
+              onMouseLeave={e => e.currentTarget.style.background = value === t.label ? "#eff6ff" : "transparent"}
+            >
+              {t.label}
+            </div>
+          ))
+        : (
+            <div style={{ padding: "10px 14px", fontSize: 13, color: "#94a3b8", fontStyle: "italic" }}>
+              Type to add &ldquo;{query}&rdquo; as custom expense type
+            </div>
+          )
+      }
+    </div>,
+    document.body
+  ) : null;
+
+  return (
+    <div className="ca-combo-wrap">
+      <input
+        ref={inputRef}
+        type="text"
+        name="expenseType"
+        placeholder="Select or type expense type"
+        value={query}
+        onChange={handleInput}
+        onFocus={() => setOpen(true)}
+        autoComplete="off"
+        className={`ca-input ca-combo-input${hasError ? " ca-input-error" : ""}`}
+      />
+      <span className={`ca-combo-arrow${open ? " ca-combo-arrow--open" : ""}`}>▼</span>
+      {dropdown}
+    </div>
+  );
+}
+
 /* ─── Field wrapper ────────────────────────────────────────────────── */
 function Field({ label, required, error, children }) {
   return (
@@ -785,6 +916,8 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
   const validate = (isDraftSave = false) => {
     const e = {};
     if (!form.expenseType) e.expenseType = "Expense type is required.";
+    if (form.expenseType === "other" && !form.customExpenseType.trim())
+      e.customExpenseType = "Please specify the expense type.";
     if (!form.department) e.department = "Department is required.";
     if (!isDraftSave) {
       if (!form.clientName.trim()) e.clientName = "Client name is required.";
@@ -1061,8 +1194,8 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
 
   /* ── Main form (single layout, CSS handles breakpoints) ─────────── */
   return (
-    <div className="ca-page">
-      <div className="ca-card">
+    <div className="ca-page" onClick={(e) => e.stopPropagation()}>
+      <div className="ca-card" onClick={(e) => e.stopPropagation()}>
 
         {/* Header */}
         <div className="ca-header">
@@ -1104,16 +1237,11 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
             </Field>
 
             <Field label="Expense Type" required error={errors.expenseType}>
-              <select
-                name="expenseType"
+              <ExpenseTypeCombobox
                 value={form.expenseType}
                 onChange={handleChange}
-                className={`ca-input${errors.expenseType ? " ca-input-error" : ""}`}
-              >
-                {expenseTypes.map((t) => (
-                  <option key={t.value} value={t.value}>{t.label}</option>
-                ))}
-              </select>
+                hasError={!!errors.expenseType}
+              />
             </Field>
           </div>
 

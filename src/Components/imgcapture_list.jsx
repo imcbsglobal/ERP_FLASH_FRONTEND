@@ -883,10 +883,9 @@ const ImageCaptureList = ({ onGenerateLink }) => {
       {/* Image Preview Modal */}
       {previewImg && (
         <div
-          onClick={() => setPreviewImg(null)}
           style={{ position: 'fixed', inset: 0, zIndex: 4000, backgroundColor: 'rgba(0,0,0,0.82)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
-          <div onClick={(e) => e.stopPropagation()} style={{ position: 'relative', textAlign: 'center' }}>
+          <div style={{ position: 'relative', textAlign: 'center' }}>
             <img
               src={previewImg.src}
               alt={previewImg.name}
@@ -914,7 +913,6 @@ const ImageCaptureList = ({ onGenerateLink }) => {
       {/* Delete Confirmation Modal */}
       {delId !== null && (
         <div
-          onClick={() => setDelId(null)}
           style={{
             position: 'fixed', inset: 0, zIndex: 3000,
             backgroundColor: 'rgba(0,0,0,0.45)',
@@ -922,7 +920,6 @@ const ImageCaptureList = ({ onGenerateLink }) => {
           }}
         >
           <div
-            onClick={(e) => e.stopPropagation()}
             style={{
               background: '#fff',
               borderRadius: 16,
@@ -958,8 +955,8 @@ const ImageCaptureList = ({ onGenerateLink }) => {
 
       {/* Edit Modal */}
       {isEditModalOpen && (
-        <div style={modalStyles.overlay} onClick={() => setIsEditModalOpen(false)}>
-          <div style={modalStyles.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={modalStyles.overlay}>
+          <div style={modalStyles.modal}>
             <h2 style={{ fontSize: '20px', fontWeight: 'bold', marginBottom: '20px' }}>Edit Record</h2>
             
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
@@ -1088,7 +1085,6 @@ const ImageCaptureList = ({ onGenerateLink }) => {
       {/* Unified modal — Generate Link or Manual Capture */}
       {modalMode && (
         <div
-          onClick={() => setModalMode(null)}
           style={{
             position: 'fixed', inset: 0, zIndex: 2000,
             backgroundColor: 'rgba(0,0,0,0.5)',
@@ -1096,7 +1092,6 @@ const ImageCaptureList = ({ onGenerateLink }) => {
           }}
         >
           <div
-            onClick={(e) => e.stopPropagation()}
             style={{
               background: 'white',
               borderRadius: '20px',

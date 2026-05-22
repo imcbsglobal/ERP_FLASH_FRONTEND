@@ -143,6 +143,8 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
   const [branches, setBranches]         = useState([]);
   const [showCashPopup, setShowCashPopup] = useState(false);
   const [pendingSuccess, setPendingSuccess] = useState(null); // { normalized, formSnapshot }
+  const [cashAmount, setCashAmount] = useState(''); // State for collected cash amount
+  const [showCashAmountInput, setShowCashAmountInput] = useState(false); // Show amount input step
 
   // ── Departments from FlashERP ─────────────────────────────────
   const [departments, setDepartments] = useState([]);
@@ -584,6 +586,8 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
         // Store result and show popup — reset/onSuccess happen after dismiss
         setPendingSuccess({ normalized });
         setShowCashPopup(true);
+        setShowCashAmountInput(false); // Start with confirmation step
+        setCashAmount(''); // Reset cash amount
       } else {
         if (typeof onSuccess === 'function') onSuccess(normalized);
       }
@@ -606,6 +610,67 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
     setDebtorError('');
     setAllDebtors([]);
     setRetryCount(c => c + 1);
+  };
+
+  // ── Handle cash confirmation with amount ──────────────────────
+  const handleCashConfirmation = async (confirmed) => {
+    if (!confirmed) {
+      // User said Not Yet
+      const normalized = pendingSuccess?.normalized;
+      setShowCashPopup(false);
+      resetForm();
+      if (normalized?.id != null) {
+        try {
+          await apiFetch(`${ENDPOINTS.payment(normalized.id)}`, {
+            method: 'PATCH',
+            headers: authHeaders({ 'Content-Type': 'application/json' }),
+            body: JSON.stringify({ cash_received: false, cash_amount: null }),
+          });
+        } catch (err) {
+          console.warn('Failed to save cash_received:', err);
+        }
+      }
+      if (typeof onSuccess === 'function' && normalized) {
+        onSuccess({ ...normalized, cashReceived: false });
+      }
+      setPendingSuccess(null);
+      return;
+    }
+
+    // User said Yes, show amount input if not already showing
+    if (!showCashAmountInput) {
+      setShowCashAmountInput(true);
+      return;
+    }
+
+    // Validate cash amount
+    const collectedAmount = parseFloat(cashAmount);
+    if (isNaN(collectedAmount) || collectedAmount <= 0) {
+      alert('Please enter a valid amount greater than 0');
+      return;
+    }
+
+    // Proceed with saving both cash_received and cash_amount
+    const normalized = pendingSuccess?.normalized;
+    setShowCashPopup(false);
+    resetForm();
+    if (normalized?.id != null) {
+      try {
+        await apiFetch(`${ENDPOINTS.payment(normalized.id)}`, {
+          method: 'PATCH',
+          headers: authHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({ cash_received: true, cash_amount: collectedAmount }),
+        });
+      } catch (err) {
+        console.warn('Failed to save cash_received and cash_amount:', err);
+      }
+    }
+    if (typeof onSuccess === 'function' && normalized) {
+      onSuccess({ ...normalized, cashReceived: true, cashAmount: collectedAmount });
+    }
+    setPendingSuccess(null);
+    setCashAmount('');
+    setShowCashAmountInput(false);
   };
 
   // ── Render ────────────────────────────────────────────────────
@@ -1240,7 +1305,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
 
       </form>
 
-      {/* ── Collection Submitted Popup ── */}
+      {/* ── Collection Submitted Popup with Cash Amount Input ── */}
       {showCashPopup && (
         <div style={{
           position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
@@ -1270,78 +1335,108 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
               Payment has been recorded successfully.
             </p>
 
-            {/* Cash receiver confirmation */}
-            <div style={{
-              background: '#f6faf8', border: '1.5px solid #c3dfd1',
-              borderRadius: '10px', padding: '14px 16px', marginBottom: '24px',
-            }}>
-              <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#266648', fontSize: '14px' }}>
-                💵 Cash Received by Collector?
-              </p>
-              <p style={{ margin: 0, color: '#555', fontSize: '12.5px' }}>
-                Confirm whether the cash has been physically collected.
-              </p>
-            </div>
+            {/* Cash receiver confirmation - Show amount input if yes clicked */}
+            {!showCashAmountInput ? (
+              <div style={{
+                background: '#f6faf8', border: '1.5px solid #c3dfd1',
+                borderRadius: '10px', padding: '14px 16px', marginBottom: '24px',
+              }}>
+                <p style={{ margin: '0 0 4px', fontWeight: 600, color: '#266648', fontSize: '14px' }}>
+                  💵 Cash Received by Collector?
+                </p>
+                <p style={{ margin: 0, color: '#555', fontSize: '12.5px' }}>
+                  Confirm whether the cash has been physically collected.
+                </p>
+              </div>
+            ) : (
+              <div style={{
+                background: '#f6faf8', border: '1.5px solid #c3dfd1',
+                borderRadius: '10px', padding: '14px 16px', marginBottom: '24px',
+              }}>
+                <p style={{ margin: '0 0 8px', fontWeight: 600, color: '#266648', fontSize: '14px' }}>
+                  💰 How many rupees collected?
+                </p>
+                <div style={{ position: 'relative', display: 'inline-block', width: '100%' }}>
+                  <span style={{
+                    position: 'absolute',
+                    left: '12px',
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    fontSize: '16px',
+                    fontWeight: '600',
+                    color: '#266648',
+                  }}>₹</span>
+                  <input
+                    type="number"
+                    value={cashAmount}
+                    onChange={(e) => setCashAmount(e.target.value)}
+                    placeholder="Enter amount"
+                    autoFocus
+                    style={{
+                      width: '100%',
+                      padding: '12px 12px 12px 32px',
+                      fontSize: '16px',
+                      borderRadius: '8px',
+                      border: '1.5px solid #c3dfd1',
+                      outline: 'none',
+                      textAlign: 'left',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
-              <button
-                onClick={async () => {
-                  const normalized = pendingSuccess?.normalized;
-                  setShowCashPopup(false);
-                  resetForm();
-                  if (normalized?.id != null) {
-                    try {
-                      await apiFetch(`${ENDPOINTS.payment(normalized.id)}`, {
-                        method: 'PATCH',
-                        headers: authHeaders({ 'Content-Type': 'application/json' }),
-                        body: JSON.stringify({ cash_received: true }),
-                      });
-                    } catch (err) {
-                      console.warn('Failed to save cash_received:', err);
-                    }
-                  }
-                  if (typeof onSuccess === 'function' && normalized) {
-                    onSuccess({ ...normalized, cashReceived: true });
-                  }
-                  setPendingSuccess(null);
-                }}
-                style={{
-                  flex: 1, padding: '11px 0', borderRadius: '8px',
-                  border: 'none', background: '#266648', color: '#fff',
-                  fontWeight: 700, fontSize: '14px', cursor: 'pointer',
-                }}
-              >
-                ✓ Yes, Received
-              </button>
-              <button
-                onClick={async () => {
-                  const normalized = pendingSuccess?.normalized;
-                  setShowCashPopup(false);
-                  resetForm();
-                  if (normalized?.id != null) {
-                    try {
-                      await apiFetch(`${ENDPOINTS.payment(normalized.id)}`, {
-                        method: 'PATCH',
-                        headers: authHeaders({ 'Content-Type': 'application/json' }),
-                        body: JSON.stringify({ cash_received: false }),
-                      });
-                    } catch (err) {
-                      console.warn('Failed to save cash_received:', err);
-                    }
-                  }
-                  if (typeof onSuccess === 'function' && normalized) {
-                    onSuccess({ ...normalized, cashReceived: false });
-                  }
-                  setPendingSuccess(null);
-                }}
-                style={{
-                  flex: 1, padding: '11px 0', borderRadius: '8px',
-                  border: '1.5px solid #ddd', background: '#f5f5f5',
-                  color: '#444', fontWeight: 700, fontSize: '14px', cursor: 'pointer',
-                }}
-              >
-                ✗ Not Yet
-              </button>
+              {!showCashAmountInput ? (
+                <>
+                  <button
+                    onClick={() => handleCashConfirmation(true)}
+                    style={{
+                      flex: 1, padding: '11px 0', borderRadius: '8px',
+                      border: 'none', background: '#266648', color: '#fff',
+                      fontWeight: 700, fontSize: '14px', cursor: 'pointer',
+                    }}
+                  >
+                    ✓ Yes, Received
+                  </button>
+                  <button
+                    onClick={() => handleCashConfirmation(false)}
+                    style={{
+                      flex: 1, padding: '11px 0', borderRadius: '8px',
+                      border: '1.5px solid #ddd', background: '#f5f5f5',
+                      color: '#444', fontWeight: 700, fontSize: '14px', cursor: 'pointer',
+                    }}
+                  >
+                    ✗ Not Yet
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    onClick={() => handleCashConfirmation(true)}
+                    style={{
+                      flex: 1, padding: '11px 0', borderRadius: '8px',
+                      border: 'none', background: '#266648', color: '#fff',
+                      fontWeight: 700, fontSize: '14px', cursor: 'pointer',
+                    }}
+                  >
+                    ✓ Confirm Amount
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCashAmountInput(false);
+                      setCashAmount('');
+                    }}
+                    style={{
+                      flex: 1, padding: '11px 0', borderRadius: '8px',
+                      border: '1.5px solid #ddd', background: '#f5f5f5',
+                      color: '#444', fontWeight: 700, fontSize: '14px', cursor: 'pointer',
+                    }}
+                  >
+                    ← Back
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

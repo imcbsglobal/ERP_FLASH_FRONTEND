@@ -104,8 +104,8 @@ export default function MobileResponsiveClaimsList() {
 
       {/* Add Claim Modal - Mobile Optimized */}
       {showAddForm && (
-        <div style={mobileModalStyles.overlay} onClick={() => setShowAddForm(false)}>
-          <div style={mobileModalStyles.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={mobileModalStyles.overlay}>
+          <div style={mobileModalStyles.modal}>
             <ClaimsAdd
               onSuccess={handleAddClaim}
               onCancel={() => setShowAddForm(false)}
@@ -116,8 +116,8 @@ export default function MobileResponsiveClaimsList() {
 
       {/* Edit Claim Modal */}
       {editingClaim && (
-        <div style={mobileModalStyles.overlay} onClick={() => setEditingClaim(null)}>
-          <div style={mobileModalStyles.modal} onClick={(e) => e.stopPropagation()}>
+        <div style={mobileModalStyles.overlay}>
+          <div style={mobileModalStyles.modal}>
             <ClaimsEdit
               claim={editingClaim}
               onSuccess={handleUpdateClaim}

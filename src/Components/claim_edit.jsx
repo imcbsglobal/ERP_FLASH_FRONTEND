@@ -1,5 +1,6 @@
 // claim_edit.jsx - Fixed version
 import { useState, useRef, useEffect } from "react";
+import ReactDOM from "react-dom";
 import CameraswitchOutlinedIcon from "@mui/icons-material/CameraswitchOutlined";
 import { updateClaim, fetchClaim, ENDPOINTS, authHeaders, apiFetch } from '../service/Api';
 
@@ -292,8 +293,139 @@ if (typeof document !== "undefined") {
     @media (min-width: 901px) and (max-width: 1100px) {
       .ce-card { max-width: 880px; }
     }
+
+    /* -- Expense type combobox -- */
+    .ce-combo-wrap { position: relative; width: 100%; }
+    .ce-combo-arrow {
+      position: absolute; right: 14px; top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none; color: #64748b; font-size: 11px;
+      transition: transform 0.15s;
+    }
+    .ce-combo-arrow--open { transform: translateY(-50%) rotate(180deg); }
+    .ce-combo-input { padding-right: 36px !important; }
   `;
   document.head.appendChild(style);
+}
+
+// Expense type combobox — portal so it escapes overflow:hidden
+function ExpenseTypeCombobox({ value, onChange, hasError }) {
+  const [open, setOpen]       = useState(false);
+  const [query, setQuery]     = useState(value || "");
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0 });
+  const inputRef              = useRef(null);
+  const dropRef               = useRef(null);
+
+  useEffect(() => { setQuery(value || ""); }, [value]);
+
+  useEffect(() => {
+    if (open && inputRef.current) {
+      const r = inputRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + window.scrollY + 4, left: r.left + window.scrollX, width: r.width });
+    }
+  }, [open]);
+
+  useEffect(() => {
+    function onDown(e) {
+      if (
+        inputRef.current && !inputRef.current.contains(e.target) &&
+        dropRef.current  && !dropRef.current.contains(e.target)
+      ) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    function onScroll(e) {
+      // Don't close when scrolling inside the dropdown list itself
+      if (dropRef.current && dropRef.current.contains(e.target)) return;
+      setOpen(false);
+    }
+    window.addEventListener("scroll", onScroll, true);
+    return () => window.removeEventListener("scroll", onScroll, true);
+  }, [open]);
+
+  const allOpts = expenseTypes.filter(t => t.value);
+  const filtered = query.trim()
+    ? allOpts.filter(t => t.label.toLowerCase().includes(query.toLowerCase()))
+    : allOpts;
+
+  function select(label) {
+    setQuery(label);
+    onChange({ target: { name: "expenseType", value: label } });
+    setOpen(false);
+  }
+
+  function handleInput(e) {
+    setQuery(e.target.value);
+    onChange({ target: { name: "expenseType", value: e.target.value } });
+    setOpen(true);
+  }
+
+  const inputStyle = { ...s.input, paddingRight: 36, ...(hasError ? s.inputError : {}) };
+
+  const dropdown = open ? ReactDOM.createPortal(
+    <div
+      ref={dropRef}
+      style={{
+        position: "absolute",
+        top: dropPos.top, left: dropPos.left, width: dropPos.width,
+        background: "#fff",
+        border: "1.5px solid #1a5cff",
+        borderRadius: 18,
+        boxShadow: "0 8px 28px rgba(0,0,0,0.14)",
+        zIndex: 99999,
+        maxHeight: 240,
+        overflowY: "auto",
+        fontFamily: "'Google Sans', sans-serif",
+      }}
+    >
+      {filtered.length > 0
+        ? filtered.map(t => (
+            <div
+              key={t.value}
+              onMouseDown={() => select(t.label)}
+              style={{
+                padding: "11px 16px", fontSize: 14,
+                color: value === t.label ? "#1a5cff" : "#1a2c3e",
+                background: value === t.label ? "#f0f6ff" : "transparent",
+                cursor: "pointer",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "#f0f6ff"}
+              onMouseLeave={e => e.currentTarget.style.background = value === t.label ? "#f0f6ff" : "transparent"}
+            >
+              {t.label}
+            </div>
+          ))
+        : (
+            <div style={{ padding: "11px 16px", fontSize: 13, color: "#94a3b8", fontStyle: "italic" }}>
+              Type to add &ldquo;{query}&rdquo; as custom expense type
+            </div>
+          )
+      }
+    </div>,
+    document.body
+  ) : null;
+
+  return (
+    <div className="ce-combo-wrap">
+      <input
+        ref={inputRef}
+        type="text"
+        name="expenseType"
+        placeholder="Select or type expense type"
+        value={query}
+        onChange={handleInput}
+        onFocus={() => setOpen(true)}
+        autoComplete="off"
+        style={inputStyle}
+      />
+      <span className={`ce-combo-arrow${open ? " ce-combo-arrow--open" : ""}`}>▼</span>
+      {dropdown}
+    </div>
+  );
 }
 
 // Field component
@@ -380,7 +512,7 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
 
   const validate = () => {
     const newErrors = {};
-    if (!form.expenseType) newErrors.expenseType = "Expense type is required.";
+    if (!form.expenseType?.trim()) newErrors.expenseType = "Expense type is required.";
     if (!form.department) newErrors.department = "Department is required.";
     if (!form.clientName?.trim()) newErrors.clientName = "Client name is required.";
     if (!form.purpose?.trim()) newErrors.purpose = "Purpose is required.";
@@ -486,18 +618,11 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
             </Field>
 
             <Field label="Expense Type" required error={errors.expenseType}>
-              <select
-                name="expenseType"
+              <ExpenseTypeCombobox
                 value={form.expenseType}
                 onChange={handleChange}
-                style={{ ...s.input, ...(errors.expenseType ? s.inputError : {}) }}
-              >
-                {expenseTypes.map((t) => (
-                  <option key={t.value} value={t.value}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
+                hasError={!!errors.expenseType}
+              />
             </Field>
           </div>
 

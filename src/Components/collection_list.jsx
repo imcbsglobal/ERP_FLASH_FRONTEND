@@ -3,7 +3,7 @@ import PaymentForm from './collection';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
-import { Bold } from 'lucide-react';
+import AddTaskIcon from '@mui/icons-material/AddTask';
 import { fetchPayments, fetchPaymentById, deletePayment, updatePaymentStatus, updatePayment, normalizePayment, ENDPOINTS, authHeaders, apiFetch } from '../service/Api';
 
 class AuthError extends Error {
@@ -14,7 +14,7 @@ class AuthError extends Error {
 }
 
 // ── Mobile Card Component ──────────────────────────────────────
-function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, onStatusUpdate, onEdit, onDelete, editLoading, mode, isAdmin, cashReceived, onViewProof }) {
+function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, onStatusUpdate, onEdit, onDelete, editLoading, mode, isAdmin, cashReceived, cashAmount, onViewProof, onCompletePendingAmount }) {
   const formatCurrency = (amount) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR',
       minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -36,6 +36,10 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
   const statusDisplay = payment.status === 'Failed' ? 'Rejected' : payment.status;
   const canEditDelete = isAdmin;
   const statusDisabled = updatingId === payment.id || (mode === 'all' && !isAdmin);
+  
+  // Calculate pending amount
+  const cashReceivedValue = cashReceived === true && cashAmount ? parseFloat(cashAmount) : 0;
+  const pendingAmount = Math.max(0, payment.amount - cashReceivedValue);
 
   return (
     <div className="mobile-card">
@@ -122,11 +126,48 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
           <div className="mc-lbl">Cash Received</div>
           <div className="mc-val">
             {cashReceived === true ? (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#e6f4ea", color: "#188038", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>✓ Yes</span>
+              <div>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#e6f4ea", color: "#188038", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
+                  ✓ Yes
+                </span>
+                {cashAmount && (
+                  <div style={{ fontSize: 12, fontWeight: 600, color: "#188038", marginTop: 2 }}>
+                    ₹{parseFloat(cashAmount).toLocaleString('en-IN')}
+                  </div>
+                )}
+              </div>
             ) : cashReceived === false ? (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#fce8e6", color: "#c5221f", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>✗ No</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 3, background: "#fce8e6", color: "#c5221f", borderRadius: 20, padding: "2px 8px", fontSize: 11, fontWeight: 700 }}>
+                ✗ No
+              </span>
             ) : (
               <span style={{ color: "#9ca3af", fontSize: 12 }}>—</span>
+            )}
+          </div>
+        </div>
+        <div>
+          <div className="mc-lbl">Pending Amount</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6px' }}>
+            <div className="mc-val" style={{ color: pendingAmount > 0.01 ? "#e67e22" : "#188038", fontWeight: 700 }}>
+              {formatCurrency(pendingAmount)}
+            </div>
+            {pendingAmount > 0.01 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onCompletePendingAmount(payment); }}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  padding: '2px',
+                  borderRadius: '4px',
+                  color: '#1a73e8'
+                }}
+                title="Complete pending amount"
+              >
+                <AddTaskIcon style={{ fontSize: '14px' }} />
+              </button>
             )}
           </div>
         </div>
@@ -191,24 +232,30 @@ const PaymentTable = ({ mode = 'all' }) => {
       return u?.role === 'Admin' || u?.is_staff === true;
     } catch { return false; }
   })();
-  const [payments, setPayments]               = useState([]);
-  const [loading, setLoading]                 = useState(true);
-  const [error, setError]                     = useState(null);
-  const [isAuthError, setIsAuthError]         = useState(false);
-  const [searchTerm, setSearchTerm]           = useState('');
-  const [filterType, setFilterType]           = useState('all');
-  const [filterStatus, setFilterStatus]       = useState('all');
-  const [dateFrom, setDateFrom]               = useState('');
-  const [dateTo, setDateTo]                   = useState('');
+  const [payments, setPayments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [isAuthError, setIsAuthError] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterType, setFilterType] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [showPaymentForm, setShowPaymentForm] = useState(false);
-  const [deletingId, setDeletingId]           = useState(null);
-  const [updatingId, setUpdatingId]           = useState(null);
-  const [editingPayment, setEditingPayment]   = useState(null);
-  const [editLoading, setEditLoading]         = useState(false);
+  const [deletingId, setDeletingId] = useState(null);
+  const [updatingId, setUpdatingId] = useState(null);
+  const [editingPayment, setEditingPayment] = useState(null);
+  const [editLoading, setEditLoading] = useState(false);
   
   // Cash received map: merged from API data + any popup answers in this session
   const [cashReceivedMap, setCashReceivedMap] = useState({});
-  const [proofViewer, setProofViewer]         = useState(null); // url string
+  const [cashAmountMap, setCashAmountMap] = useState({});
+  const [proofViewer, setProofViewer] = useState(null);
+
+  // State for pending amount completion
+  const [pendingCompletionPayment, setPendingCompletionPayment] = useState(null);
+  const [pendingAmountInput, setPendingAmountInput] = useState('');
+  const [completingPending, setCompletingPending] = useState(false);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -230,9 +277,8 @@ const PaymentTable = ({ mode = 'all' }) => {
 
     try {
       const params = new URLSearchParams();
-      if (searchTerm)            params.append('search', searchTerm);
+      if (searchTerm) params.append('search', searchTerm);
       if (filterType !== 'all') params.append('collection_type', filterType);
-      // "my" mode: server filters by the authenticated user via my_payments=true
       if (mode === 'my') {
         params.append('my_payments', 'true');
       }
@@ -245,17 +291,21 @@ const PaymentTable = ({ mode = 'all' }) => {
       const list = Array.isArray(data) ? data : (data.results ?? []);
       const normalized = list.map(normalizePayment);
       setPayments(normalized);
-      // Seed cashReceivedMap from whatever the API already has persisted
-      setCashReceivedMap(prev => {
-        const next = { ...prev };
-        normalized.forEach(p => {
-          if (p.cashReceived !== null && p.cashReceived !== undefined) {
-            next[p.id] = p.cashReceived;
-          }
-        });
-        return next;
+      
+      // Seed cashReceivedMap and cashAmountMap from API
+      const nextReceived = {};
+      const nextAmount = {};
+      normalized.forEach(p => {
+        if (p.cashReceived !== null && p.cashReceived !== undefined) {
+          nextReceived[p.id] = p.cashReceived;
+        }
+        if (p.cashAmount !== null && p.cashAmount !== undefined) {
+          nextAmount[p.id] = p.cashAmount;
+        }
       });
-      setCurrentPage(1); // Reset to first page when filters change
+      setCashReceivedMap(nextReceived);
+      setCashAmountMap(nextAmount);
+      setCurrentPage(1);
     } catch (err) {
       if (err.name === 'AuthError') {
         setIsAuthError(true);
@@ -273,9 +323,13 @@ const PaymentTable = ({ mode = 'all' }) => {
   // ── Add new payment from PaymentForm ──────────────────────────
   const handleNewPayment = async (normalizedPayment) => {
     setShowPaymentForm(false);
-    // Store cash received status for this payment if provided
-    if (normalizedPayment?.id != null && normalizedPayment.cashReceived !== undefined) {
-      setCashReceivedMap(prev => ({ ...prev, [normalizedPayment.id]: normalizedPayment.cashReceived }));
+    if (normalizedPayment?.id != null) {
+      if (normalizedPayment.cashReceived !== undefined) {
+        setCashReceivedMap(prev => ({ ...prev, [normalizedPayment.id]: normalizedPayment.cashReceived }));
+      }
+      if (normalizedPayment.cashAmount !== undefined) {
+        setCashAmountMap(prev => ({ ...prev, [normalizedPayment.id]: normalizedPayment.cashAmount }));
+      }
     }
     await loadPayments();
   };
@@ -295,6 +349,12 @@ const PaymentTable = ({ mode = 'all' }) => {
 
   const handleEditSuccess = (updatedPayment) => {
     setPayments(prev => prev.map(p => p.id === updatedPayment.id ? updatedPayment : p));
+    if (updatedPayment.cashReceived !== undefined) {
+      setCashReceivedMap(prev => ({ ...prev, [updatedPayment.id]: updatedPayment.cashReceived }));
+    }
+    if (updatedPayment.cashAmount !== undefined) {
+      setCashAmountMap(prev => ({ ...prev, [updatedPayment.id]: updatedPayment.cashAmount }));
+    }
     setEditingPayment(null);
   };
 
@@ -313,6 +373,8 @@ const PaymentTable = ({ mode = 'all' }) => {
         headers: authHeaders(),
       });
       setPayments(prev => prev.filter(p => p.id !== id));
+      setCashReceivedMap(prev => { const next = { ...prev }; delete next[id]; return next; });
+      setCashAmountMap(prev => { const next = { ...prev }; delete next[id]; return next; });
     } catch (err) {
       if (err.name === 'AuthError') {
         setIsAuthError(true);
@@ -352,30 +414,86 @@ const PaymentTable = ({ mode = 'all' }) => {
     }
   };
 
+  // ── Handle pending amount completion ──────────────────────────
+  const handleCompletePendingAmount = async (payment) => {
+    const cashReceived = cashReceivedMap[payment.id];
+    const cashAmountVal = cashAmountMap[payment.id];
+    const currentPendingAmount = cashReceived === true && cashAmountVal ? payment.amount - parseFloat(cashAmountVal) : payment.amount;
+    
+    setPendingCompletionPayment(payment);
+    setPendingAmountInput(currentPendingAmount.toString());
+  };
+
+  const handleSubmitPendingCompletion = async () => {
+    if (!pendingCompletionPayment) return;
+    
+    const pendingAmount = parseFloat(parseFloat(pendingAmountInput).toFixed(2));
+    if (isNaN(pendingAmount) || pendingAmount <= 0) {
+      alert('Please enter a valid pending amount');
+      return;
+    }
+    
+    // Get current cash received amount
+    const currentCashAmount = parseFloat(cashAmountMap[pendingCompletionPayment.id] || 0);
+    const newCashAmount = parseFloat((currentCashAmount + pendingAmount).toFixed(2));
+    
+    // Check if new cash amount exceeds total amount
+    if (newCashAmount > pendingCompletionPayment.amount) {
+      alert('Total cash received cannot exceed the payment amount');
+      return;
+    }
+    
+    setCompletingPending(true);
+    try {
+      // Update the payment with new cash received amount
+      const updatedPayment = await apiFetch(ENDPOINTS.payment(pendingCompletionPayment.id), {
+        method: 'PATCH',
+        headers: authHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          cash_received: true,
+          cash_amount: newCashAmount,
+        }),
+      });
+      
+      // Update local state
+      setCashReceivedMap(prev => ({ ...prev, [pendingCompletionPayment.id]: true }));
+      setCashAmountMap(prev => ({ ...prev, [pendingCompletionPayment.id]: newCashAmount }));
+      setPayments(prev => prev.map(p => p.id === pendingCompletionPayment.id ? normalizePayment(updatedPayment) : p));
+      
+      // Close modal
+      setPendingCompletionPayment(null);
+      setPendingAmountInput('');
+      
+      alert('Pending amount updated successfully!');
+    } catch (err) {
+      console.error('Failed to update pending amount:', err);
+      alert(`Failed to update: ${err.message}`);
+    } finally {
+      setCompletingPending(false);
+    }
+  };
+
   // ── Client-side filter ─────────────────────────────────────────
   const filteredPayments = payments.filter(payment => {
     const search = searchTerm.toLowerCase();
     const matchesSearch =
-      (payment.clientName  || '').toLowerCase().includes(search) ||
-      (payment.branch      || '').toLowerCase().includes(search) ||
-      (payment.paidFor     || '').toLowerCase().includes(search) ||
-      (payment.department  || '').toLowerCase().includes(search) ||
-      (payment.place       || '').toLowerCase().includes(search) ||
+      (payment.clientName || '').toLowerCase().includes(search) ||
+      (payment.branch || '').toLowerCase().includes(search) ||
+      (payment.paidFor || '').toLowerCase().includes(search) ||
+      (payment.department || '').toLowerCase().includes(search) ||
+      (payment.place || '').toLowerCase().includes(search) ||
       (payment.phoneNumber || '').includes(searchTerm);
-    const matchesType   = filterType === 'all' || payment.collectionType === filterType;
+    const matchesType = filterType === 'all' || payment.collectionType === filterType;
     const matchesStatus = filterStatus === 'all' || (payment.status || '').toLowerCase() === filterStatus.toLowerCase();
     const payDate = payment.date ? new Date(payment.date) : null;
     const matchesFrom = !dateFrom || (payDate && payDate >= new Date(dateFrom));
-    const matchesTo   = !dateTo   || (payDate && payDate <= new Date(dateTo + 'T23:59:59'));
-    // "my" mode: server already filtered, but apply client-side guard using created_by
+    const matchesTo = !dateTo || (payDate && payDate <= new Date(dateTo + 'T23:59:59'));
     const matchesUser = mode !== 'my' ? true : (() => {
       const uid = loggedInUser.id;
-      // Check both created_by and created_by_id since API response field name may vary
       const createdBy = payment.created_by != null ? payment.created_by : (payment.created_by_id != null ? payment.created_by_id : null);
       if (uid && createdBy != null) {
         return String(createdBy) === String(uid);
       }
-      // Fallback: if API didn't return created_by, trust the server filtered correctly
       return true;
     })();
     return matchesSearch && matchesType && matchesStatus && matchesFrom && matchesTo && matchesUser;
@@ -442,15 +560,14 @@ const PaymentTable = ({ mode = 'all' }) => {
 
   const collectionTypes = ['all', 'Cash', 'Cheque', 'Bank Transfer', 'Credit Card', 'Debit Card', 'Online Payment'];
 
-  // Table headers — Action column visible to admins only
+  // Table headers - Added "Pending Amount" column
   const canActOnRows = isAdmin;
   const headers = [
     "Sl. no.", "Date", "Client Name", "Branch",
-    "Payment Type", "Amount", "Paid For", "Cash Received", "Status", "Proof",
+    "Payment Type", "Amount", "Paid For", "Cash Received", "Pending Amount", "Status", "Proof",
     ...(canActOnRows ? ["Action"] : []),
   ];
 
-  // Table styles - th font size set to 20
   const thStyle = { 
     fontSize: 15, 
     fontWeight: 600, 
@@ -511,7 +628,7 @@ const PaymentTable = ({ mode = 'all' }) => {
 
   // ── Render ─────────────────────────────────────────────────────
   return (
-    <>
+    <div className="pt-root-container">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap');
         * { font-family: 'Google Sans', sans-serif; }
@@ -523,7 +640,7 @@ const PaymentTable = ({ mode = 'all' }) => {
           padding: 4px 10px;
           border-radius: 6px;
           font-size: 14px;
-          font-weight:bold;
+          font-weight: bold;
           border: none;
           cursor: pointer;
           text-align: left;
@@ -533,10 +650,10 @@ const PaymentTable = ({ mode = 'all' }) => {
           color: #333;
         }
         .status-select:disabled { cursor: not-allowed; opacity: 0.6; }
-        .status-select.pill-green { background:#188038 !important; color: #f6faf7 !important; }
+        .status-select.pill-green { background: #188038 !important; color: #f6faf7 !important; }
         .status-select.pill-amber { background: rgb(247, 170, 4) !important; color: #faf9fc !important; }
         .status-select.pill-red { background: #d35741f5 !important; color: #f5f1f1 !important; }
-        .status-select.pill-muted { background:#5f6368 !important; color: #fff !important; }
+        .status-select.pill-muted { background: #5f6368 !important; color: #fff !important; }
         
         .file-link {
           display: inline-flex;
@@ -548,10 +665,7 @@ const PaymentTable = ({ mode = 'all' }) => {
         }
         .file-link:hover { color: #1557b0; }
         
-        .no-proof {
-          color: #cbd5e1;
-          font-size: 0.78rem;
-        }
+        .no-proof { color: #cbd5e1; font-size: 0.78rem; }
         
         .pt-modal-backdrop { 
           position: fixed; inset: 0; background: rgba(0,0,0,0.48);
@@ -576,8 +690,8 @@ const PaymentTable = ({ mode = 'all' }) => {
         
         .client-info { display: flex; flex-direction: column; gap: 1px; }
         .client-name { font-weight: 600; color: #111827; font-size: 14px; }
-        .client-place { font-size: 13px; color: #0c0c0c; display: flex; align-items: center; gap: -1px; }
-        .client-phone { font-size: 13px; color: #0a0a0a; display: flex; align-items: center; gap: 0px; margin-top: 0; }
+        .client-place { font-size: 13px; color: #0c0c0c; display: flex; align-items: center; gap: 2px; }
+        .client-phone { font-size: 13px; color: #0a0a0a; display: flex; align-items: center; gap: 2px; margin-top: 0; }
         .client-place svg, .client-phone svg { width: 11px; height: 11px; opacity: 0.7; flex-shrink: 0; }
         
         .department-badge {
@@ -597,7 +711,6 @@ const PaymentTable = ({ mode = 'all' }) => {
           max-width: 160px;
         }
 
-        /* Single scrollable table container - only table body scrolls */
         .single-scroll-table-container {
           flex: 1;
           min-height: 0;
@@ -619,7 +732,6 @@ const PaymentTable = ({ mode = 'all' }) => {
           background: #017efc;
         }
 
-        /* Pagination Styles */
         .pagination-container {
           display: flex;
           justify-content: flex-end;
@@ -674,15 +786,7 @@ const PaymentTable = ({ mode = 'all' }) => {
           font-size: 14px;
           color: #5f6368;
         }
-        
-        .pagination-info {
-          font-size: 13px;
-          color: #5f6368;
-          margin-right: 16px;
-          font-family: 'Google Sans', sans-serif;
-        }
 
-        /* ── Filter grid layout ── */
         .filters-grid {
           display: flex;
           gap: 8px;
@@ -745,7 +849,6 @@ const PaymentTable = ({ mode = 'all' }) => {
           display: flex;
           align-items: flex-end;
         }
-        /* Row wrappers — transparent on desktop (flex children), grid on mobile */
         .filter-row-2col,
         .filter-row-dates {
           display: contents;
@@ -762,7 +865,6 @@ const PaymentTable = ({ mode = 'all' }) => {
           gap: 0;
         }
 
-        /* ── Root container ── */
         .pt-root-container {
           height: 100%;
           display: flex;
@@ -770,7 +872,6 @@ const PaymentTable = ({ mode = 'all' }) => {
           overflow: hidden;
         }
 
-        /* ── Mobile Card styles ── */
         .mobile-card-scroll-wrapper {
           display: none;
           flex-direction: column;
@@ -809,7 +910,6 @@ const PaymentTable = ({ mode = 'all' }) => {
         .mc-val-blue { color: #1a73e8; font-weight: 700; }
         .mc-actions { display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f3f4f6; }
 
-        /* ── Mobile responsive ── */
         @media (max-width: 600px) {
           .pt-root-container {
             height: 100dvh !important;
@@ -838,14 +938,12 @@ const PaymentTable = ({ mode = 'all' }) => {
             width: 100%;
             min-width: unset;
           }
-          /* Payment Type + Status → side by side */
           .filter-row-2col {
             display: grid !important;
             grid-template-columns: 1fr 1fr;
             gap: 10px;
             width: 100%;
           }
-          /* From Date + To Date → side by side */
           .filter-row-dates {
             display: grid !important;
             grid-template-columns: 1fr 1fr;
@@ -887,11 +985,7 @@ const PaymentTable = ({ mode = 'all' }) => {
             gap: 6px;
           }
           .col-hide-mobile { display: none !important; }
-          /* Tighter filter section on mobile */
           .filter-container { padding: 12px !important; margin-bottom: 12px !important; }
-          div[style*="flexShrink: 0"] { padding-top: 8px !important; }
-
-          /* ── Compact cards on mobile ── */
           .mobile-card { padding: 9px 11px !important; border-radius: 10px !important; }
           .mc-serial { width: 24px !important; height: 24px !important; font-size: 10px !important; }
           .client-name { font-size: 12px !important; }
@@ -903,48 +997,8 @@ const PaymentTable = ({ mode = 'all' }) => {
           .mobile-card-list { gap: 7px !important; }
           .mobile-card-scroll-wrapper { padding-bottom: 10px !important; }
           .desktop-pagination-only { display: none !important; }
-
-          /* ── Proof Viewer Mobile Fixes ── */
-          .proof-viewer-modal {
-            padding: 8px !important;
-          }
-          .proof-viewer-container {
-            max-width: 100% !important;
-            max-height: 95vh !important;
-            border-radius: 12px !important;
-          }
-          .proof-viewer-header {
-            padding: 10px 12px !important;
-          }
-          .proof-viewer-header span {
-            font-size: 14px !important;
-          }
-          .proof-viewer-header a {
-            padding: 5px 10px !important;
-            font-size: 11px !important;
-          }
-          .proof-viewer-header button {
-            width: 28px !important;
-            height: 28px !important;
-            font-size: 16px !important;
-          }
-          .proof-viewer-content {
-            padding: 12px !important;
-          }
-          .proof-viewer-content img {
-            max-width: 100% !important;
-            max-height: 75vh !important;
-            width: 100% !important;
-            height: auto !important;
-            object-fit: contain !important;
-          }
-          .proof-viewer-content iframe {
-            width: 100% !important;
-            height: 75vh !important;
-          }
         }
       
-        /* ── IMCB Footer ── */
         .imcb-footer {
           text-align: center;
           padding: 12px 16px;
@@ -968,18 +1022,15 @@ const PaymentTable = ({ mode = 'all' }) => {
         }
       `}</style>
 
-      <div className="pt-root-container">
-
-        {/* ── Sticky Page Header Bar ── */}
-        <div className="page-header-bar">
-          <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <h1 style={{ fontSize: 25, fontWeight: "600", color: "#050505", margin: 5, letterSpacing: "0.10px", lineHeight: 1.2 }}>
-              {mode === 'my' ? 'My Collections' : 'Collection Report'}
-            </h1>
-          </div>
-
-          <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
-            {mode === 'my' && (
+      {/* Page Header Bar */}
+      <div className="page-header-bar">
+        <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
+          <h1 style={{ fontSize: 25, fontWeight: "600", color: "#050505", margin: 5, letterSpacing: "0.10px", lineHeight: 1.2 }}>
+            {mode === 'my' ? 'My Collections' : 'Collection Report'}
+          </h1>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexShrink: 0 }}>
+          {mode === 'my' && (
             <button 
               onClick={() => setShowPaymentForm(true)} 
               style={{ 
@@ -988,34 +1039,28 @@ const PaymentTable = ({ mode = 'all' }) => {
                 fontWeight: 700, fontSize: 13, cursor: "pointer", fontFamily: "'Google Sans', sans-serif", 
                 boxShadow: "0 2px 8px rgba(26,115,232,0.3)", transition: "all 0.2s", whiteSpace: "nowrap" 
               }}
-              onMouseEnter={e => { e.currentTarget.style.background = "#1557b0"; e.currentTarget.style.transform = "translateY(-1px)"; }}
-              onMouseLeave={e => { e.currentTarget.style.background = "#1a73e8"; e.currentTarget.style.transform = "translateY(0)"; }}
             >
               + New Payment
             </button>
-            )}
-          </div>
+          )}
         </div>
+      </div>
 
-        {/* ── Filters Section (Always Visible) ── */}
-        <div style={{ flexShrink: 0, padding: "8px 16px 0 16px" }}>
-          <div className="filter-container" style={{ background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
-            <div className="filters-grid">
-              {/* Search */}
-              <div className="filter-item-search">
-                <label className="filter-label">Search</label>
-                <input 
-                  className="pt-search-input"
-                  type="text" 
-                  placeholder="Search by client, place, phone, branch, department or service..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-
-              {/* Payment Type + Status → one row on mobile */}
-              <div className="filter-row-2col">
-              {/* Payment Type */}
+      {/* Filters Section */}
+      <div style={{ flexShrink: 0, padding: "8px 16px 0 16px" }}>
+        <div className="filter-container" style={{ background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "10px 14px", marginBottom: 10 }}>
+          <div className="filters-grid">
+            <div className="filter-item-search">
+              <label className="filter-label">Search</label>
+              <input 
+                className="pt-search-input"
+                type="text" 
+                placeholder="Search by client, place, phone, branch, department or service..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="filter-row-2col">
               <div className="filter-item">
                 <label className="filter-label">Payment Type</label>
                 <select 
@@ -1028,8 +1073,6 @@ const PaymentTable = ({ mode = 'all' }) => {
                   ))}
                 </select>
               </div>
-
-              {/* Status */}
               <div className="filter-item">
                 <label className="filter-label">Status</label>
                 <select 
@@ -1043,11 +1086,8 @@ const PaymentTable = ({ mode = 'all' }) => {
                   <option value="Rejected">Rejected</option>
                 </select>
               </div>
-              </div>
-
-              {/* From Date + To Date → one row on mobile */}
-              <div className="filter-row-dates">
-              {/* Date From */}
+            </div>
+            <div className="filter-row-dates">
               <div className="filter-item">
                 <label className="filter-label">From Date</label>
                 <input
@@ -1056,8 +1096,6 @@ const PaymentTable = ({ mode = 'all' }) => {
                   onChange={(e) => setDateFrom(e.target.value)}
                 />
               </div>
-
-              {/* Date To */}
               <div className="filter-item">
                 <label className="filter-label">To Date</label>
                 <input
@@ -1066,60 +1104,52 @@ const PaymentTable = ({ mode = 'all' }) => {
                   onChange={(e) => setDateTo(e.target.value)}
                 />
               </div>
-              </div>
-
-              {/* Clear Filters Button */}
-              {(dateFrom || dateTo || filterStatus !== 'all') && (
-                <div className="filter-clear-wrap">
-                  <button 
-                    className="filter-clear-btn"
-                    onClick={() => { setDateFrom(''); setDateTo(''); setFilterStatus('all'); }}
-                  >
-                    Clear Filters
-                  </button>
-                </div>
-              )}
             </div>
+            {(dateFrom || dateTo || filterStatus !== 'all') && (
+              <div className="filter-clear-wrap">
+                <button 
+                  className="filter-clear-btn"
+                  onClick={() => { setDateFrom(''); setDateTo(''); setFilterStatus('all'); }}
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
           </div>
         </div>
+      </div>
 
-        {/* ── Single Scrollable Table Body Only ── */}
-        <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", padding: "0 16px 8px 16px" }}>
-          
-          {/* ── Count and Pagination Info ── */}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexShrink: 0 }}>
-            
-          </div>
-
-          {/* ── Table with Single Scrollbar (Only Table Scrolls) ── */}
-          {filteredPayments.length > 0 ? (
-            <>
-              <div className="single-scroll-table-container">
-                <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr>
-                      {headers.map(h => (
-                        <th key={h} className={["Branch","Paid For","Proof","Cash Received"].includes(h) ? "col-hide-mobile" : ""} style={{ ...thStyle, textAlign: h === "Amount" ? "right" : "left" }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentPayments.map((payment, index) => (
+      {/* Table Section */}
+      <div style={{ flex: 1, minHeight: 0, overflow: "hidden", display: "flex", flexDirection: "column", padding: "0 16px 8px 16px" }}>
+        {filteredPayments.length > 0 ? (
+          <>
+            <div className="single-scroll-table-container">
+              <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr>
+                    {headers.map(h => (
+                      <th key={h} className={["Branch","Paid For","Proof","Cash Received","Pending Amount"].includes(h) ? "col-hide-mobile" : ""} style={{ ...thStyle, textAlign: h === "Amount" || h === "Pending Amount" ? "right" : "left" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentPayments.map((payment, index) => {
+                    const cashReceived = cashReceivedMap[payment.id];
+                    const cashAmountVal = cashAmountMap[payment.id];
+                    // Calculate pending amount
+                    const cashReceivedValue = cashReceived === true && cashAmountVal ? parseFloat(cashAmountVal) : 0;
+                    const pendingAmount = Math.max(0, payment.amount - cashReceivedValue);
+                    
+                    return (
                       <tr key={payment.id}
                         onMouseEnter={e => e.currentTarget.style.background = "#f8f9fa"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
                       >
-                        {/* Sl. no. */}
                         <td style={{ ...tdStyle, color: "#9aa0a6", fontWeight: 600, width: 56 }}>{startIndex + index + 1}</td>
-                        
-                        {/* Date */}
                         <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
                           <div style={{ fontWeight: 500 }}>{formatDate(payment.date)}</div>
                           {(payment.createdByName || payment.created_by_name) && (
-                            <div style={{
-                              display: "flex", alignItems: "center", gap: 4,
-                              marginTop: 2, fontSize: 12, color: "#0a0a0a", fontWeight: 500
-                            }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, fontSize: 12, color: "#0a0a0a", fontWeight: 500 }}>
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10" style={{ flexShrink: 0 }}>
                                 <circle cx="12" cy="8" r="4" />
                                 <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
@@ -1128,52 +1158,46 @@ const PaymentTable = ({ mode = 'all' }) => {
                             </div>
                           )}
                         </td>
-                        
-                        {/* Client Name with details */}
                         <td style={{ ...tdStyle, textAlign: 'left' }}>
                           <div className="client-info">
                             <div className="client-name">{payment.clientName}</div>
-                            
                           </div>
                         </td>
-                        
-                        {/* Branch (formerly Department) */}
                         <td className="col-hide-mobile" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 180 }}>
                           {payment.department ? (
-                            <span className="department-badge">
-                              {payment.department}
-                            </span>
+                            <span className="department-badge">{payment.department}</span>
                           ) : (
                             <span style={{ color: '#9ca3af', fontSize: '12px' }}>—</span>
                           )}
                         </td>
-                        
-                        {/* Payment Type */}
                         <td style={tdStyle}>{payment.collectionType}</td>
-                        
-                        {/* Amount */}
                         <td style={{ ...tdStyle, textAlign: "right", fontWeight: "600" }}>{formatCurrency(payment.amount)}</td>
-                        
-                        {/* Paid For */}
                         <td className="paidfor-cell col-hide-mobile" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 160 }}>{payment.paidFor}</td>
-
-                        {/* Cash Received */}
+                        
+                        {/* Cash Received Column */}
                         <td className="col-hide-mobile" style={{ ...tdStyle, textAlign: "center" }}>
-                          {cashReceivedMap[payment.id] === true ? (
-                            <span style={{
-                              display: "inline-flex", alignItems: "center", gap: 4,
-                              background: "#e6f4ea", color: "#188038",
-                              borderRadius: 6, padding: "3px 10px",
-                              fontSize: 12, fontWeight: 700,
-                            }}>
-                              ✓ Yes
-                            </span>
-                          ) : cashReceivedMap[payment.id] === false ? (
-                            <span style={{
-                              display: "inline-flex",alignItems: "center", gap: 4,
-                              background: "#fce8e6", color: "#c5221f",
-                              borderRadius: 6, padding: "3px 10px",
-                              fontSize: 12, fontWeight: 700,
+                          {cashReceived === true ? (
+                            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+                              <span style={{ 
+                                display: "inline-flex", alignItems: "center", gap: 4, 
+                                background: "#e6f4ea", color: "#188038", 
+                                borderRadius: 6, padding: "3px 10px", 
+                                fontSize: 12, fontWeight: 700 
+                              }}>
+                                ✓ Yes
+                              </span>
+                              {cashAmountVal && (
+                                <div style={{ fontSize: 13, fontWeight: 600, color: "#188038", marginTop: 4, textAlign: "right", width: "100%" }}>
+                                  ₹{parseFloat(cashAmountVal).toLocaleString('en-IN')}
+                                </div>
+                              )}
+                            </div>
+                          ) : cashReceived === false ? (
+                            <span style={{ 
+                              display: "inline-flex", alignItems: "center", gap: 4, 
+                              background: "#fce8e6", color: "#c5221f", 
+                              borderRadius: 6, padding: "3px 10px", 
+                              fontSize: 12, fontWeight: 700 
                             }}>
                               ✗ No
                             </span>
@@ -1181,8 +1205,41 @@ const PaymentTable = ({ mode = 'all' }) => {
                             <span style={{ color: "#cbd5e1", fontSize: 12 }}>—</span>
                           )}
                         </td>
-
-                        {/* Status */}
+                        
+                        {/* Pending Amount Column with AddTask Icon */}
+                        <td className="col-hide-mobile" style={{ ...tdStyle, textAlign: "right" }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '8px' }}>
+                            <span style={{ 
+                              fontWeight: 700, 
+                              color: pendingAmount > 0.01 ? "#e67e22" : "#188038",
+                              fontSize: 14
+                            }}>
+                              {formatCurrency(pendingAmount)}
+                            </span>
+                            {pendingAmount > 0.01 && (
+                              <button
+                                onClick={() => handleCompletePendingAmount(payment)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  padding: '4px',
+                                  borderRadius: '4px',
+                                  color: '#1a73e8',
+                                  transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => e.currentTarget.style.background = '#e8f0fe'}
+                                onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                                title="Complete pending amount"
+                              >
+                                <AddTaskIcon style={{ fontSize: '18px' }} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                        
                         <td style={tdStyle}>
                           <select
                             className={`status-select ${getStatusClass(payment.status)}`}
@@ -1190,13 +1247,9 @@ const PaymentTable = ({ mode = 'all' }) => {
                             disabled={updatingId === payment.id || (mode === 'all' && !isAdmin)}
                             onChange={(e) => handleStatusUpdate(payment, e.target.value)}
                           >
-                            {STATUS_OPTIONS.map(s => (
-                              <option key={s} value={s}>{s}</option>
-                            ))}
+                            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
                         </td>
-                        
-                        {/* Proof */}
                         <td className="col-hide-mobile" style={{ ...tdStyle, textAlign: "left" }}>
                           {payment.paymentProofUrl ? (
                             <button className="file-link" style={{ background: "none", border: "none", cursor: "pointer", padding: 0 }}
@@ -1207,30 +1260,18 @@ const PaymentTable = ({ mode = 'all' }) => {
                             <span className="no-proof">—</span>
                           )}
                         </td>
-
-                        {/* Actions — admin / my-payments only */}
                         {canActOnRows && (
                           <td style={{ ...tdStyle, textAlign: "left" }}>
                             <div style={{ display: "flex", gap: 6 }}>
                               <button 
                                 onClick={() => handleEditClick(payment)} 
-                                style={{ 
-                                  padding: "5px 12px", borderRadius: 6, border: "none", 
-                                  background: "#1a73e8", color: "#fff", fontSize: 12, 
-                                  fontWeight: 600, cursor: "pointer", display: "flex", 
-                                  alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" 
-                                }}
+                                style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
                               >
                                 <EditOutlinedIcon style={{ fontSize: 13 }} />
                               </button>
                               <button 
                                 onClick={() => confirmDelete(payment.id)} 
-                                style={{ 
-                                  padding: "5px 12px", borderRadius: 6, border: "none", 
-                                  background: "#d93025", color: "#fff", fontSize: 12, 
-                                  fontWeight: 600, cursor: "pointer", display: "flex", 
-                                  alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" 
-                                }}
+                                style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#d93025", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
                               >
                                 <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} />
                               </button>
@@ -1238,69 +1279,38 @@ const PaymentTable = ({ mode = 'all' }) => {
                           </td>
                         )}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="pagination-container desktop-pagination-only">
+                <button className="pagination-button" onClick={goToPreviousPage} disabled={currentPage === 1}>‹ Previous</button>
+                {getVisiblePages()[0] > 1 && (
+                  <>
+                    <button className="pagination-button" onClick={() => goToPage(1)}>1</button>
+                    {getVisiblePages()[0] > 2 && <span className="pagination-ellipsis">...</span>}
+                  </>
+                )}
+                {getVisiblePages().map(page => (
+                  <button key={page} className={`pagination-button ${currentPage === page ? 'active' : ''}`} onClick={() => goToPage(page)}>{page}</button>
+                ))}
+                {getVisiblePages()[getVisiblePages().length - 1] < totalPages && (
+                  <>
+                    {getVisiblePages()[getVisiblePages().length - 1] < totalPages - 1 && <span className="pagination-ellipsis">...</span>}
+                    <button className="pagination-button" onClick={() => goToPage(totalPages)}>{totalPages}</button>
+                  </>
+                )}
+                <button className="pagination-button" onClick={goToNextPage} disabled={currentPage === totalPages}>Next ›</button>
               </div>
+            )}
 
-              {/* ── Pagination ── */}
-              {totalPages > 1 && (
-                <div className="pagination-container desktop-pagination-only">
-                  <button
-                    className="pagination-button"
-                    onClick={goToPreviousPage}
-                    disabled={currentPage === 1}
-                  >
-                    ‹ Previous
-                  </button>
-                  
-                  {getVisiblePages()[0] > 1 && (
-                    <>
-                      <button
-                        className="pagination-button"
-                        onClick={() => goToPage(1)}
-                      >
-                        1
-                      </button>
-                      {getVisiblePages()[0] > 2 && <span className="pagination-ellipsis">...</span>}
-                    </>
-                  )}
-                  
-                  {getVisiblePages().map(page => (
-                    <button
-                      key={page}
-                      className={`pagination-button ${currentPage === page ? 'active' : ''}`}
-                      onClick={() => goToPage(page)}
-                    >
-                      {page}
-                    </button>
-                  ))}
-                  
-                  {getVisiblePages()[getVisiblePages().length - 1] < totalPages && (
-                    <>
-                      {getVisiblePages()[getVisiblePages().length - 1] < totalPages - 1 && <span className="pagination-ellipsis">...</span>}
-                      <button
-                        className="pagination-button"
-                        onClick={() => goToPage(totalPages)}
-                      >
-                        {totalPages}
-                      </button>
-                    </>
-                  )}
-                  
-                  <button
-                    className="pagination-button"
-                    onClick={goToNextPage}
-                    disabled={currentPage === totalPages}
-                  >
-                    Next ›
-                  </button>
-                </div>
-              )}
-
-              {/* ── Mobile Card List (hidden on desktop via CSS) ── */}
-              <div className="mobile-card-scroll-wrapper">
-                <div className="mobile-card-list">
+            {/* Mobile Card List */}
+            <div className="mobile-card-scroll-wrapper">
+              <div className="mobile-card-list">
                 {currentPayments.map((payment, index) => (
                   <MobileCard
                     key={payment.id}
@@ -1316,10 +1326,11 @@ const PaymentTable = ({ mode = 'all' }) => {
                     mode={mode}
                     isAdmin={isAdmin}
                     onViewProof={setProofViewer}
+                    onCompletePendingAmount={handleCompletePendingAmount}
                     cashReceived={cashReceivedMap[payment.id]}
+                    cashAmount={cashAmountMap[payment.id]}
                   />
                 ))}
-                {/* Mobile pagination */}
                 {totalPages > 1 && (
                   <div className="pagination-container">
                     <button className="pagination-button" onClick={goToPreviousPage} disabled={currentPage === 1}>‹ Prev</button>
@@ -1329,93 +1340,66 @@ const PaymentTable = ({ mode = 'all' }) => {
                     <button className="pagination-button" onClick={goToNextPage} disabled={currentPage === totalPages}>Next ›</button>
                   </div>
                 )}
-                </div>
               </div>
-            </>
-          ) : (
-            <div style={{ textAlign: "left", padding: "60px 20px", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, color: "#5f6368", fontSize: 14, fontFamily: "'Google Sans', sans-serif" }}>
-              <div style={{ fontWeight: 700, fontSize: 16, color: "#202124", marginBottom: 6 }}>No payments found</div>
-              <div>Try adjusting your filters or add a new payment.</div>
             </div>
-          )}
-        </div>
+          </>
+        ) : (
+          <div style={{ textAlign: "left", padding: "60px 20px", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, color: "#5f6368", fontSize: 14, fontFamily: "'Google Sans', sans-serif" }}>
+            <div style={{ fontWeight: 700, fontSize: 16, color: "#202124", marginBottom: 6 }}>No payments found</div>
+            <div>Try adjusting your filters or add a new payment.</div>
+          </div>
+        )}
+      </div>
+      
       {/* Footer */}
       <div className="imcb-footer">
         Powered by <span style={{ fontWeight: 600, color: "#1a73e8" }}>IMCB Solutions LLP</span>
       </div>
-      </div>
 
-      {/* ── Proof Viewer Modal ── */}
+      {/* Proof Viewer Modal */}
       {proofViewer && (() => {
-        // Detect file type from the URL path, ignoring query params
         const proofPath = (() => { try { return new URL(proofViewer).pathname; } catch { return proofViewer; } })();
         const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(proofPath);
-        const isPdf   = /\.pdf$/i.test(proofPath);
+        const isPdf = /\.pdf$/i.test(proofPath);
         return (
-          <div className="proof-viewer-modal" style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, padding: "env(safe-area-inset-top, 12px) 12px 12px" }}
+          <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.82)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100 }}
             onClick={() => setProofViewer(null)}>
-            <div className="proof-viewer-container" style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 720, height: "90dvh", display: "flex", flexDirection: "column", boxShadow: "0 24px 64px rgba(0,0,0,0.45)", overflow: "hidden" }}
+            <div style={{ background: "#fff", borderRadius: 14, width: "100%", maxWidth: 720, height: "90dvh", display: "flex", flexDirection: "column", overflow: "hidden" }}
               onClick={e => e.stopPropagation()}>
-              {/* Header */}
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #e8eaed", flexShrink: 0, background: "#fff" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderBottom: "1px solid #e8eaed", flexShrink: 0 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <VisibilityOutlinedIcon style={{ fontSize: 18, color: "#1a73e8" }} />
-                  <span style={{ fontWeight: 700, fontSize: 15, color: "#202124", fontFamily: "'Google Sans', sans-serif" }}>Payment Proof</span>
+                  <span style={{ fontWeight: 700, fontSize: 15 }}>Payment Proof</span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <a href={proofViewer} target="_blank" rel="noreferrer"
-                    style={{ padding: "6px 12px", borderRadius: 7, background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none", fontFamily: "'Google Sans', sans-serif", whiteSpace: "nowrap" }}>
+                    style={{ padding: "6px 12px", borderRadius: 7, background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, textDecoration: "none" }}>
                     Open ↗
                   </a>
                   <button onClick={() => setProofViewer(null)}
-                    style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e8eaed", background: "#f8f9fa", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "#5f6368", lineHeight: 1, flexShrink: 0 }}>
+                    style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e8eaed", background: "#f8f9fa", cursor: "pointer", fontSize: 20 }}>
                     ×
                   </button>
                 </div>
               </div>
-              {/* Content */}
               <div style={{ flex: 1, minHeight: 0, overflow: "auto", background: "#1a1a1a", display: "flex", alignItems: "center", justifyContent: "center", padding: isImage ? 12 : 0 }}>
                 {isImage ? (
-                  <img
-                    src={proofViewer}
-                    alt="Payment Proof"
-                    style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 6, objectFit: "contain", display: "block" }}
-                    onError={e => { e.target.style.display = "none"; e.target.nextSibling.style.display = "flex"; }}
-                  />
+                  <img src={proofViewer} alt="Payment Proof" style={{ maxWidth: "100%", maxHeight: "100%", objectFit: "contain" }} />
                 ) : isPdf ? (
-                  <iframe
-                    src={proofViewer}
-                    title="Payment Proof"
-                    style={{ width: "100%", height: "100%", border: "none" }}
-                  />
+                  <iframe src={proofViewer} title="Payment Proof" style={{ width: "100%", height: "100%", border: "none" }} />
                 ) : (
-                  /* Fallback: try as image first, then offer open link */
-                  <img
-                    src={proofViewer}
-                    alt="Payment Proof"
-                    style={{ maxWidth: "100%", maxHeight: "100%", borderRadius: 6, objectFit: "contain", display: "block" }}
-                    onError={e => {
-                      e.target.style.display = "none";
-                      e.target.nextSibling.style.display = "flex";
-                    }}
-                  />
+                  <div style={{ textAlign: "center", color: "#ccc" }}>
+                    <p>Cannot preview this file.</p>
+                    <a href={proofViewer} target="_blank" rel="noreferrer" style={{ color: "#1a73e8" }}>Open file</a>
+                  </div>
                 )}
-                {/* Error fallback shown if image fails to load */}
-                <div style={{ display: "none", flexDirection: "column", alignItems: "center", gap: 12, color: "#ccc", fontFamily: "'Google Sans', sans-serif" }}>
-                  <span style={{ fontSize: 40 }}>📄</span>
-                  <span style={{ fontSize: 13 }}>Cannot preview this file.</span>
-                  <a href={proofViewer} target="_blank" rel="noreferrer"
-                    style={{ padding: "8px 18px", borderRadius: 8, background: "#1a73e8", color: "#fff", fontSize: 13, fontWeight: 600, textDecoration: "none" }}>
-                    Open file
-                  </a>
-                </div>
               </div>
             </div>
           </div>
         );
       })()}
 
-      {/* ── New Payment Modal ── */}
+      {/* New Payment Modal */}
       {showPaymentForm && (
         <div className="pt-modal-backdrop">
           <div className="pt-modal">
@@ -1433,7 +1417,7 @@ const PaymentTable = ({ mode = 'all' }) => {
         </div>
       )}
 
-      {/* ── Edit Payment Modal ── */}
+      {/* Edit Payment Modal */}
       {editingPayment && (
         <div className="pt-modal-backdrop">
           <div className="pt-modal">
@@ -1452,7 +1436,118 @@ const PaymentTable = ({ mode = 'all' }) => {
         </div>
       )}
 
-    </>
+      {/* Pending Amount Completion Modal */}
+      {pendingCompletionPayment && (
+        <div className="pt-modal-backdrop" onClick={() => setPendingCompletionPayment(null)}>
+          <div className="pt-modal" style={{ maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
+            <div className="pt-modal-header">
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>
+                Complete Pending Amount
+              </h3>
+              <button className="pt-modal-close" onClick={() => setPendingCompletionPayment(null)}>×</button>
+            </div>
+            <div className="pt-modal-body">
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#5f6368', marginBottom: '6px' }}>
+                    Client Name
+                  </label>
+                  <div style={{ fontSize: '15px', fontWeight: '500', color: '#202124' }}>
+                    {pendingCompletionPayment.clientName}
+                  </div>
+                </div>
+                
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#5f6368', marginBottom: '6px' }}>
+                    Total Amount
+                  </label>
+                  <div style={{ fontSize: '15px', fontWeight: '500', color: '#202124' }}>
+                    {formatCurrency(pendingCompletionPayment.amount)}
+                  </div>
+                </div>
+                
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#5f6368', marginBottom: '6px' }}>
+                    Current Cash Received
+                  </label>
+                  <div style={{ fontSize: '15px', fontWeight: '500', color: '#188038' }}>
+                    {formatCurrency(cashAmountMap[pendingCompletionPayment.id] || 0)}
+                  </div>
+                </div>
+                
+                <div style={{ marginBottom: '12px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#5f6368', marginBottom: '6px' }}>
+                    Current Pending Amount
+                  </label>
+                  <div style={{ fontSize: '15px', fontWeight: '500', color: '#e67e22' }}>
+                    {formatCurrency((cashReceivedMap[pendingCompletionPayment.id] === true && cashAmountMap[pendingCompletionPayment.id] 
+                      ? pendingCompletionPayment.amount - parseFloat(cashAmountMap[pendingCompletionPayment.id])
+                      : pendingCompletionPayment.amount))}
+                  </div>
+                </div>
+                
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', fontWeight: '600', color: '#5f6368', marginBottom: '6px' }}>
+                    Amount to Complete
+                  </label>
+                  <input
+                    type="number"
+                    step="any"
+                    min="0.01"
+                    value={pendingAmountInput}
+                    onChange={(e) => setPendingAmountInput(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      border: '1px solid #e8eaed',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontFamily: "'Google Sans', sans-serif"
+                    }}
+                    placeholder="Enter amount"
+                    autoFocus
+                  />
+                </div>
+                
+                <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => setPendingCompletionPayment(null)}
+                    style={{
+                      padding: '8px 20px',
+                      borderRadius: '6px',
+                      border: '1px solid #e8eaed',
+                      background: '#fff',
+                      color: '#5f6368',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      fontFamily: "'Google Sans', sans-serif"
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSubmitPendingCompletion}
+                    disabled={completingPending}
+                    style={{
+                      padding: '8px 20px',
+                      borderRadius: '6px',
+                      border: 'none',
+                      background: completingPending ? '#9aa0a6' : '#1a73e8',
+                      color: '#fff',
+                      fontWeight: '600',
+                      cursor: completingPending ? 'not-allowed' : 'pointer',
+                      fontFamily: "'Google Sans', sans-serif",
+                    }}
+                  >
+                    {completingPending ? 'Processing...' : 'Complete'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

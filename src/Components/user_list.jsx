@@ -989,8 +989,8 @@ export default function RegisteredUsers() {
 
       {/* Add User Modal */}
       {open && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(2px)" }} onClick={handleClose}>
-          <div style={{ background: "var(--surface)", borderRadius: "12px", width: "min(650px, 92vw)", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.25)" }} onClick={e => e.stopPropagation()} className="modal-content">
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(2px)" }}>
+          <div style={{ background: "var(--surface)", borderRadius: "12px", width: "min(650px, 92vw)", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.25)" }} className="modal-content">
             <div style={{ padding: "22px 28px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }} className="modal-header">
               <div>
                 <h2 style={{ fontSize: "25px", fontFamily: "var(--ffd)", color: "black", marginBottom: "4px" }} className="modal-title">Add New User</h2>
@@ -1065,8 +1065,8 @@ export default function RegisteredUsers() {
 
       {/* Edit User Modal */}
       {editOpen && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(2px)" }} onClick={handleCloseEdit}>
-          <div style={{ background: "var(--surface)", borderRadius: "12px", width: "min(650px, 92vw)", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.25)", animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()} className="modal-content">
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, backdropFilter: "blur(2px)" }}>
+          <div style={{ background: "var(--surface)", borderRadius: "12px", width: "min(650px, 92vw)", maxHeight: "88vh", overflowY: "auto", boxShadow: "0 25px 50px rgba(0,0,0,0.25)", animation: "slideUp 0.2s ease" }} className="modal-content">
             <div style={{ padding: "22px 28px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "flex-start", justifyContent: "space-between" }} className="modal-header">
               <div>
                 <h2 style={{ fontSize: "20px", fontFamily: "var(--ffd)", color: "var(--accent)", marginBottom: "4px" }} className="modal-title">Edit User</h2>
@@ -1151,8 +1151,8 @@ export default function RegisteredUsers() {
 
       {/* Delete Confirmation Modal */}
       {deleteConfirm && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: "blur(2px)" }} onClick={() => !deleting && setDeleteConfirm(null)}>
-          <div style={{ background: "var(--surface)", borderRadius: "12px", width: "min(420px, 90vw)", boxShadow: "0 25px 50px rgba(0,0,0,0.3)", animation: "slideUp 0.18s ease", overflow: "hidden" }} onClick={e => e.stopPropagation()} className="delete-modal">
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1100, backdropFilter: "blur(2px)" }}>
+          <div style={{ background: "var(--surface)", borderRadius: "12px", width: "min(420px, 90vw)", boxShadow: "0 25px 50px rgba(0,0,0,0.3)", animation: "slideUp 0.18s ease", overflow: "hidden" }} className="delete-modal">
             <div style={{ padding: "28px 28px 20px", textAlign: "center" }}>
               <div style={{ fontSize: "40px", marginBottom: "12px" }}>🗑️</div>
               <h3 style={{ fontSize: "17px", fontWeight: 700, color: "var(--text)", marginBottom: "8px" }}>Delete User?</h3>
