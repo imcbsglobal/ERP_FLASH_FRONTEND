@@ -4,6 +4,7 @@
 // Admin role and is_staff users always see ALL menus regardless of permissions.
 
 import React, { useState, useEffect } from "react";
+import { authService } from "../service/Api";
 
 // ── Menu definition ────────────────────────────────────────────────────────────
 // permKey must exactly match the keys Login.jsx stores:
@@ -170,12 +171,15 @@ export default function Sidebar({ activePath = "", onNavigate, collapsed = false
     console.log("Sidebar - Is admin bypass:", user?.role === "Admin" || user?.is_staff === true);
   }, [permissions, user]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("access_token");
-    localStorage.removeItem("refresh_token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("menu_permissions");
-    window.location.href = "/login";
+  const handleLogout = async () => {
+    try {
+      await authService.logout();
+    } catch {
+      // silent fail
+    } finally {
+      sessionStorage.removeItem("active_page");
+      window.location.href = "/login";
+    }
   };
 
   // ── Admin / staff bypass ──────────────────────────────────────────────────

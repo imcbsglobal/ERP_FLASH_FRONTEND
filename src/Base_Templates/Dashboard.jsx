@@ -3,9 +3,7 @@
 // All th/td cells properly aligned to the left
 
 import { useState, useEffect } from "react";
-import { fetchPayments, normalizePayment, fetchTrips } from '../service/Api';
-
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://flasherp.in/api';
+import { BASE_URL, normalizePayment, fetchTrips } from '../service/Api';
 
 // ── Auth helpers ────────────────────────────────────────────────
 function authHeaders(extra = {}) {

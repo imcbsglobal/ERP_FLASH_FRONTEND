@@ -246,7 +246,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
 
       } catch (err) {
         console.error('Failed to load departments:', err);
-        if (!cancelled) setDepartmentsError(err.message || 'Failed to load departments.');
+        if (!cancelled) setDepartmentsError(err.message || 'Failed to load Branches.');
       } finally {
         if (!cancelled) setDepartmentsLoading(false);
       }
@@ -901,7 +901,7 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
               disabled={departmentsLoading}
             >
               <option value="">
-                {departmentsLoading ? 'Loading departments...' : 'Select Branch'}
+                {departmentsLoading ? 'Loading Branches...' : 'Select Branch'}
               </option>
               {departments.map(dept => (
                 <option key={dept.department_id} value={dept.department}>

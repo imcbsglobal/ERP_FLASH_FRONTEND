@@ -18,7 +18,7 @@ const expenseTypes = [
   { value: "other", label: "Other" },
 ];
 
-import { createClaim, saveDraftClaim, ENDPOINTS, authHeaders, apiFetch } from '../service/Api';
+import { createClaim, saveDraftClaim, ENDPOINTS, authHeaders, apiFetch, getVehicles } from '../service/Api';
 const DEPARTMENTS_API_URL = ENDPOINTS.claimDepartments;
 
 const initialForm = {
@@ -29,6 +29,8 @@ const initialForm = {
   amount: "",
   notes: "",
   receipt: null,
+  vehicleNumber: "",
+  vehicleName: "",
 };
 
 
@@ -653,6 +655,37 @@ const RESPONSIVE_CSS = `
     justify-content: center;
   }
   .ca-webcam-switch:hover { background: rgba(255,255,255,0.2); }
+
+  /* ── Travel expense fields ─────────────────────────────────────── */
+  .ca-travel-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 18px 20px;
+    background: #eff6ff;
+    border: 1.5px solid #bfdbfe;
+    border-radius: 12px;
+    animation: ca-slide-in 0.22s ease;
+  }
+  @keyframes ca-slide-in {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .ca-travel-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-align: left;
+    color: #1d4ed8;
+    text-transform: capitalize;
+    letter-spacing: 0.06em;
+    margin-bottom: 2px;
+  }
+  @media (max-width: 640px) {
+    .ca-travel-fields {
+      padding: 14px 14px;
+      gap: 12px;
+    }
+  }
 `;
 
 /* ─── Expense Type Combobox (portal – escapes overflow:hidden) ─── */
@@ -798,6 +831,8 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
   const [apiError, setApiError] = useState("");
   const [departments, setDepartments] = useState([{ value: "", label: "Select Department" }]);
   const [deptLoading, setDeptLoading] = useState(true);
+  const [vehicleList, setVehicleList]     = useState([]);   // vehicles for selected type
+  const [vehicleListLoading, setVehicleListLoading] = useState(false);
   const fileInputRef = useRef();
   const videoRef = useRef();
   const canvasRef = useRef();
@@ -899,18 +934,42 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
         const results = data?.results ?? data;
         if (Array.isArray(results)) {
           setDepartments([
-            { value: "", label: "Select Department" },
+            { value: "", label: "Select Branches" },
             ...results.map((d) => ({ value: d.department_id, label: d.department })),
           ]);
         }
       } catch (err) {
-        console.error("Department fetch error:", err);
+        console.error("Branch fetch error:", err);
       } finally {
         setDeptLoading(false);
       }
     }
     loadDepartments();
   }, []);
+
+  /* Fetch all vehicles when Travel Expense is selected */
+  useEffect(() => {
+    if (form.expenseType !== "Travel Expense") {
+      setVehicleList([]);
+      return;
+    }
+    let cancelled = false;
+    async function loadVehicles() {
+      setVehicleListLoading(true);
+      try {
+        const data = await getVehicles({ page_size: 500 });
+        if (cancelled) return;
+        const list = data.results || (Array.isArray(data) ? data : []);
+        setVehicleList(list.filter(v => v.status !== "Inactive"));
+      } catch (err) {
+        if (!cancelled) setVehicleList([]);
+      } finally {
+        if (!cancelled) setVehicleListLoading(false);
+      }
+    }
+    loadVehicles();
+    return () => { cancelled = true; };
+  }, [form.expenseType]);
 
   /* Validation */
   const validate = (isDraftSave = false) => {
@@ -920,17 +979,31 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
       e.customExpenseType = "Please specify the expense type.";
     if (!form.department) e.department = "Department is required.";
     if (!isDraftSave) {
-      if (!form.clientName.trim()) e.clientName = "Client name is required.";
       if (!form.purpose.trim()) e.purpose = "Purpose is required.";
-      if (!form.amount || isNaN(form.amount) || Number(form.amount) <= 0)
-        e.amount = "Enter a valid amount.";
+      if (form.expenseType === "Travel Expense") {
+        if (!form.vehicleNumber.trim()) e.vehicleNumber = "Vehicle number is required.";
+        if (!form.vehicleName.trim())   e.vehicleName   = "Vehicle name is required.";
+      }
     }
     return e;
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      const updated = { ...prev, [name]: value };
+      // Clear travel fields when switching away from Travel Expense
+      if (name === "expenseType" && value !== "Travel Expense") {
+        updated.vehicleNumber = "";
+        updated.vehicleName   = "";
+      }
+      // Auto-fill vehicle name when a vehicle number is selected from the list
+      if (name === "vehicleNumber") {
+        const match = vehicleList.find(v => v.registration_number === value);
+        updated.vehicleName = match ? match.vehicle_name : "";
+      }
+      return updated;
+    });
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: undefined }));
     if (apiError) setApiError("");
   };
@@ -1219,7 +1292,7 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
 
           {/* Row: Department + Expense Type */}
           <div className="ca-row2">
-            <Field label="Department" required error={errors.department}>
+            <Field label="Branch" required error={errors.department}>
               <select
                 name="department"
                 value={form.department}
@@ -1228,7 +1301,7 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
                 disabled={deptLoading}
               >
                 {deptLoading
-                  ? <option value="">Loading departments…</option>
+                  ? <option value="">Loading Branches…</option>
                   : departments.map((d) => (
                       <option key={d.value || "placeholder"} value={d.value}>{d.label}</option>
                     ))
@@ -1270,6 +1343,50 @@ export default function MobileResponsiveClaimsAdd({ onSuccess, onCancel }) {
               />
             </Field>
           </div>
+
+          {/* Travel Expense Fields – shown only when Travel Expense is selected */}
+          {form.expenseType === "Travel Expense" && (
+            <div className="ca-travel-fields">
+              <div className="ca-travel-title"> Travel Details</div>
+              <div className="ca-row2">
+                <Field label="Vehicle Number" required error={errors.vehicleNumber}>
+                  <select
+                    name="vehicleNumber"
+                    value={form.vehicleNumber}
+                    onChange={handleChange}
+                    disabled={vehicleListLoading}
+                    className={`ca-input${errors.vehicleNumber ? " ca-input-error" : ""}`}
+                  >
+                    {vehicleListLoading ? (
+                      <option value="">Loading vehicles…</option>
+                    ) : vehicleList.length === 0 ? (
+                      <option value="">No vehicles found</option>
+                    ) : (
+                      <>
+                        <option value="">Select Vehicle No.</option>
+                        {vehicleList.map(v => (
+                          <option key={v.id} value={v.registration_number}>
+                            {v.registration_number}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                </Field>
+                <Field label="Vehicle Name" required error={errors.vehicleName}>
+                  <input
+                    type="text"
+                    name="vehicleName"
+                    value={form.vehicleName}
+                    readOnly
+                    placeholder="Auto-filled on selection"
+                    className={`ca-input${errors.vehicleName ? " ca-input-error" : ""}`}
+                    style={{ background: "#f1f5f9", cursor: "default", color: form.vehicleName ? "#1e293b" : "#94a3b8" }}
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
 
           {/* Row: Purpose + Receipt */}
           <div className="ca-row2">

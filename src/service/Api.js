@@ -79,6 +79,25 @@ export const ENDPOINTS = {
   debtors:          `${BASE_URL}/payments/flasherp/debtors/`,
   departments:      `${BASE_URL}/payments/flasherp/departments/`,
 
+  // Service Entries
+  services:             `${BASE_URL}/services/`,
+  service:              (id) => `${BASE_URL}/services/${id}/`,
+  serviceImages:        (id) => `${BASE_URL}/services/${id}/images/`,
+  serviceImage:         (id) => `${BASE_URL}/services/images/${id}/`,
+  serviceStage:         (id, field) => `${BASE_URL}/services/${id}/stage/${field}/`,
+  serviceStatus:        (id) => `${BASE_URL}/services/${id}/status/`,
+  servicePreService:    (id) => `${BASE_URL}/services/${id}/pre-service/`,
+  serviceDispatch:      (id) => `${BASE_URL}/services/${id}/dispatch/`,
+  serviceReceive:       (id) => `${BASE_URL}/services/${id}/receive/`,
+  servicePostService:   (id) => `${BASE_URL}/services/${id}/post-service/`,
+  serviceDeliver:       (id) => `${BASE_URL}/services/${id}/deliver/`,
+
+  // Standby Items
+  standbys:             `${BASE_URL}/standbys/`,
+  standby:              (id) => `${BASE_URL}/standbys/${id}/`,
+  standbyImages:        (id) => `${BASE_URL}/standbys/${id}/images/`,
+  standbyImage:         (id, imgId) => `${BASE_URL}/standbys/${id}/images/${imgId}/`,
+
   // Trips
   trips:            `${BASE_URL}/travel/trips/`,
   trip:             (id) => `${BASE_URL}/travel/trips/${id}/`,
@@ -128,7 +147,7 @@ export const ENDPOINTS = {
 
 /** Build Authorization + Accept headers from localStorage token */
 export function authHeaders(extra = {}) {
-  const token = localStorage.getItem('access_token');
+  const token = localStorage.getItem('access_token') || localStorage.getItem('access');
   const headers = { Accept: 'application/json', ...extra };
   if (token) {
     headers['Authorization'] = `Bearer ${token.replace(/^Bearer\s+/i, '')}`;
@@ -138,7 +157,7 @@ export function authHeaders(extra = {}) {
 
 /** Refresh the access token using the refresh token */
 export async function refreshAccessToken() {
-  const refresh = localStorage.getItem('refresh_token');
+  const refresh = localStorage.getItem('refresh_token') || localStorage.getItem('refresh');
   if (!refresh) return null;
 
   try {
@@ -151,13 +170,19 @@ export async function refreshAccessToken() {
     if (res.ok) {
       const data = await res.json();
       localStorage.setItem('access_token', data.access);
-      if (data.refresh) localStorage.setItem('refresh_token', data.refresh);
+      localStorage.setItem('access', data.access);
+      if (data.refresh) {
+        localStorage.setItem('refresh_token', data.refresh);
+        localStorage.setItem('refresh', data.refresh);
+      }
       return data.access;
     }
 
     if (res.status === 401) {
       localStorage.removeItem('access_token');
+      localStorage.removeItem('access');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('refresh');
       return null;
     }
 
@@ -171,7 +196,15 @@ export async function refreshAccessToken() {
 
 /** fetch() wrapper — auto-retries once after a 401 token refresh */
 export async function apiFetch(url, options = {}) {
-  let res = await fetch(url, options);
+  const requestOptions = {
+    ...options,
+    headers: {
+      ...authHeaders(),
+      ...(options.headers || {}),
+    },
+  };
+
+  let res = await fetch(url, requestOptions);
 
   if (res.status === 401) {
     let newToken = null;
@@ -180,12 +213,14 @@ export async function apiFetch(url, options = {}) {
 
     if (newToken) {
       res = await fetch(url, {
-        ...options,
-        headers: { ...options.headers, Authorization: `Bearer ${newToken}` },
+        ...requestOptions,
+        headers: { ...requestOptions.headers, Authorization: `Bearer ${newToken}` },
       });
     } else {
       localStorage.removeItem('access_token');
+      localStorage.removeItem('access');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('refresh');
       localStorage.removeItem('user');
       window.location.href = '/login';
       return;
@@ -225,7 +260,9 @@ async function handleResponse(res, retryFn) {
       return handleResponse(retryRes, null);
     } catch {
       localStorage.removeItem('access_token');
+      localStorage.removeItem('access');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('refresh');
       localStorage.removeItem('user');
       window.location.href = '/login';
       return;
@@ -258,7 +295,7 @@ export const axiosApi = axios.create({
 });
 
 axiosApi.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token');
+  const token = localStorage.getItem('access_token') || localStorage.getItem('access');
   if (token) config.headers.Authorization = `Bearer ${token}`;
   if (config.data instanceof FormData) {
     delete config.headers['Content-Type'];
@@ -272,16 +309,19 @@ axiosApi.interceptors.response.use(
     const original = error.config;
     if (error.response?.status === 401 && !original._retry) {
       original._retry = true;
-      const refresh = localStorage.getItem('refresh_token');
+      const refresh = localStorage.getItem('refresh_token') || localStorage.getItem('refresh');
       if (refresh) {
         try {
           const { data } = await axios.post(ENDPOINTS.tokenRefresh, { refresh });
           localStorage.setItem('access_token', data.access);
+          localStorage.setItem('access', data.access);
           original.headers.Authorization = `Bearer ${data.access}`;
           return axiosApi(original);
         } catch {
           localStorage.removeItem('access_token');
+          localStorage.removeItem('access');
           localStorage.removeItem('refresh_token');
+          localStorage.removeItem('refresh');
           localStorage.removeItem('user');
           window.location.href = '/login';
         }
@@ -331,29 +371,34 @@ export const authService = {
   login: async (username, password) => {
     const { data } = await axiosApi.post(ENDPOINTS.login, { username, password });
     localStorage.setItem('access_token',  data.access);
+    localStorage.setItem('access',        data.access);
     localStorage.setItem('refresh_token', data.refresh);
+    localStorage.setItem('refresh',       data.refresh);
     localStorage.setItem('user',          JSON.stringify(data.user));
     return data;
   },
 
   logout: async () => {
-    const refresh = localStorage.getItem('refresh_token');
+    const refresh = localStorage.getItem('refresh_token') || localStorage.getItem('refresh');
     try {
       if (refresh) await axiosApi.post(ENDPOINTS.logout, { refresh });
     } catch { /* silently fail */ }
     finally {
       localStorage.removeItem('access_token');
+      localStorage.removeItem('access');
       localStorage.removeItem('refresh_token');
+      localStorage.removeItem('refresh');
       localStorage.removeItem('user');
       localStorage.removeItem('menu_permissions');
     }
   },
 
   refreshToken: async () => {
-    const refresh = localStorage.getItem('refresh_token');
+    const refresh = localStorage.getItem('refresh_token') || localStorage.getItem('refresh');
     if (!refresh) throw new Error('No refresh token found.');
     const { data } = await axios.post(ENDPOINTS.tokenRefresh, { refresh });
     localStorage.setItem('access_token', data.access);
+    localStorage.setItem('access', data.access);
     return data.access;
   },
 
@@ -371,9 +416,9 @@ export const authService = {
   },
   register: async (payload) => { const { data } = await axiosApi.post(ENDPOINTS.register, payload); return data; },
 
-  isAuthenticated: () => !!localStorage.getItem('access_token'),
+  isAuthenticated: () => !!(localStorage.getItem('access_token') || localStorage.getItem('access')),
   getCurrentUser:  () => { const u = localStorage.getItem('user'); return u ? JSON.parse(u) : null; },
-  getAccessToken:  () => localStorage.getItem('access_token'),
+  getAccessToken:  () => localStorage.getItem('access_token') || localStorage.getItem('access'),
 };
 
 
@@ -383,7 +428,7 @@ export const authService = {
 
 // Auth header helper for service-style (no-Content-Type for multipart)
 const _ah = (isMultipart = false) => {
-  const h = { Authorization: `Bearer ${localStorage.getItem('access_token') || ''}` };
+  const h = { Authorization: `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('access') || ''}` };
   if (!isMultipart) h['Content-Type'] = 'application/json';
   return h;
 };
@@ -779,18 +824,23 @@ function _mapClaim(c) {
     amount: parseFloat(c.amount) || 0,
     receipt: !!(c.receipt || c.has_receipt), receiptUrl,
     status: c.status === 'Approved' ? 'Accepted' : (c.status || 'Pending'), expense_type: c.expense_type || '',
-    purpose: c.purpose || '', notes: c.notes || '', _raw: c,
+    purpose: c.purpose || '', notes: c.notes || '',
+    vehicleNumber: c.vehicle_number || '',
+    vehicleName:   c.vehicle_name   || '',
+    _raw: c,
   };
 }
 
 function _buildClaimFD(form, isDraft = false) {
   const fd = new FormData();
-  fd.append('expense_type', form.expenseType);
-  fd.append('department',   form.department);
-  fd.append('client_name',  form.clientName  || '');
-  fd.append('purpose',      form.purpose     || '');
-  fd.append('amount',       form.amount      || '0');
-  fd.append('notes',        form.notes       || '');
+  fd.append('expense_type',   form.expenseType);
+  fd.append('department',     form.department);
+  fd.append('client_name',    form.clientName    || '');
+  fd.append('purpose',        form.purpose       || '');
+  fd.append('amount',         form.amount        || '0');
+  fd.append('notes',          form.notes         || '');
+  fd.append('vehicle_number', form.vehicleNumber || '');
+  fd.append('vehicle_name',   form.vehicleName   || '');
   if (isDraft) fd.append('status', 'Draft');
   if (form.receipt instanceof File) fd.append('receipt', form.receipt);
   return fd;
@@ -799,6 +849,20 @@ function _buildClaimFD(form, isDraft = false) {
 function _authHeader() {
   const token = localStorage.getItem('access_token');
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+/** Parse a DRF error body into a human-readable string.
+ *  Handles both { detail: "..." } and field-level { field: ["msg", ...] } responses. */
+function _claimError(body) {
+  if (!body) return 'Request failed';
+  if (body.detail) return body.detail;
+  const fieldErrors = Object.entries(body)
+    .map(([field, errs]) => {
+      const msg = Array.isArray(errs) ? errs.map(e => (e?.string || e)).join(', ') : String(errs);
+      return `${field}: ${msg}`;
+    })
+    .join(' | ');
+  return fieldErrors || 'Request failed';
 }
 
 export async function fetchClaims(params = {}) {
@@ -822,7 +886,10 @@ export async function createClaim(form) {
   const res = await fetch(ENDPOINTS.claims, {
     method: 'POST', headers: _authHeader(), body: _buildClaimFD(form, false),
   });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.detail || `Request failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(_claimError(body));
+  }
   return _mapClaim(await res.json());
 }
 
@@ -830,7 +897,10 @@ export async function saveDraftClaim(form) {
   const res = await fetch(ENDPOINTS.claimDraft, {
     method: 'POST', headers: _authHeader(), body: _buildClaimFD(form, true),
   });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.detail || `Request failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(_claimError(body));
+  }
   return _mapClaim(await res.json());
 }
 
@@ -842,7 +912,10 @@ export async function updateClaimStatus(id, newStatus) {
     headers: { 'Content-Type': 'application/json', ..._authHeader() },
     body: JSON.stringify({ status: apiStatus }),
   });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.detail || `Request failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(_claimError(body));
+  }
   return res.json();
 }
 
@@ -850,13 +923,19 @@ export async function updateClaim(id, form) {
   const res = await fetch(ENDPOINTS.claim(id), {
     method: 'PUT', headers: _authHeader(), body: _buildClaimFD(form, false),
   });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.detail || `Request failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(_claimError(body));
+  }
   return _mapClaim(await res.json());
 }
 
 export async function deleteClaim(id) {
   const res = await fetch(ENDPOINTS.claim(id), { method: 'DELETE', headers: _authHeader() });
-  if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.detail || `Request failed: ${res.status}`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(_claimError(body));
+  }
   return null;
 }
 
@@ -1011,6 +1090,7 @@ export function normalizePayment(p) {
     paymentProofUrl: p.payment_proof_url || null,
     status:          p.status,
     cashReceived:    p.cash_received      ?? null,
+    cashAmount:      p.cash_amount != null ? parseFloat(p.cash_amount) : null,
     date:            p.date,
     createdByName:   p.created_by_name   || null,
     created_by_name: p.created_by_name   || null,

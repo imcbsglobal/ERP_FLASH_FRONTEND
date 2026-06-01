@@ -7,10 +7,12 @@ import ImageCaptureLinkGenerator from "./Components/Image_link";
 import { CapturePage }           from "./Components/Image_capture";
 import './App.css';
 
-const getToken  = () => localStorage.getItem("access_token");
+const getToken  = () => localStorage.getItem("access_token") || localStorage.getItem("access");
 const clearAuth = () => {
   localStorage.removeItem("access_token");
+  localStorage.removeItem("access");
   localStorage.removeItem("refresh_token");
+  localStorage.removeItem("refresh");
 };
 
 function PrivateRoute({ children }) {

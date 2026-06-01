@@ -1089,12 +1089,12 @@ export default function TravelList() {
                         <td style={tdStyle}>
                           <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
-                              <AccessTimeIcon style={{ fontSize: 13, color: "#2e7d32", flexShrink: 0 }} />
+                              <AccessTimeIcon style={{ fontSize: 13, color: "#494949", flexShrink: 0 }} />
                               <span style={{ fontSize: 12, fontWeight: 500, color: "#000", whiteSpace: "nowrap" }}>
                                 {row.date ? new Date(row.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                               </span>
                             </div>
-                            <span style={{ fontSize: 11, color: "#2e7d32", paddingLeft: 18 }}>{formatTime(row.startTime)}</span>
+                            <span style={{ fontSize: 11, color: "#707070", paddingLeft: 18 }}>{formatTime(row.startTime)}</span>
                           </div>
                         </td>
 
@@ -1109,7 +1109,7 @@ export default function TravelList() {
                             </span>
                             {(row.vehicleReg || row.registration_number) && (
                               <span style={{
-                                color: "#1a6fdb", fontSize: 10, fontWeight: 600,
+                                color: "#6b6d6e", fontSize: 10, fontWeight: 600,
                                 fontFamily: "'Google Sans', sans-serif", letterSpacing: 0.6,
                               }}>
                                 {row.vehicleReg || row.registration_number}

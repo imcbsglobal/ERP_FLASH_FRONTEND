@@ -39,7 +39,7 @@ const thStyle = (col) => ({
 
 const tdStyle = (col, extra = {}) => ({
   padding: "12px 14px",
-  fontSize: "13px",
+  fontSize: "11px",
   verticalAlign: "middle",
   textAlign: col.align,
   ...extra,
@@ -899,7 +899,7 @@ export default function RegisteredUsers() {
               <tr>
                 <td colSpan={COLS.length} style={{ textAlign: "center", padding: "80px 20px", color: "var(--muted)" }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
-                    <span style={{ fontSize: "48px", opacity: 0.4 }}>👥</span>
+                    <span style={{ fontSize: "48px", opacity: 0.4 }}></span>
                     <span style={{ fontSize: "18px" }}>No users added yet. Click <strong style={{ color: "var(--accent)" }}>Add User</strong> to create one.</span>
                   </div>
                 </td>
@@ -923,14 +923,14 @@ export default function RegisteredUsers() {
                   </td>
                   <td style={tdStyle(COLS[5])}>{u.role}</td>
                   <td style={tdStyle(COLS[6])}>
-                    <span style={{ display: "inline-block", padding: "4px 10px", borderRadius: "6px", fontSize: "14px", fontWeight: 600, background: u.status === "Active" ? "#058b46" : "#921212", color: u.status === "Active" ? "#f7faf9" : "#faf8f8" }}>
+                    <span style={{ display: "inline-block", padding: "4px 10px", borderRadius: "6px", fontSize: "12px", fontWeight: 600, background: u.status === "Active" ? "#058b46" : "#921212", color: u.status === "Active" ? "#f7faf9" : "#faf8f8" }}>
                       {u.status}
                     </span>
                   </td>
                   <td style={tdStyle(COLS[7])}>
                     <div style={{ display: "flex", gap: "5px", justifyContent: "center" }}>
-                      <button onClick={() => handleOpenEdit(u)} style={{ background: "var(--accent)", border: "1px solid var(--border)", color: "white", cursor: "pointer", fontSize: "14px", fontWeight: 600, padding: "4px 10px", borderRadius: "6px", transition: "background 0.15s" }}>Edit</button>
-                      <button onClick={() => handleDelete(u)} style={{ background: "var(--red)", border: "none", color: "white", cursor: "pointer", fontSize: "14px", fontWeight: 600, padding: "4px 10px", borderRadius: "6px", transition: "background 0.15s" }}>Delete</button>
+                      <button onClick={() => handleOpenEdit(u)} style={{ background: "var(--accent)", border: "1px solid var(--border)", color: "white", cursor: "pointer", fontSize: "12px", fontWeight: 600, padding: "4px 10px", borderRadius: "6px", transition: "background 0.15s" }}>Edit</button>
+                      <button onClick={() => handleDelete(u)} style={{ background: "var(--red)", border: "none", color: "white", cursor: "pointer", fontSize: "12px", fontWeight: 600, padding: "4px 10px", borderRadius: "6px", transition: "background 0.15s" }}>Delete</button>
                     </div>
                   </td>
                 </tr>

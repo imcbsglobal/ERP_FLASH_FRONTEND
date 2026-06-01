@@ -572,8 +572,8 @@ export default function ChallanList({ onAdd, onEdit }) {
             font-size: 10px; font-weight: 700; flex-shrink: 0;
           }
           .challan-card-vehicle { flex: 1; min-width: 0; }
-          .challan-card-vehicle-name { font-size: 13px; font-weight: 700; color: #1a73e8; }
-          .challan-card-vehicle-reg { font-size: 11px; font-weight: 500; color: #1e293b; margin-top: 1px; }
+          .challan-card-vehicle-name { font-size: 13px; font-weight: 700; color: #181818; }
+          .challan-card-vehicle-reg { font-size: 11px; font-weight: 500; color: #828385; margin-top: 1px; }
           .challan-card-row {
             display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: nowrap;
           }
@@ -859,12 +859,12 @@ export default function ChallanList({ onAdd, onEdit }) {
                             return (
                               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                 {name && (
-                                  <span style={{ fontSize: 13, fontWeight: 600, color: "#1a73e8", letterSpacing: 0.4 }}>
+                                  <span style={{ fontSize: 13, fontWeight: 600, color: "#1e1e1f", letterSpacing: 0.4 }}>
                                     {name}
                                   </span>
                                 )}
                                 {number && (
-                                  <span style={{ fontSize: 12, fontWeight: 500, color: "#1e293b" }}>
+                                  <span style={{ fontSize: 12, fontWeight: 500, color: "#747577" }}>
                                     {number}
                                   </span>
                                 )}
@@ -878,7 +878,7 @@ export default function ChallanList({ onAdd, onEdit }) {
                         <td style={tdStyle}>{row.date || row.default_date || "—"}</td>
                         
                         {/* Challan No */}
-                        <td style={{ ...tdStyle, color: "#1a73e8", fontWeight: 600 }}>{row.challan_no || "—"}</td>
+                        <td style={{ ...tdStyle, color: "#262727", fontWeight: 600 }}>{row.challan_no || "—"}</td>
                         
                         {/* Challan Date */}
                         <td className="col-hide-mobile" style={tdStyle}>{row.challan_date || "—"}</td>

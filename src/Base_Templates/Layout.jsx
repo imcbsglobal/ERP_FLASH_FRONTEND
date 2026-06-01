@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { authService } from "../service/Api";
 import UserList from "../Components/user_list";
 import RoleAccess from "../Components/user_acess";
 import PaymentTable from "../Components/collection_list.jsx";
@@ -20,6 +21,13 @@ import PlaylistAddCheckOutlinedIcon from '@mui/icons-material/PlaylistAddCheckOu
 import DriveEtaOutlinedIcon from '@mui/icons-material/DriveEtaOutlined';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import CameraAltOutlinedIcon from '@mui/icons-material/CameraAltOutlined';
+import MiscellaneousServicesOutlinedIcon from '@mui/icons-material/MiscellaneousServicesOutlined';
+import SpeedOutlinedIcon from '@mui/icons-material/SpeedOutlined';
+import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
+import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
+import CameraIcon from '@mui/icons-material/Camera';
+import Diversity3Icon from '@mui/icons-material/Diversity3';
+import DialpadIcon from '@mui/icons-material/Dialpad';
 
 import EmergencyOutlinedIcon from '@mui/icons-material/EmergencyOutlined';
 import ClaimsList from "../Components/claim_list.jsx";
@@ -30,6 +38,9 @@ import ImageCaptureList from "../Components/imgcapture_list.jsx";
 import TravelList from "../Components/Travel_Trip.jsx";
 import ChallanList from "../Components/challan_list.jsx";
 import ChallanAdd from "../Components/challan_add.jsx";
+import ServiceDashboard from "../Components/ServiceDashboard.jsx";
+import ServiceList from "../Components/ServiceList.jsx";
+import StandbyList from "../Components/standby_list.jsx";
 
 const NAV = [
   {
@@ -74,6 +85,32 @@ const NAV = [
         permKey: "vm_service",
         label: "Challan",
         icon: <PlaylistAddCheckOutlinedIcon style={{ width: 18, height: 18 }} />
+      },
+    ],
+  },
+
+  {
+    section: "Service Management",
+    icon: <MiscellaneousServicesOutlinedIcon style={{ width: 18, height: 18 }} />,
+    id: "servicemgmt",
+    children: [
+      {
+        id: "sm_dashboard",
+        permKey: "sm_dashboard",
+        label: "Overview",
+        icon: <CameraIcon style={{ width: 18, height: 18 }} />
+      },
+      {
+        id: "sm_service",
+        permKey: "sm_service",
+        label: "Service List",
+        icon: <Diversity3Icon style={{ width: 18, height: 18 }} />
+      },
+      {
+        id: "sm_standby",
+        permKey: "sm_standby",
+        label: "Issued Standby Item",
+        icon: <DialpadIcon style={{ width: 18, height: 18 }} />
       },
     ],
   },
@@ -144,6 +181,9 @@ const PAGE_META = {
   col_reports_view: { title: "Collection Reports", tag: "Collection",        desc: "View and analyse collection reports and summaries." },
   cl_list:     { title: "Claims List",          tag: "Claims",              desc: "Track, review and manage all expense claims." },
   image_capture: { title: "Image Capture",      tag: "Image Capture",       desc: "Generate secure image capture links for customers." },
+  sm_dashboard:{ title: "Service Dashboard",    tag: "Service Management",  desc: "Overview of service activities, statuses and key metrics." },
+  sm_service:  { title: "Service",              tag: "Service Management",  desc: "Manage and track all service requests and records." },
+  sm_standby:  { title: "Standby Issue",        tag: "Service Management",  desc: "Track and resolve standby issues across the fleet." },
 };
 
 function pillClass(val) {
@@ -202,6 +242,7 @@ export default function Layout({ children }) {
     collection: false,
     mastermenu: false,
     vehiclemgmt: false,
+    servicemgmt: false,
   });
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -245,24 +286,11 @@ export default function Layout({ children }) {
   }).filter(Boolean);
 
   const handleLogout = async () => {
-    const refresh     = localStorage.getItem("refresh_token");
-    const accessToken = localStorage.getItem("access_token");
-    const API_BASE    = (import.meta.env.VITE_API_BASE_URL || "https://flasherp.in").replace(/\/$/, "");
     try {
-      if (refresh) {
-        await fetch(`${API_BASE}/api/auth/logout/`, {
-          method:  "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ refresh }),
-        });
-      }
+      await authService.logout();
     } catch {
-      // silent fail
+      // silent fail — clear storage regardless
     } finally {
-      localStorage.removeItem("access_token");
-      localStorage.removeItem("refresh_token");
-      localStorage.removeItem("user");
-      localStorage.removeItem("menu_permissions");
       sessionStorage.removeItem("active_page");
       window.location.href = "/login";
     }
@@ -290,7 +318,11 @@ export default function Layout({ children }) {
   const isVmFuelPage   = active === "vm_fuel";
   const isVmServicePage = active === "vm_service";
   const isClaimsPage   = active === "cl_list";
-  const isImageCapturePage = active === "image_capture";  const isNoAccessPage = active === "no_access";
+  const isImageCapturePage = active === "image_capture";
+  const isServiceDashboardPage = active === "sm_dashboard";
+  const isServicePage  = active === "sm_service";
+  const isStandbyPage  = active === "sm_standby";
+  const isNoAccessPage = active === "no_access";
   const sidebarWidth = isCollapsed ? "72px" : "256px";
 
   return (
@@ -622,6 +654,18 @@ export default function Layout({ children }) {
                 <ImageCaptureLinkGenerator onBack={() => setImageCaptureView("list")} />
               )}
             </div>
+          )}
+
+          {isServiceDashboardPage && (
+            <div className="page-full"><ServiceDashboard /></div>
+          )}
+
+          {isServicePage && (
+            <div className="page-full"><ServiceList /></div>
+          )}
+
+          {isStandbyPage && (
+            <div className="page-full"><StandbyList onAdd={() => {}} /></div>
           )}
 
           {active === "dashboard" && (

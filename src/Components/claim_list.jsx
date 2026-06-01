@@ -438,9 +438,19 @@ function MobileClaimsListTable({
                     <span style={mobileListStyles.detailLabel}>Department:</span>
                     <span>{claim.department_name || claim.department || "—"}</span>
                   </div>
-                  <div style={mobileListStyles.detailRow}>
+                  <div style={{ ...mobileListStyles.detailRow, alignItems: "flex-start" }}>
                     <span style={mobileListStyles.detailLabel}>Expense:</span>
-                    <span>{claim.expense || "—"}</span>
+                    <span style={{ textAlign: "right" }}>
+                      <div style={{ fontWeight: 500, color: "#111827" }}>{claim.expense || "—"}</div>
+                      {(claim.expense_type === "travel_expense" || claim.expense_type === "Travel Expense" || (claim.expense || "").toLowerCase().includes("travel")) && (claim.vehicleNumber || claim.vehicleName) && (
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 5, background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6, padding: "3px 8px" }}>
+                          <span style={{ fontSize: 13 }}></span>
+                          <span style={{ fontSize: 12, color: "#1d4ed8", fontWeight: 600 }}>
+                            {[claim.vehicleNumber, claim.vehicleName].filter(Boolean).join(" · ")}
+                          </span>
+                        </div>
+                      )}
+                    </span>
                   </div>
                   <div style={mobileListStyles.detailRow}>
                     <span style={mobileListStyles.detailLabel}>Amount:</span>
@@ -609,7 +619,7 @@ function MobileClaimsListTable({
                 <tr>
                   <td colSpan={10} style={desktopListStyles.emptyCell}>
                     <div style={desktopListStyles.empty}>
-                      <div style={{ fontSize: 25, marginBottom: 8 }}>⏳</div>
+                      <div style={{ fontSize: 25, marginBottom: 8 }}></div>
                       <div style={{ fontWeight: 600, color: "#374151" }}>
                         Loading claims…
                       </div>
@@ -622,7 +632,7 @@ function MobileClaimsListTable({
                 <tr>
                   <td colSpan={10} style={desktopListStyles.emptyCell}>
                     <div style={desktopListStyles.empty}>
-                      <div style={{ fontSize: 36, marginBottom: 8 }}>📋</div>
+                      <div style={{ fontSize: 36, marginBottom: 8 }}></div>
                       <div style={{ fontWeight: 600, color: "#374151" }}>
                         No claims found
                       </div>
@@ -659,13 +669,7 @@ function MobileClaimsListTable({
                         </div>
                       </td>
                       <td style={desktopListStyles.td}>
-                        <div style={desktopListStyles.avatar}>
-                          {String(claim.claimedBy || "U")
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")
-                            .slice(0, 2)}
-                        </div>
+                        
                         <span style={{ fontWeight: 500, color: "#111827" }}>
                           {claim.claimedBy || "Unknown"}
                         </span>
@@ -676,7 +680,17 @@ function MobileClaimsListTable({
                           {claim.department_name || claim.department || "—"}
                         </span>
                       </td>
-                      <td style={desktopListStyles.td}>{claim.expense}</td>
+                      <td style={{ ...desktopListStyles.td, whiteSpace: "normal", minWidth: 160 }}>
+                        <div style={{ fontWeight: 500, color: "#111827" }}>{claim.expense || "—"}</div>
+                        {(claim.expense_type === "travel_expense" || claim.expense_type === "Travel Expense" || (claim.expense || "").toLowerCase().includes("travel")) && (claim.vehicleNumber || claim.vehicleName) && (
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 5 }}>
+                            <span style={{ fontSize: 13 }}></span>
+                            <span style={{ fontSize: 12,textAlign: "left", color: "#818080", fontWeight: 600 }}>
+                              {[claim.vehicleNumber, claim.vehicleName].filter(Boolean).join(" · ")}
+                            </span>
+                          </div>
+                        )}
+                      </td>
                       <td style={{ ...desktopListStyles.td, fontWeight: 600, color: "#1e3a5f", textAlign: "right" }}>
                         ₹{claim.amount?.toLocaleString("en-IN") || 0}
                       </td>
@@ -1149,7 +1163,7 @@ const desktopListStyles = {
     whiteSpace: "nowrap",
     verticalAlign: "middle",
     textAlign: "left",
-    fontSize: 14,
+    fontSize: 12,
   },
   dateContainer: {
     display: "flex",
@@ -1157,7 +1171,7 @@ const desktopListStyles = {
     gap: 4,
   },
   dateText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 600,
     color: "#1e293b",
   },
@@ -1184,7 +1198,7 @@ const desktopListStyles = {
     color: "#070707",
     borderRadius: 6,
     padding: "2px 9px",
-    fontSize: 14,
+    fontSize: 11,
     fontWeight: 500,
     display: "inline-block",
   },

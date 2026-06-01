@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import ReactDOM from "react-dom";
 import CameraswitchOutlinedIcon from "@mui/icons-material/CameraswitchOutlined";
-import { updateClaim, fetchClaim, ENDPOINTS, authHeaders, apiFetch } from '../service/Api';
+import { updateClaim, fetchClaim, ENDPOINTS, authHeaders, apiFetch, getVehicles } from '../service/Api';
 
 const DEPARTMENTS_API_URL = ENDPOINTS.claimDepartments;
 
@@ -304,6 +304,39 @@ if (typeof document !== "undefined") {
     }
     .ce-combo-arrow--open { transform: translateY(-50%) rotate(180deg); }
     .ce-combo-input { padding-right: 36px !important; }
+
+    /* ── Travel Details panel ── */
+    .ce-travel-fields {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      padding: 18px 20px;
+      background: #eff6ff;
+      border: 1.5px solid #bfdbfe;
+      border-radius: 16px;
+      animation: ce-slide-in 0.22s ease;
+    }
+    @keyframes ce-slide-in {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .ce-travel-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-align: left;
+      color: #1d4ed8;
+      text-transform: capitalize;
+      letter-spacing: 0.06em;
+    }
+    .ce-travel-row3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 600px) {
+      .ce-travel-fields { padding: 14px 14px; gap: 12px; }
+      .ce-travel-row3   { grid-template-columns: 1fr !important; }
+    }
   `;
   document.head.appendChild(style);
 }
@@ -316,7 +349,10 @@ function ExpenseTypeCombobox({ value, onChange, hasError }) {
   const inputRef              = useRef(null);
   const dropRef               = useRef(null);
 
-  useEffect(() => { setQuery(value || ""); }, [value]);
+  useEffect(() => {
+    const match = expenseTypes.find(t => t.value === value);
+    setQuery(match ? match.label : (value || ""));
+  }, [value]);
 
   useEffect(() => {
     if (open && inputRef.current) {
@@ -352,9 +388,9 @@ function ExpenseTypeCombobox({ value, onChange, hasError }) {
     ? allOpts.filter(t => t.label.toLowerCase().includes(query.toLowerCase()))
     : allOpts;
 
-  function select(label) {
-    setQuery(label);
-    onChange({ target: { name: "expenseType", value: label } });
+  function select(opt) {
+    setQuery(opt.label);
+    onChange({ target: { name: "expenseType", value: opt.value } });
     setOpen(false);
   }
 
@@ -386,15 +422,15 @@ function ExpenseTypeCombobox({ value, onChange, hasError }) {
         ? filtered.map(t => (
             <div
               key={t.value}
-              onMouseDown={() => select(t.label)}
+              onMouseDown={() => select(t)}
               style={{
                 padding: "11px 16px", fontSize: 14,
-                color: value === t.label ? "#1a5cff" : "#1a2c3e",
-                background: value === t.label ? "#f0f6ff" : "transparent",
+                color: value === t.value ? "#1a5cff" : "#1a2c3e",
+                background: value === t.value ? "#f0f6ff" : "transparent",
                 cursor: "pointer",
               }}
               onMouseEnter={e => e.currentTarget.style.background = "#f0f6ff"}
-              onMouseLeave={e => e.currentTarget.style.background = value === t.label ? "#f0f6ff" : "transparent"}
+              onMouseLeave={e => e.currentTarget.style.background = value === t.value ? "#f0f6ff" : "transparent"}
             >
               {t.label}
             </div>
@@ -450,6 +486,9 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
     amount: "",
     notes: "",
     receipt: null,
+    vehicleType: "",
+    vehicleNumber: "",
+    vehicleName: "",
   });
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -459,6 +498,8 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
   const [hasExistingReceipt, setHasExistingReceipt] = useState(false);
   const [departments, setDepartments] = useState([{ value: "", label: "Select Department" }]);
   const [deptLoading, setDeptLoading] = useState(true);
+  const [vehicleList, setVehicleList] = useState([]);
+  const [vehicleListLoading, setVehicleListLoading] = useState(false);
   const fileInputRef = useRef();
 
   // Fetch departments
@@ -468,7 +509,7 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
         const results = data?.results ?? data;
         if (Array.isArray(results)) {
           setDepartments([
-            { value: "", label: "Select Department" },
+            { value: "", label: "Select Branch" },
             ...results.map((d) => ({ value: d.department_id, label: d.department })),
           ]);
         }
@@ -479,30 +520,44 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
 
   // Load claim data
   useEffect(() => {
+    const toValue = (raw) => {
+      if (!raw) return "";
+      // If already a valid value key, return as-is; otherwise find value by label (legacy)
+      const byValue = expenseTypes.find((t) => t.value === raw);
+      if (byValue) return byValue.value;
+      const byLabel = expenseTypes.find((t) => t.label === raw);
+      return byLabel ? byLabel.value : raw;
+    };
+
     const loadClaimData = async () => {
       try {
         const fullClaim = await fetchClaim(claim.id);
-        // Always use the raw department_id stored in DB for the select value
         const deptId = fullClaim._raw?.department || claim.department || "";
         setForm({
-          expenseType: fullClaim._raw?.expense_type || claim.expense_type || "",
-          department: deptId,
-          clientName: fullClaim.clientName || claim.clientName || "",
-          purpose: fullClaim._raw?.purpose || "",
-          amount: fullClaim.amount || claim.amount || "",
-          notes: fullClaim._raw?.notes || "",
-          receipt: null,
+          expenseType:   toValue(fullClaim._raw?.expense_type || claim.expense_type || ""),
+          department:    deptId,
+          clientName:    fullClaim.clientName   || claim.clientName  || "",
+          purpose:       fullClaim._raw?.purpose || "",
+          amount:        fullClaim.amount        || claim.amount      || "",
+          notes:         fullClaim._raw?.notes   || "",
+          receipt:       null,
+          vehicleType:   "",
+          vehicleNumber: fullClaim._raw?.vehicle_number || fullClaim.vehicleNumber || claim.vehicleNumber || "",
+          vehicleName:   fullClaim._raw?.vehicle_name   || fullClaim.vehicleName   || claim.vehicleName   || "",
         });
         setHasExistingReceipt(!!fullClaim._raw?.receipt);
       } catch (err) {
         setForm({
-          expenseType: claim.expense_type || "",
-          department: claim.department || "",
-          clientName: claim.clientName || "",
-          purpose: "",
-          amount: claim.amount || "",
-          notes: "",
-          receipt: null,
+          expenseType:   toValue(claim.expense_type || ""),
+          department:    claim.department    || "",
+          clientName:    claim.clientName    || "",
+          purpose:       "",
+          amount:        claim.amount        || "",
+          notes:         "",
+          receipt:       null,
+          vehicleType:   "",
+          vehicleNumber: claim.vehicleNumber || "",
+          vehicleName:   claim.vehicleName   || "",
         });
         setHasExistingReceipt(!!claim.receipt);
       }
@@ -510,20 +565,58 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
     if (claim?.id) loadClaimData();
   }, [claim]);
 
+  /* Fetch all active vehicles when Travel Expense is selected */
+  useEffect(() => {
+    if (form.expenseType !== "travel_expense") {
+      setVehicleList([]);
+      return;
+    }
+    let cancelled = false;
+    async function loadVehicles() {
+      setVehicleListLoading(true);
+      try {
+        const data = await getVehicles({ page_size: 500 });
+        if (cancelled) return;
+        const list = data.results || (Array.isArray(data) ? data : []);
+        setVehicleList(list.filter(v => v.status !== "Inactive"));
+      } catch (err) {
+        if (!cancelled) setVehicleList([]);
+      } finally {
+        if (!cancelled) setVehicleListLoading(false);
+      }
+    }
+    loadVehicles();
+    return () => { cancelled = true; };
+  }, [form.expenseType]);
+
   const validate = () => {
     const newErrors = {};
     if (!form.expenseType?.trim()) newErrors.expenseType = "Expense type is required.";
     if (!form.department) newErrors.department = "Department is required.";
-    if (!form.clientName?.trim()) newErrors.clientName = "Client name is required.";
     if (!form.purpose?.trim()) newErrors.purpose = "Purpose is required.";
-    if (!form.amount || isNaN(form.amount) || Number(form.amount) <= 0)
-      newErrors.amount = "Enter a valid amount.";
+    if (form.expenseType === "travel_expense") {
+      if (!form.vehicleNumber?.trim())  newErrors.vehicleNumber = "Vehicle number is required.";
+      if (!form.vehicleName?.trim())    newErrors.vehicleName   = "Vehicle name is required.";
+    }
     return newErrors;
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => {
+      const updated = { ...prev, [name]: value };
+      // Clear travel fields when switching away from Travel Expense
+      if (name === "expenseType" && value !== "travel_expense") {
+        updated.vehicleNumber = "";
+        updated.vehicleName   = "";
+      }
+      // Auto-fill vehicle name when a vehicle number is selected from the list
+      if (name === "vehicleNumber") {
+        const match = vehicleList.find(v => v.registration_number === value);
+        if (match) updated.vehicleName = match.vehicle_name;
+      }
+      return updated;
+    });
     if (errors[name]) setErrors((prev) => ({ ...prev, [name]: undefined }));
     if (apiError) setApiError("");
   };
@@ -597,7 +690,7 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
         <div className="ce-form-body">
           {/* Department + Expense Type */}
           <div className="ce-row2">
-            <Field label="Department" required error={errors.department}>
+            <Field label="Branch" required error={errors.department}>
               <select
                 name="department"
                 value={form.department}
@@ -628,18 +721,18 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
 
           {/* Client Name + Amount */}
           <div className="ce-row2">
-            <Field label="Client Name" required error={errors.clientName}>
+            <Field label="Client Name">
               <input
                 type="text"
                 name="clientName"
                 placeholder="Enter client name"
                 value={form.clientName}
                 onChange={handleChange}
-                style={{ ...s.input, ...(errors.clientName ? s.inputError : {}) }}
+                style={s.input}
               />
             </Field>
 
-            <Field label="Amount (₹)" required error={errors.amount}>
+            <Field label="Amount (₹)">
               <input
                 type="number"
                 name="amount"
@@ -648,10 +741,63 @@ export default function ClaimsEdit({ claim, onSuccess, onCancel }) {
                 step="any"
                 value={form.amount}
                 onChange={handleChange}
-                style={{ ...s.input, ...(errors.amount ? s.inputError : {}) }}
+                style={s.input}
               />
             </Field>
           </div>
+
+          {/* Purpose + Receipt */}
+          {/* Travel Expense Fields – shown only when Travel Expense is selected */}
+          {form.expenseType === "travel_expense" && (
+            <div className="ce-travel-fields">
+              <div className="ce-travel-title">Travel Details</div>
+              <div className="ce-travel-row3">
+                {/* Vehicle Number – dropdown of all active vehicles */}
+                <Field label="Vehicle Number" required error={errors.vehicleNumber}>
+                  <select
+                    name="vehicleNumber"
+                    value={form.vehicleNumber}
+                    onChange={handleChange}
+                    disabled={vehicleListLoading}
+                    style={{ ...s.input, ...(errors.vehicleNumber ? s.inputError : {}) }}
+                  >
+                    {vehicleListLoading ? (
+                      <option value="">Loading vehicles…</option>
+                    ) : vehicleList.length === 0 ? (
+                      <option value="">No vehicles found</option>
+                    ) : (
+                      <>
+                        <option value="">Select Vehicle No.</option>
+                        {vehicleList.map(v => (
+                          <option key={v.id} value={v.registration_number}>
+                            {v.registration_number}
+                          </option>
+                        ))}
+                      </>
+                    )}
+                  </select>
+                </Field>
+
+                {/* Vehicle Name – auto-filled from selection, read-only */}
+                <Field label="Vehicle Name" required error={errors.vehicleName}>
+                  <input
+                    type="text"
+                    name="vehicleName"
+                    value={form.vehicleName}
+                    readOnly
+                    placeholder="Auto-filled on selection"
+                    style={{
+                      ...s.input,
+                      background: "#f1f5f9",
+                      cursor: "default",
+                      color: form.vehicleName ? "#1a2c3e" : "#94a3b8",
+                      ...(errors.vehicleName ? s.inputError : {}),
+                    }}
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
 
           {/* Purpose + Receipt */}
           <div className="ce-row2">

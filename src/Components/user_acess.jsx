@@ -18,12 +18,16 @@ import DriveEtaOutlinedIcon from '@mui/icons-material/DriveEtaOutlined';
 import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
 import EmergencyOutlinedIcon from '@mui/icons-material/EmergencyOutlined';
 import CameraAltOutlinedIcon from '@mui/icons-material/CameraAltOutlined';
+import MiscellaneousServicesOutlinedIcon from '@mui/icons-material/MiscellaneousServicesOutlined';
+import CameraIcon from '@mui/icons-material/Camera';
+import Diversity3Icon from '@mui/icons-material/Diversity3';
+import DialpadIcon from '@mui/icons-material/Dialpad';
 
 // ── Static config ─────────────────────────────────────────────────────────────
 const ROLES = ["Admin", "Super Admin", "User"];
 
 // All permission keys — mirrors Layout.jsx NAV exactly
-const ALL_PERM_KEYS = ["dashboard", "col_reports", "col_reports_view", "vm_trips", "vm_service", "cl_list", "image_capture", "um_users", "um_roles", "mm_vehicle"];
+const ALL_PERM_KEYS = ["dashboard", "col_reports", "col_reports_view", "vm_trips", "vm_service", "sm_dashboard", "sm_service", "sm_standby", "cl_list", "image_capture", "um_users", "um_roles", "mm_vehicle"];
 
 const MENU_GROUPS = [
   {
@@ -47,6 +51,15 @@ const MENU_GROUPS = [
     items: [
       { key: "vm_trips",   label: "Trip",    icon: <DriveEtaOutlinedIcon style={{ width: 16, height: 16 }} /> },
       { key: "vm_service", label: "Challan", icon: <PlaylistAddCheckOutlinedIcon style={{ width: 16, height: 16 }} /> },
+    ],
+  },
+  {
+    group: "Service Management",
+    icon: <MiscellaneousServicesOutlinedIcon style={{ width: 18, height: 18 }} />,
+    items: [
+      { key: "sm_dashboard", label: "Overview",            icon: <CameraIcon style={{ width: 16, height: 16 }} /> },
+      { key: "sm_service",   label: "Service List",        icon: <Diversity3Icon style={{ width: 16, height: 16 }} /> },
+      { key: "sm_standby",   label: "Issued Standby Item", icon: <DialpadIcon style={{ width: 16, height: 16 }} /> },
     ],
   },
   {
@@ -540,8 +553,8 @@ export default function RoleAccess() {
         <div style={{ padding: "18px 16px 12px", borderBottom: "1px solid #e8eaed", flexShrink: 0 }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: "8px" }}>
-              <span style={{ fontSize: "15px", fontWeight: 700, color: "#202124" }}>Users</span>
-              <span style={{ fontSize: "13px", color: "#0f0f0f" }}>{users.length}</span>
+              <span style={{ fontSize: "12px", fontWeight: 700, color: "#202124" }}>Users</span>
+              <span style={{ fontSize: "11px", color: "#0f0f0f" }}>{users.length}</span>
             </div>
             <button onClick={fetchUsers} disabled={usersLoading} style={{
               padding: "4px 8px", borderRadius: "6px", fontSize: "12px",
@@ -613,11 +626,11 @@ export default function RoleAccess() {
                     <UserAvatar user={user} isActive={isActive} size={36} />
                     <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", justifyContent: "space-between", gap: "6px" }}>
                       <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
-                        <span style={{ fontSize: "15px", fontWeight: 600, color: "#202124", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+                        <span style={{ fontSize: "12px", fontWeight: 600, color: "#202124", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
                         {hasDirty && <span className="ua-dirty-dot" title="Unsaved changes" style={{ flexShrink: 0 }} />}
                       </div>
                       <span style={{
-                        fontSize: "10px", fontWeight: 700, padding: "1px 7px",
+                        fontSize: "8px", fontWeight: 700, padding: "1px 7px",
                         borderRadius: "10px", background: badge.bg, color: badge.color,
                         textTransform: "uppercase", letterSpacing: "0.3px", flexShrink: 0,
                       }}>{role}</span>
@@ -636,7 +649,7 @@ export default function RoleAccess() {
         flexDirection: "column", minWidth: 0, height: "100%",
       }}>
         {!selectedUser ? (
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9aa0a6", fontSize: "14px" }}>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", color: "#9aa0a6", fontSize: "11px" }}>
             Select a user to manage permissions
           </div>
         ) : (
@@ -651,13 +664,13 @@ export default function RoleAccess() {
                 <UserAvatar user={selectedUser} isActive={true} size={42} />
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                    <span style={{ fontSize: "16px", fontWeight: 700, color: "#202124" }}>
+                    <span style={{ fontSize: "12px", fontWeight: 700, color: "#202124" }}>
                       {selectedUser.full_name || selectedUser.username}
                     </span>
                     {selectedUser.role && (() => {
                       const badge = ROLE_BADGE[selectedUser.role] || { bg: "#f1f3f4", color: "#5f6368" };
                       return (
-                        <span style={{ fontSize: "11px", fontWeight: 700, padding: "2px 10px", borderRadius: "10px", background: badge.bg, color: badge.color, textTransform: "uppercase" }}>
+                        <span style={{ fontSize: "8px", fontWeight: 700, padding: "2px 10px", borderRadius: "10px", background: badge.bg, color: badge.color, textTransform: "uppercase" }}>
                           {selectedUser.role}
                         </span>
                       );
@@ -717,7 +730,7 @@ export default function RoleAccess() {
                         </svg>
                       </button>
                       <span style={{ color: "#5f6368", display: "flex", alignItems: "center" }}>{group.icon}</span>
-                      <span style={{ flex: 1, fontSize: "15px", fontWeight: 500, color: groupAllChecked ? "#1a73e8" : "#202124" }}>{group.group}</span>
+                      <span style={{ flex: 1, fontSize: "12px", fontWeight: 500, color: groupAllChecked ? "#1a73e8" : "#202124" }}>{group.group}</span>
                       <input type="checkbox" className="ua-cb"
                         checked={groupAllChecked}
                         disabled={permLoading}
@@ -739,7 +752,7 @@ export default function RoleAccess() {
                         onClick={() => !permLoading && togglePerm(item.key)}
                       >
                         <span style={{ color: "#9aa0a6", display: "flex", alignItems: "center" }}>{item.icon}</span>
-                        <span style={{ flex: 1, fontSize: "15px", color: currentPerms[item.key] ? "#1a73e8" : "#202124" }}>{item.label}</span>
+                        <span style={{ flex: 1, fontSize: "11px", color: currentPerms[item.key] ? "#1a73e8" : "#202124" }}>{item.label}</span>
                         <input type="checkbox" className="ua-cb"
                           checked={!!currentPerms[item.key]}
                           disabled={permLoading}

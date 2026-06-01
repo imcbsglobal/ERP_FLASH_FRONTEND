@@ -587,7 +587,7 @@ const PaymentTable = ({ mode = 'all' }) => {
   
   const tdStyle = { 
     padding: "5px 14px", 
-    fontSize: 14, 
+    fontSize: 12, 
     borderBottom: "1px solid #e8eaed", 
     fontFamily: "'Google Sans', sans-serif", 
     color: "#202124", 
@@ -639,7 +639,7 @@ const PaymentTable = ({ mode = 'all' }) => {
         .status-select {
           padding: 4px 10px;
           border-radius: 6px;
-          font-size: 14px;
+          font-size: 12px;
           font-weight: bold;
           border: none;
           cursor: pointer;
@@ -689,7 +689,7 @@ const PaymentTable = ({ mode = 'all' }) => {
         .pt-modal-body { padding: 24px; }
         
         .client-info { display: flex; flex-direction: column; gap: 1px; }
-        .client-name { font-weight: 600; color: #111827; font-size: 14px; }
+        .client-name { font-weight: 600; color: #111827; font-size: 11px; }
         .client-place { font-size: 13px; color: #0c0c0c; display: flex; align-items: center; gap: 2px; }
         .client-phone { font-size: 13px; color: #0a0a0a; display: flex; align-items: center; gap: 2px; margin-top: 0; }
         .client-place svg, .client-phone svg { width: 11px; height: 11px; opacity: 0.7; flex-shrink: 0; }
@@ -697,7 +697,7 @@ const PaymentTable = ({ mode = 'all' }) => {
         .department-badge {
           display: inline-block;
           border-radius: 6px;
-          font-size: 13px;
+          font-size: 11px;
           font-weight: 500;
           color: #202124;
           word-wrap: break-word;
@@ -1149,7 +1149,7 @@ const PaymentTable = ({ mode = 'all' }) => {
                         <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
                           <div style={{ fontWeight: 500 }}>{formatDate(payment.date)}</div>
                           {(payment.createdByName || payment.created_by_name) && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, fontSize: 12, color: "#0a0a0a", fontWeight: 500 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, fontSize: 10, color: "#0a0a0a", fontWeight: 500 }}>
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10" style={{ flexShrink: 0 }}>
                                 <circle cx="12" cy="8" r="4" />
                                 <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
@@ -1212,7 +1212,7 @@ const PaymentTable = ({ mode = 'all' }) => {
                             <span style={{ 
                               fontWeight: 700, 
                               color: pendingAmount > 0.01 ? "#e67e22" : "#188038",
-                              fontSize: 14
+                              fontSize: 12
                             }}>
                               {formatCurrency(pendingAmount)}
                             </span>
