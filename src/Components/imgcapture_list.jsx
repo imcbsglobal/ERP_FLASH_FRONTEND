@@ -23,6 +23,13 @@ const ImageCaptureList = ({ onGenerateLink }) => {
   const [flowPhone, setFlowPhone]       = useState("");
   const [flowCustomer, setFlowCustomer] = useState("");
 
+  // ── Role detection ────────────────────────────────────────────
+  const currentUser = (() => {
+    try { return JSON.parse(localStorage.getItem("user")) || {}; } catch { return {}; }
+  })();
+  const isSuperAdmin = currentUser?.role === "Super Admin";
+  const isAdmin = currentUser?.role === "Admin" || isSuperAdmin;
+
   // ── API data ──────────────────────────────────────────────────
   const [captureData, setCaptureData] = useState([]);
   const [loading, setLoading]         = useState(true);
@@ -693,6 +700,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                               alert(err.message || 'Failed to update status.');
                             }
                           }}
+                          disabled={!isAdmin}
                           style={{
                             padding: "4px 6px",
                             borderRadius: 6,
@@ -700,11 +708,12 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                             fontSize: 11,
                             fontWeight: 600,
                             fontFamily: "'Google Sans', sans-serif",
-                            cursor: "pointer",
+                            cursor: isAdmin ? "pointer" : "not-allowed",
                             outline: "none",
                             width: "90px",
                             background: item.manualStatus === "Approved" ? "#10973f" : "rgb(247,170,4)",
                             color: item.manualStatus === "Approved" ? "#fafdfb" : "#f7f6f4",
+                            opacity: isAdmin ? 1 : 0.7,
                           }}
                         >
                           <option value="Pending">Pending</option>
@@ -723,16 +732,18 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                             </svg>
                           </button>
-                          {/* Delete */}
-                          <button
-                            onClick={() => handleDelete(item.id)}
-                            title="Delete"
-                            style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#d93025", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
-                          >
-                            <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                          {/* Delete — Super Admin only */}
+                          {isSuperAdmin && (
+                            <button
+                              onClick={() => handleDelete(item.id)}
+                              title="Delete"
+                              style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#d93025", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
+                            >
+                              <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -839,6 +850,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                               alert(err.message || 'Failed to update status.');
                             }
                           }}
+                      disabled={!isAdmin}
                       style={{
                         padding: "4px 8px",
                         borderRadius: 6,
@@ -846,11 +858,12 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                         fontSize: 11,
                         fontWeight: 600,
                         fontFamily: "'Google Sans', sans-serif",
-                        cursor: "pointer",
+                        cursor: isAdmin ? "pointer" : "not-allowed",
                         outline: "none",
                         minWidth: 90,
                         background: item.manualStatus === "Approved" ? "#10973f" : "rgb(247,170,4)",
                         color: item.manualStatus === "Approved" ? "#fafdfb" : "#f7f6f4",
+                        opacity: isAdmin ? 1 : 0.7,
                       }}
                     >
                       <option value="Pending">Pending</option>
@@ -867,12 +880,14 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
                   </button>
-                  <button onClick={() => handleDelete(item.id)} title="Delete"
-                    style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#d93025", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}>
-                    <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
+                  {isSuperAdmin && (
+                    <button onClick={() => handleDelete(item.id)} title="Delete"
+                      style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#d93025", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}>
+                      <svg width="13" height="13" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               </div>
             ))}

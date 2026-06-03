@@ -190,8 +190,16 @@ export default function TravelList() {
   const storedUser     = getStoredUser();
   const loggedInUser   = storedUser.username || storedUser.name || '—';
   const loggedInRole   = (storedUser.role || 'User').trim();
-  // Case-insensitive check — matches "Admin", "admin", "ADMIN" etc.
-  const isAdminOrManager = /^(admin|manager)$/i.test(loggedInRole);
+
+  // ── 3-tier role flags ────────────────────────────────────────────────────
+  // Super Admin → sees all trips across all branches
+  // Admin / Manager → sees trips in their own branch
+  // User → sees only their own trips
+  const isSuperAdmin     = /^super\s*admin$/i.test(loggedInRole);
+  const isAdmin          = /^admin$/i.test(loggedInRole);
+  const isManager        = /^manager$/i.test(loggedInRole);
+  // UI convenience: any elevated role that should see the "Traveled By" column
+  const isAdminOrManager = isSuperAdmin || isAdmin || isManager;
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -222,7 +230,15 @@ export default function TravelList() {
       setData(trips);
       setCurrentPage(1); // Reset to first page when data loads
     } catch (err) {
-      setError(err.message || "Failed to load trips.");
+      const msg = err.message || "Failed to load trips.";
+      // Provide a user-friendly message for common auth/network errors
+      if (err._status === 401 || err._status === 403) {
+        setError("Session expired or access denied. Please sign in again.");
+      } else if (msg.toLowerCase().includes("network") || msg.toLowerCase().includes("fetch")) {
+        setError("Cannot reach the server. Check your connection and try again.");
+      } else {
+        setError(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -295,7 +311,7 @@ export default function TravelList() {
         vehicle_name:        newTrip.vehicle_name        || tripData.vehicle_name,
         vehicleReg:          newTrip.vehicleReg          || newTrip.registration_number  || tripData.registration_number,
         registration_number: newTrip.registration_number || tripData.registration_number,
-        traveledBy:          newTrip.traveled_by         || newTrip.traveledBy           || loggedInUser,
+        traveledBy:          newTrip.traveledBy           || newTrip.traveled_by         || loggedInUser,
         odoStart:            newTrip.odometer_start      || newTrip.odoStart             || null,
         ...newTrip,
       };
@@ -816,24 +832,36 @@ export default function TravelList() {
               display: "flex", justifyContent: "space-between", alignItems: "center",
             }}>
               <span>⚠️ {error}</span>
-              <button
-                onClick={() => setError("")}
-                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#b02a37" }}
-              >×</button>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button
+                  onClick={loadTrips}
+                  style={{ background: "#b02a37", color: "#fff", border: "none", borderRadius: 6, padding: "4px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Google Sans', sans-serif" }}
+                >
+                  Retry
+                </button>
+                <button
+                  onClick={() => setError("")}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16, color: "#b02a37" }}
+                >×</button>
+              </div>
             </div>
           )}
 
           <div style={{ margin: "0 0 22px 0", width: "100%", flexShrink: 0, padding: "0" }}>
             <div className="tt-header-wrap">
               <h1 className="tt-title" style={{ margin: 0, fontSize: 25, fontWeight: "600", color: "black", letterSpacing: -0.5 }}>
-                {isAdminOrManager ? "All Travel Logs" : "My Travel Logs"}
+                {isSuperAdmin
+                  ? "All Travel Logs"
+                  : (isAdmin || isManager)
+                    ? "Branch Travel Logs"
+                    : "My Travel Logs"}
                 {isAdminOrManager && (
                   <span style={{
                     marginLeft: 10,
                     fontSize: 12,
                     fontWeight: 600,
-                    background: "#e8f0fe",
-                    color: "#1a6fdb",
+                    background: isSuperAdmin ? "#fce8e6" : "#e8f0fe",
+                    color:      isSuperAdmin ? "#c5221f"  : "#1a6fdb",
                     borderRadius: 20,
                     padding: "2px 10px",
                     verticalAlign: "middle",
@@ -921,7 +949,7 @@ export default function TravelList() {
                       {isAdminOrManager && (
                         <div className="trip-card-field">
                           <div className="trip-card-field-label">👤 Driver</div>
-                          <div className="trip-card-field-value" style={{ fontSize: 11 }}>{row.traveledBy || loggedInUser}</div>
+                          <div className="trip-card-field-value" style={{ fontSize: 11 }}>{row.traveledBy || row.traveled_by || "—"}</div>
                         </div>
                       )}
                       <div className="trip-card-field">
@@ -931,8 +959,8 @@ export default function TravelList() {
                     </div>
 
                     {/* Purpose */}
-                    {row.purpose && (
-                      <button className="trip-card-purpose-btn" onClick={() => setPurposePopup(row.purpose)}>
+                    {(row.purpose || row.purpose_of_trip) && (
+                      <button className="trip-card-purpose-btn" onClick={() => setPurposePopup(row.purpose || row.purpose_of_trip)}>
                         <PreviewOutlinedIcon style={{ fontSize: 13 }} /> View Purpose
                       </button>
                     )}
@@ -942,14 +970,14 @@ export default function TravelList() {
 
                       {/* LEFT: Fuel / Cost */}
                       <div className="trip-card-fuel-box">
-                        <div className="trip-card-field-label">⛽ Fuel</div>
+                        <div className="trip-card-field-label">⛽ Fuel Cost</div>
                         <div className="trip-card-field-value" style={{ fontSize: 12 }}>
-                          {row.fuel?.toFixed(1) || 0} L
+                          ₹{(row.cost || row.fuel_cost || 0).toLocaleString('en-IN')}
                         </div>
                         <div style={{ width: "100%", height: 1, background: "#e8eaed", margin: "2px 0" }} />
-                        <div className="trip-card-field-label">💰 Cost</div>
+                        <div className="trip-card-field-label">🔧 Maintenance</div>
                         <div className="trip-card-field-value" style={{ fontSize: 12 }}>
-                          ₹{(row.cost || 0).toLocaleString()}
+                          ₹{(row.maintenanceCost || row.maintenance_cost || 0).toLocaleString('en-IN')}
                         </div>
                       </div>
 
@@ -1019,17 +1047,19 @@ export default function TravelList() {
                         <StopCircleIcon style={{ fontSize: 16 }} />
                         {row.status === "completed" ? "Completed" : "End Trip"}
                       </button>
-                      <button
-                        onClick={() => setDeleteId(row.id)}
-                        disabled={actionLoading}
-                        style={{
-                          background: "#d93025",
-                          color: "#fff",
-                          boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
-                        }}
-                      >
-                        <DeleteOutlineOutlinedIcon style={{ fontSize: 16 }} /> Delete
-                      </button>
+                      {isSuperAdmin && (
+                        <button
+                          onClick={() => setDeleteId(row.id)}
+                          disabled={actionLoading}
+                          style={{
+                            background: "#d93025",
+                            color: "#fff",
+                            boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+                          }}
+                        >
+                          <DeleteOutlineOutlinedIcon style={{ fontSize: 16 }} /> Delete
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))
@@ -1122,15 +1152,15 @@ export default function TravelList() {
                         {/* Traveled By — Admin/Manager only */}
                         {isAdminOrManager && (
                           <td style={{ ...tdStyle, fontWeight: 600, fontSize: 11 }}>
-                            {row.traveledBy || loggedInUser}
+                            {row.traveledBy || row.traveled_by || "—"}
                           </td>
                         )}
 
                         {/* Purpose */}
                         <td style={{ ...tdStyle, textAlign: "center", verticalAlign: "middle" }}>
-                          {row.purpose ? (
+                          {(row.purpose || row.purpose_of_trip) ? (
                             <button
-                              onClick={() => setPurposePopup(row.purpose)}
+                              onClick={() => setPurposePopup(row.purpose || row.purpose_of_trip)}
                               style={{ background: "none", border: "none", cursor: "pointer", color: "#1a73e8", display: "flex", alignItems: "center", justifyContent: "center", padding: 0, margin: "0 auto" }}
                             >
                               <RemoveRedEyeOutlinedIcon style={{ fontSize: 22 }} />
@@ -1161,8 +1191,14 @@ export default function TravelList() {
                         {/* Fuel & Cost */}
                         <td style={{ ...tdStyle, textAlign: "left" }}>
                           <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
-                            <div style={{ fontSize: 11, textAlign: "left", color: "#000000", lineHeight: 1 }}>{row.fuel?.toFixed(1) || 0} L</div>
-                            <div style={{ fontSize: 11, textAlign: "right", fontWeight: 700, color: "#080808", lineHeight: 1, marginTop: 2 }}>₹{(row.cost || 0).toLocaleString()}</div>
+                            <div style={{ fontSize: 11, textAlign: "left", color: "#000000", lineHeight: 1 }}>
+                              ₹{(row.cost || row.fuel_cost || 0).toLocaleString('en-IN')}
+                            </div>
+                            {(row.maintenanceCost || row.maintenance_cost) > 0 && (
+                              <div style={{ fontSize: 9, textAlign: "left", color: "#5f6368", lineHeight: 1, marginTop: 2 }}>
+                                Maint: ₹{(row.maintenanceCost || row.maintenance_cost || 0).toLocaleString('en-IN')}
+                              </div>
+                            )}
                           </div>
                         </td>
 
@@ -1178,13 +1214,13 @@ export default function TravelList() {
                             <span style={{ fontSize: 9, color: "#b71c1c", paddingLeft: 16, lineHeight: 1, marginTop: 2 }}>{formatTime(row.endTime)}</span>
                           </div>
                         </td>
-                        <td style={{ ...tdStyle, minWidth: 220, textAlign: "center" }}>
-                          <div style={{ display: "flex", gap: 6, justifyContent: "center" }}>
+                        <td style={{ ...tdStyle, textAlign: "center", whiteSpace: "nowrap" }}>
+                          <div style={{ display: "inline-flex", gap: 6, justifyContent: "center" }}>
                             <button
                               onClick={() => setShowEndTripModal(row.id)}
                               disabled={actionLoading || row.status === "completed"}
                               style={{
-                                padding: "6px 16px",
+                                padding: "5px 10px",
                                 borderRadius: 6,
                                 border: "none",
                                 background: row.status === "completed" ? "#06771f" : "#f4b400",
@@ -1192,41 +1228,39 @@ export default function TravelList() {
                                 fontSize: 11,
                                 fontWeight: 600,
                                 cursor: row.status === "completed" ? "not-allowed" : "pointer",
-                                display: "flex",
+                                display: "inline-flex",
                                 alignItems: "center",
-                                justifyContent: "center",
-                                gap: 5,
+                                gap: 4,
                                 fontFamily: "'Google Sans', sans-serif",
-                                flex: 1,
                                 whiteSpace: "nowrap",
                               }}
                             >
-                              <StopCircleIcon style={{ fontSize: 13 }} />
+                              <StopCircleIcon style={{ fontSize: 12 }} />
                               {row.status === "completed" ? "Completed" : "End Trip"}
                             </button>
-                            <button
-                              onClick={() => setDeleteId(row.id)}
-                              disabled={actionLoading}
-                              style={{
-                                padding: "6px 16px",
-                                borderRadius: 6,
-                                border: "none",
-                                background: "#d93025",
-                                color: "#fff",
-                                fontSize: 11,
-                                fontWeight: 600,
-                                cursor: "pointer",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                                gap: 5,
-                                fontFamily: "'Google Sans', sans-serif",
-                                flex: 1,
-                                whiteSpace: "nowrap",
-                              }}
-                            >
-                              <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
-                            </button>
+                            {isSuperAdmin && (
+                              <button
+                                onClick={() => setDeleteId(row.id)}
+                                disabled={actionLoading}
+                                style={{
+                                  padding: "5px 10px",
+                                  borderRadius: 6,
+                                  border: "none",
+                                  background: "#d93025",
+                                  color: "#fff",
+                                  fontSize: 11,
+                                  fontWeight: 600,
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  gap: 4,
+                                  fontFamily: "'Google Sans', sans-serif",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                <DeleteOutlineOutlinedIcon style={{ fontSize: 12 }} /> Delete
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

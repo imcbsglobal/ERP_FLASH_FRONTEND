@@ -203,7 +203,7 @@ function DaysLeftBadge({ days }) {
 }
 
 /* ─── Table View with fixed header and scrollable body ── */
-function TableView({ vehicles, onEdit, onDelete }) {
+function TableView({ vehicles, onEdit, onDelete, isAdmin, isSuperAdmin }) {
   const thStyle = {
     fontSize: 12,
     fontWeight: 600,
@@ -624,6 +624,14 @@ function Pagination({ currentPage, totalPages, totalItems, pageSize, onPageChang
 // ✅ Accept onVehicleSaved prop — called after add/edit so the parent
 //    (which passes vehicles[] to StartTrip) can re-fetch and stay in sync.
 export default function VehicleMasterList({ onVehicleSaved }) {
+  // ── Role detection ──────────────────────────────────────────
+  const currentUserRole = (() => {
+    try { return JSON.parse(localStorage.getItem('user') || '{}')?.role || 'User'; }
+    catch { return 'User'; }
+  })();
+  const isSuperAdmin = currentUserRole === 'Super Admin';
+  const isAdmin = currentUserRole === 'Admin' || isSuperAdmin;
+
   const [vehicles,     setVehicles]     = useState([]);
   const [loading,      setLoading]      = useState(false);
   const [fetchError,   setFetchError]   = useState('');
@@ -1018,8 +1026,8 @@ export default function VehicleMasterList({ onVehicleSaved }) {
         {!loading && vehicles.length > 0 && (
           <>
             {viewMode === "card"
-              ? <CardView  vehicles={vehicles} onEdit={handleEdit} onDelete={handleDelete} />
-              : <TableView vehicles={vehicles} onEdit={handleEdit} onDelete={handleDelete} />
+              ? <CardView  vehicles={vehicles} onEdit={handleEdit} onDelete={handleDelete} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
+              : <TableView vehicles={vehicles} onEdit={handleEdit} onDelete={handleDelete} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} />
             }
             
             {/* Pagination */}

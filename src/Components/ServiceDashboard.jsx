@@ -47,7 +47,7 @@ function Sparkline({ data, color, width = 80, height = 32, fill = false }) {
   );
 }
 
-// ─── SVG Area Chart (dynamic labels + data) ─────────────────────────────────
+// ─── SVG Area Chart (dynamic labels + data) ─────────────────────────────────`
 function AreaChart({ data, labels, color = C.primary, width = 320, height = 120 }) {
   if (!data || data.length < 2) return null;
   const maxVal = Math.max(...data);

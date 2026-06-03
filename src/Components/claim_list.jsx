@@ -28,7 +28,10 @@ export default function MobileResponsiveClaimsList() {
   const currentUser = (() => {
     try { return JSON.parse(localStorage.getItem("user")) || {}; } catch { return {}; }
   })();
-  const isAdmin = currentUser?.role === "Admin";
+  const _role = (currentUser?.role || currentUser?.user_type || "").toLowerCase().trim();
+  const isSuperAdmin  = _role === "super admin" || _role === "superadmin";
+  const isAdmin       = _role === "admin";
+  const isRegularUser = !isSuperAdmin && !isAdmin;
 
   // Detect mobile screen
   useEffect(() => {
@@ -89,6 +92,8 @@ export default function MobileResponsiveClaimsList() {
         onViewReceipt={(claim) => setViewingReceipt(claim)}
         currentUser={currentUser}
         isAdmin={isAdmin}
+        isSuperAdmin={isSuperAdmin}
+        isRegularUser={isRegularUser}
         onDeleteClaim={async (id) => {
           if (!window.confirm("Are you sure you want to delete this claim?"))
             return;
@@ -199,14 +204,19 @@ function MobileClaimsListTable({
   isMobile,
   currentUser,
   isAdmin,
+  isSuperAdmin,
+  isRegularUser,
 }) {
   const [search, setSearch] = useState("");
   const [statusUpdating, setStatusUpdating] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
 
-  // Non-admins only see their own claims (match by username stored in claimedBy)
-  const visibleClaims = isAdmin
+  // Super Admin → all claims; Admin → branch claims (filtered server-side, shown as-is);
+  // Regular User → own claims only (client-side filter by username)
+  const visibleClaims = isSuperAdmin
+    ? claims
+    : isAdmin
     ? claims
     : claims.filter(
         (c) =>
@@ -461,29 +471,44 @@ function MobileClaimsListTable({
                 </div>
 
                 <div style={mobileListStyles.cardActions}>
-                  <select
-                    value={claim.status || 'Pending'}
-                    onChange={(e) => handleStatusChange(claim.id, e.target.value)}
-                    disabled={isUpdatingStatus}
-                    style={{
-                      padding: "3px 6px",
+                  {(isSuperAdmin || isAdmin) ? (
+                    <select
+                      value={claim.status || 'Pending'}
+                      onChange={(e) => handleStatusChange(claim.id, e.target.value)}
+                      disabled={isUpdatingStatus}
+                      style={{
+                        padding: "3px 6px",
+                        borderRadius: 6,
+                        border: "none",
+                        background: sc.bg,
+                        color: sc.color,
+                        fontFamily: "'Google Sans', sans-serif",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        outline: "none",
+                        flexShrink: 0,
+                        opacity: isUpdatingStatus ? 0.7 : 1,
+                      }}
+                    >
+                      <option value="Rejected" style={{ background: "#fff", color: "#202124" }}>Rejected</option>
+                      <option value="Pending"  style={{ background: "#fff", color: "#202124" }}>Pending</option>
+                      <option value="Accepted" style={{ background: "#fff", color: "#202124" }}>Accepted</option>
+                    </select>
+                  ) : (
+                    <span style={{
+                      display: "inline-block",
+                      padding: "3px 10px",
                       borderRadius: 6,
-                      border: "none",
                       background: sc.bg,
                       color: sc.color,
-                      fontFamily: "'Google Sans', sans-serif",
-                      fontSize: 12,
                       fontWeight: 700,
-                      cursor: "pointer",
-                      outline: "none",
+                      fontSize: 12,
                       flexShrink: 0,
-                      opacity: isUpdatingStatus ? 0.7 : 1,
-                    }}
-                  >
-                    <option value="Rejected" style={{ background: "#fff", color: "#202124" }}>Rejected</option>
-                    <option value="Pending"  style={{ background: "#fff", color: "#202124" }}>Pending</option>
-                    <option value="Accepted" style={{ background: "#fff", color: "#202124" }}>Accepted</option>
-                  </select>
+                    }}>
+                      {claim.status}
+                    </span>
+                  )}
 
                   <div style={mobileListStyles.actionButtons}>
                     {hasReceipt && (
@@ -495,20 +520,24 @@ function MobileClaimsListTable({
                         <VisibilityOutlinedIcon style={{ fontSize: 18 }} />
                       </button>
                     )}
-                    <button
-                      onClick={() => onEditClaim(claim)}
-                      style={mobileListStyles.iconBtn}
-                      aria-label="Edit"
-                    >
-                      <EditOutlinedIcon style={{ fontSize: 18 }} />
-                    </button>
-                    <button
-                      onClick={() => onDeleteClaim(claim.id)}
-                      style={{ ...mobileListStyles.iconBtn, color: "#d93025" }}
-                      aria-label="Delete"
-                    >
-                      <DeleteOutlineOutlinedIcon style={{ fontSize: 18 }} />
-                    </button>
+                    {(isSuperAdmin || isAdmin) && (
+                      <button
+                        onClick={() => onEditClaim(claim)}
+                        style={mobileListStyles.iconBtn}
+                        aria-label="Edit"
+                      >
+                        <EditOutlinedIcon style={{ fontSize: 18 }} />
+                      </button>
+                    )}
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => onDeleteClaim(claim.id)}
+                        style={{ ...mobileListStyles.iconBtn, color: "#d93025" }}
+                        aria-label="Delete"
+                      >
+                        <DeleteOutlineOutlinedIcon style={{ fontSize: 18 }} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -611,13 +640,13 @@ function MobileClaimsListTable({
                 <th style={{ ...desktopListStyles.th, textAlign: "right" }}>Amount</th>
                 <th style={desktopListStyles.th}>Receipt</th>
                 <th style={desktopListStyles.th}>Status</th>
-                <th style={desktopListStyles.th}>Action</th>
+                {(isSuperAdmin || isAdmin) && <th style={desktopListStyles.th}>Action</th>}
                </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={10} style={desktopListStyles.emptyCell}>
+                  <td colSpan={(isSuperAdmin || isAdmin) ? 10 : 9} style={desktopListStyles.emptyCell}>
                     <div style={desktopListStyles.empty}>
                       <div style={{ fontSize: 25, marginBottom: 8 }}></div>
                       <div style={{ fontWeight: 600, color: "#374151" }}>
@@ -630,7 +659,7 @@ function MobileClaimsListTable({
 
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={10} style={desktopListStyles.emptyCell}>
+                  <td colSpan={(isSuperAdmin || isAdmin) ? 10 : 9} style={desktopListStyles.emptyCell}>
                     <div style={desktopListStyles.empty}>
                       <div style={{ fontSize: 36, marginBottom: 8 }}></div>
                       <div style={{ fontWeight: 600, color: "#374151" }}>
@@ -707,41 +736,80 @@ function MobileClaimsListTable({
                         )}
                       </td>
                       <td style={desktopListStyles.td}>
-                        <select
-                          value={claim.status}
-                          onChange={(e) => handleStatusChange(claim.id, e.target.value)}
-                          disabled={isUpdatingStatus}
-                          style={{
-                            ...desktopListStyles.statusSelect,
+                        {(isSuperAdmin || isAdmin) ? (
+                          <select
+                            value={claim.status}
+                            onChange={(e) => handleStatusChange(claim.id, e.target.value)}
+                            disabled={isUpdatingStatus}
+                            style={{
+                              ...desktopListStyles.statusSelect,
+                              background: sc.bg,
+                              color: sc.color,
+                              borderColor: sc.dot,
+                              opacity: isUpdatingStatus ? 0.6 : 1,
+                              cursor: "pointer",
+                            }}
+                          >
+                            <option value="Rejected">Rejected</option>
+                            <option value="Pending">Pending</option>
+                            <option value="Accepted">Accepted</option>
+                          </select>
+                        ) : (
+                          <span style={{
+                            display: "inline-block",
+                            padding: "4px 12px",
+                            borderRadius: 6,
                             background: sc.bg,
                             color: sc.color,
-                            borderColor: sc.dot,
-                            opacity: isUpdatingStatus ? 0.6 : 1,
-                            cursor: "pointer",
-                          }}
-                        >
-                          <option value="Rejected">Rejected</option>
-                          <option value="Pending">Pending</option>
-                          <option value="Accepted">Accepted</option>
-                          
-                        </select>
+                            fontWeight: 600,
+                            fontSize: 12,
+                          }}>
+                            {claim.status}
+                          </span>
+                        )}
                       </td>
-                      <td style={desktopListStyles.td}>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          <button
-                            onClick={() => onEditClaim(claim)}
-                            style={desktopListStyles.editBtn}
-                          >
-                            <EditOutlinedIcon style={{ fontSize: 12 }} /> Edit
-                          </button>
-                          <button
-                            onClick={() => onDeleteClaim(claim.id)}
-                            style={desktopListStyles.deleteBtn}
-                          >
-                            <DeleteOutlineOutlinedIcon style={{ fontSize: 12 }} /> Delete
-                          </button>
-                        </div>
-                      </td>
+                      {(isSuperAdmin || isAdmin) && (
+                        <td style={desktopListStyles.td}>
+                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                            {isSuperAdmin ? (
+                              <>
+                                <button
+                                  onClick={() => onEditClaim(claim)}
+                                  style={desktopListStyles.editBtn}
+                                >
+                                  <EditOutlinedIcon style={{ fontSize: 12 }} /> Edit
+                                </button>
+                                <button
+                                  onClick={() => onDeleteClaim(claim.id)}
+                                  style={desktopListStyles.deleteBtn}
+                                >
+                                  <DeleteOutlineOutlinedIcon style={{ fontSize: 12 }} /> Delete
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => onEditClaim(claim)}
+                                title="Edit"
+                                style={{
+                                  width: 30,
+                                  height: 30,
+                                  borderRadius: 6,
+                                  border: "1px solid #c7d7f5",
+                                  background: "#eaf1fd",
+                                  color: "#1a73e8",
+                                  cursor: "pointer",
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  padding: 0,
+                                }}
+                              >
+                                <EditOutlinedIcon style={{ fontSize: 16 }} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}

@@ -773,7 +773,16 @@ const _buildChallanFD = (payload) => {
 
 export const getChallans = async (params = {}) => {
   const q = new URLSearchParams();
-  Object.entries(params).forEach(([k, v]) => { if (v !== undefined && v !== null && v !== '') q.append(k, v); });
+
+  // ── Role-based server-side filtering ─────────────────────────────────────
+  // Pass branch_id  → backend returns only challans for that branch  (Admin)
+  // Pass created_by → backend returns only challans by that user     (User)
+  // No extra params → backend returns all challans                   (Super Admin)
+  // ─────────────────────────────────────────────────────────────────────────
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') q.append(k, v);
+  });
+
   const url = `${ENDPOINTS.challans}${q.toString() ? `?${q}` : ''}`;
   const doFetch = () => fetch(url, { method: 'GET', headers: authHeaders() });
   return handleResponse(await doFetch(), doFetch);
@@ -1187,13 +1196,16 @@ function _normaliseTrip(raw) {
     odoStart:            raw.odometer_start != null ? parseFloat(raw.odometer_start) : null,
     odoEnd:              raw.odometer_end   != null ? parseFloat(raw.odometer_end)   : null,
     distance:            parseFloat(raw.distance_covered) || 0,
-    fuel:                parseFloat(raw.fuel_cost)        || 0,
+    // fuel_cost is a monetary value (₹), not litres — use `cost` or `fuelCost`
+    fuel:                parseFloat(raw.fuel_cost)        || 0,  // kept for backward compat
     cost:                parseFloat(raw.fuel_cost)        || 0,
+    fuelCost:            parseFloat(raw.fuel_cost)        || 0,
     startImg:            raw.start_img_url  ?? null,
     endImg:              raw.end_img_url    ?? null,
     status:              raw.status         ?? 'ongoing',
     maintenanceCost:     parseFloat(raw.maintenance_cost) || 0,
     services:            raw.services_list  ?? [],
+    branch_id:           raw.branch_id      ?? null,
     // snake_case mirrors (for compatibility)
     vehicle_name:        raw.vehicle_name        ?? '',
     registration_number: raw.registration_number ?? '',

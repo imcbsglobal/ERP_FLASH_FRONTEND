@@ -221,7 +221,7 @@ export default function Layout({ children }) {
     try {
       const saved = sessionStorage.getItem("active_page");
       const u = JSON.parse(localStorage.getItem("user") || "{}");
-      const admin = u?.role === "Admin" || u?.is_staff === true;
+      const admin = u?.role === "Admin" || u?.role === "Super Admin" || u?.is_staff === true;
       if (saved) {
         // validate saved page is still permitted
         if (admin) return saved;
@@ -266,7 +266,7 @@ export default function Layout({ children }) {
   };
 
   const permissions = readPermissions();
-  const isAdmin = user?.role === "Admin" || user?.is_staff === true;
+  const isAdmin = user?.role === "Admin" || user?.role === "Super Admin" || user?.is_staff === true;
 
   const filteredNav = NAV.map(section => {
     if (!section.children) {

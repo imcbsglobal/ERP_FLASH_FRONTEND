@@ -14,7 +14,7 @@ class AuthError extends Error {
 }
 
 // ── Mobile Card Component ──────────────────────────────────────
-function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, onStatusUpdate, onEdit, onDelete, editLoading, mode, isAdmin, cashReceived, cashAmount, onViewProof, onCompletePendingAmount }) {
+function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, onStatusUpdate, onEdit, onDelete, editLoading, mode, isAdmin, isSuperAdmin, cashReceived, cashAmount, onViewProof, onCompletePendingAmount }) {
   const formatCurrency = (amount) =>
     new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR',
       minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
@@ -34,8 +34,10 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
   };
 
   const statusDisplay = payment.status === 'Failed' ? 'Rejected' : payment.status;
-  const canEditDelete = isAdmin;
-  const statusDisabled = updatingId === payment.id || (mode === 'all' && !isAdmin);
+  const canEdit = isAdmin;
+  const canDelete = isSuperAdmin;
+  const canEditDelete = canEdit || canDelete;
+  const statusDisabled = updatingId === payment.id || !isAdmin;
   
   // Calculate pending amount
   const cashReceivedValue = cashReceived === true && cashAmount ? parseFloat(cashAmount) : 0;
@@ -188,21 +190,25 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
         )}
       </div>
 
-      {/* Edit / Delete buttons — always visible */}
+      {/* Edit / Delete buttons — role-based visibility */}
       {canEditDelete && (
         <div className="mc-actions" onClick={e => e.stopPropagation()}>
-          <button
-            onClick={() => onEdit(payment)}
-            style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: 'none', background: '#1a73e8', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontFamily: "'Google Sans', sans-serif" }}
-          >
-            <EditOutlinedIcon style={{ fontSize: 13 }} /> Edit
-          </button>
-          <button
-            onClick={() => onDelete(payment.id)}
-            style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: 'none', background: '#d93025', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontFamily: "'Google Sans', sans-serif" }}
-          >
-            <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
-          </button>
+          {canEdit && (
+            <button
+              onClick={() => onEdit(payment)}
+              style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: 'none', background: '#1a73e8', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontFamily: "'Google Sans', sans-serif" }}
+            >
+              <EditOutlinedIcon style={{ fontSize: 13 }} /> Edit
+            </button>
+          )}
+          {canDelete && (
+            <button
+              onClick={() => onDelete(payment.id)}
+              style={{ flex: 1, padding: '6px 0', borderRadius: 7, border: 'none', background: '#d93025', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, fontFamily: "'Google Sans', sans-serif" }}
+            >
+              <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -226,12 +232,14 @@ const PaymentTable = ({ mode = 'all' }) => {
     return { id: null, name: null };
   };
   const loggedInUser = getLoggedInUser();
-  const isAdmin = (() => {
+  const userRole = (() => {
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}');
-      return u?.role === 'Admin' || u?.is_staff === true;
-    } catch { return false; }
+      return u?.role || 'User';
+    } catch { return 'User'; }
   })();
+  const isAdmin = userRole === 'Admin' || userRole === 'Super Admin' || ((() => { try { return JSON.parse(localStorage.getItem('user') || '{}')?.is_staff === true; } catch { return false; } })());
+  const isSuperAdmin = userRole === 'Super Admin';
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -259,7 +267,7 @@ const PaymentTable = ({ mode = 'all' }) => {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 15;
 
   // ── Fetch all payments ─────────────────────────────────────────
   const loadPayments = useCallback(async () => {
@@ -561,6 +569,8 @@ const PaymentTable = ({ mode = 'all' }) => {
   const collectionTypes = ['all', 'Cash', 'Cheque', 'Bank Transfer', 'Credit Card', 'Debit Card', 'Online Payment'];
 
   // Table headers - Added "Pending Amount" column
+  const canEditRows = isAdmin;     // Admin + Super Admin can edit
+  const canDeleteRows = isSuperAdmin; // Only Super Admin can delete
   const canActOnRows = isAdmin;
   const headers = [
     "Sl. no.", "Date", "Client Name", "Branch",
@@ -1261,7 +1271,7 @@ const PaymentTable = ({ mode = 'all' }) => {
                           <select
                             className={`status-select ${getStatusClass(payment.status)}`}
                             value={(payment.status === 'Failed' ? 'Rejected' : payment.status) || 'Pending'}
-                            disabled={updatingId === payment.id || (mode === 'all' && !isAdmin)}
+                            disabled={updatingId === payment.id || !isAdmin}
                             onChange={(e) => handleStatusUpdate(payment, e.target.value)}
                           >
                             {STATUS_OPTIONS.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1280,18 +1290,22 @@ const PaymentTable = ({ mode = 'all' }) => {
                         {canActOnRows && (
                           <td style={{ ...tdStyle, textAlign: "left" }}>
                             <div style={{ display: "flex", gap: 6 }}>
-                              <button 
-                                onClick={() => handleEditClick(payment)} 
-                                style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
-                              >
-                                <EditOutlinedIcon style={{ fontSize: 13 }} />
-                              </button>
-                              <button 
-                                onClick={() => confirmDelete(payment.id)} 
-                                style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#d93025", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
-                              >
-                                <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} />
-                              </button>
+                              {canEditRows && (
+                                <button 
+                                  onClick={() => handleEditClick(payment)} 
+                                  style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#1a73e8", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
+                                >
+                                  <EditOutlinedIcon style={{ fontSize: 13 }} />
+                                </button>
+                              )}
+                              {canDeleteRows && (
+                                <button 
+                                  onClick={() => confirmDelete(payment.id)} 
+                                  style={{ padding: "5px 12px", borderRadius: 6, border: "none", background: "#d93025", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" }}
+                                >
+                                  <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         )}
@@ -1342,6 +1356,7 @@ const PaymentTable = ({ mode = 'all' }) => {
                     editLoading={editLoading}
                     mode={mode}
                     isAdmin={isAdmin}
+                    isSuperAdmin={isSuperAdmin}
                     onViewProof={setProofViewer}
                     onCompletePendingAmount={handleCompletePendingAmount}
                     cashReceived={cashReceivedMap[payment.id]}

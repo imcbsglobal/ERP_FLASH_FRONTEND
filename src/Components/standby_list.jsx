@@ -3,7 +3,7 @@ import MoveDownIcon from '@mui/icons-material/MoveDown';
 import MoveUpIcon from '@mui/icons-material/MoveUp';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import StandbyAdd from "./standby_add.jsx";
-import { apiFetch, authHeaders, ENDPOINTS, getUsers } from "../service/Api";
+import { apiFetch, authHeaders, ENDPOINTS, getUsers, authService } from "../service/Api";
 
 /** Normalize an API Standby record to the shape this component expects. */
 function normalize(r) {
@@ -324,6 +324,10 @@ function StatusBadge({ status }) {
 
 // ── Main Component ───────────────────────────────────────────
 export default function StandbyList({ onAdd }) {
+  const currentUser = authService.getCurrentUser();
+  const isAdmin = currentUser?.role === "Admin" || currentUser?.role === "Super Admin" || currentUser?.is_staff === true;
+  const isSuperAdmin = currentUser?.role === "Super Admin";
+
   const [view, setView]                     = useState("list");
   const [editRow, setEditRow]               = useState(null);   // raw API object for edit
   const [data, setData]                     = useState([]);
@@ -346,13 +350,22 @@ export default function StandbyList({ onAdd }) {
       const records = await apiFetch(ENDPOINTS.standbys, {
         headers: authHeaders(),
       });
-      setData(records.map(normalize));
+      let rows = Array.isArray(records) ? records : (records.results ?? records);
+      // Non-admin users see only entries where they are employee1 or employee2
+      if (!isAdmin && currentUser?.username) {
+        const me = currentUser.username.toLowerCase();
+        rows = rows.filter((r) =>
+          (r.employee1 || "").toLowerCase() === me ||
+          (r.employee2 || "").toLowerCase() === me
+        );
+      }
+      setData(rows.map(normalize));
     } catch (err) {
       setFetchError(err.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin, currentUser?.username]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -756,9 +769,10 @@ export default function StandbyList({ onAdd }) {
                           <td style={styles.td}>
                             <select
                               value={row.status}
+                              disabled={!isAdmin}
                               onChange={(e) => handleStatusChange(row, e.target.value)}
                               className={`status-select ${STATUS_META[row.status]?.pill || ""}`}
-                              style={styles.statusSelect}
+                              style={{ ...styles.statusSelect, ...(isAdmin ? {} : { cursor: "not-allowed", opacity: 0.7 }) }}
                             >
                               {ALL_STATUSES.map((s) => (
                                 <option key={s} value={s}>{s}</option>
@@ -796,12 +810,16 @@ export default function StandbyList({ onAdd }) {
                               <button style={styles.viewBtn} title="View" onClick={() => setViewRow(row)}>
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
                               </button>
-                              <button style={styles.editBtn} title="Edit" onClick={() => { setEditRow(row._raw); setView("edit"); }}>
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                              </button>
-                              <button style={styles.delBtn} title="Delete" onClick={() => setDeleteRow(row)}>
-                                <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                              </button>
+                              {isAdmin && (
+                                <button style={styles.editBtn} title="Edit" onClick={() => { setEditRow(row._raw); setView("edit"); }}>
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                                </button>
+                              )}
+                              {isSuperAdmin && (
+                                <button style={styles.delBtn} title="Delete" onClick={() => setDeleteRow(row)}>
+                                  <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                                </button>
+                              )}
                             </div>
                           </td>
 
@@ -862,9 +880,10 @@ export default function StandbyList({ onAdd }) {
                           <span className="standby-card-label">Status</span>
                           <select
                             value={row.status}
+                            disabled={!isAdmin}
                             onChange={(e) => handleStatusChange(row, e.target.value)}
                             className={`status-select ${STATUS_META[row.status]?.pill || ""}`}
-                            style={{ ...styles.statusSelect, minWidth: 0, width: "100%" }}
+                            style={{ ...styles.statusSelect, minWidth: 0, width: "100%", ...(isAdmin ? {} : { cursor: "not-allowed", opacity: 0.7 }) }}
                           >
                             {ALL_STATUSES.map((s) => (
                               <option key={s} value={s}>{s}</option>
@@ -907,12 +926,16 @@ export default function StandbyList({ onAdd }) {
                           <button style={styles.viewBtn} title="View" onClick={() => setViewRow(row)}>
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/></svg>
                           </button>
-                          <button style={styles.editBtn} title="Edit" onClick={() => { setEditRow(row._raw); setView("edit"); }}>
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
-                          </button>
-                          <button style={styles.delBtn} title="Delete" onClick={() => setDeleteRow(row)}>
-                            <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                          </button>
+                          {isAdmin && (
+                            <button style={styles.editBtn} title="Edit" onClick={() => { setEditRow(row._raw); setView("edit"); }}>
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                            </button>
+                          )}
+                          {isSuperAdmin && (
+                            <button style={styles.delBtn} title="Delete" onClick={() => setDeleteRow(row)}>
+                              <svg width="15" height="15" viewBox="0 0 24 24" fill="#fff"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

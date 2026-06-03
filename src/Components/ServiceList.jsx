@@ -12,7 +12,7 @@ import TwoWheelerOutlinedIcon from '@mui/icons-material/TwoWheelerOutlined';
 import Woman2OutlinedIcon from '@mui/icons-material/Woman2Outlined';
 import SupervisorAccountOutlinedIcon from '@mui/icons-material/SupervisorAccountOutlined';
 import ServiceAdd from "./service_add.jsx";
-import { apiFetch, authHeaders, ENDPOINTS, getUsers } from "../service/Api.js";
+import { apiFetch, authHeaders, ENDPOINTS, getUsers, authService } from "../service/Api.js";
 
 // Normalize API response row → component row shape
 function normalize(r) {
@@ -159,6 +159,10 @@ export default function ServiceList() {
       setView("add");
     }
   };
+  const currentUser = authService.getCurrentUser();
+  const isAdmin = currentUser?.role === "Admin" || currentUser?.role === "Super Admin" || currentUser?.is_staff === true;
+  const isSuperAdmin = currentUser?.role === "Super Admin";
+
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
@@ -191,14 +195,22 @@ export default function ServiceList() {
     setFetchError("");
     try {
       const json = await apiFetch(ENDPOINTS.services, { headers: authHeaders() });
-      const rows = Array.isArray(json) ? json : (json.results ?? []);
+      let rows = Array.isArray(json) ? json : (json.results ?? []);
+      // Non-admin users see only entries where they are employee1 or employee2
+      if (!isAdmin && currentUser?.username) {
+        const me = currentUser.username.toLowerCase();
+        rows = rows.filter((r) =>
+          (r.employee1 || "").toLowerCase() === me ||
+          (r.employee2 || "").toLowerCase() === me
+        );
+      }
       setData(rows.map(normalize));
     } catch (err) {
       setFetchError(err.message || "Failed to load data");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAdmin, currentUser?.username]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -716,8 +728,8 @@ export default function ServiceList() {
           </div>
           <FilterSelect label="Status" value={statusFilter} options={["All", ...STATUSES]} onChange={setStatusFilter} />
           <FilterSelect label="Customer" value={customerFilter} options={uniqueCustomers} onChange={setCustomerFilter} />
-          <FilterSelect label="Employee" value={employeeFilter} options={uniqueEmployees} onChange={setEmployeeFilter} />
-          {(statusFilter !== "All" || customerFilter !== "All" || employeeFilter !== "All" || search) && (
+          {isAdmin && <FilterSelect label="Employee" value={employeeFilter} options={uniqueEmployees} onChange={setEmployeeFilter} />}
+          {(statusFilter !== "All" || customerFilter !== "All" || (isAdmin && employeeFilter !== "All") || search) && (
             <button style={styles.resetBtn} className="sl-reset-btn" onClick={() => {
               setSearch(""); setStatusFilter("All");
               setCustomerFilter("All"); setEmployeeFilter("All");
@@ -824,8 +836,9 @@ export default function ServiceList() {
                       <select
                         className={`status-select ${STATUS_PILL[row.status] || "pill-muted"}`}
                         value={row.status}
+                        disabled={!isAdmin}
                         onChange={(e) => handleStatusChange(row.id, e.target.value)}
-                        style={styles.statusSelect}
+                        style={{ ...styles.statusSelect, ...(isAdmin ? {} : { cursor: "not-allowed", opacity: 0.7 }) }}
                       >
                         {STATUSES.map((s) => (
                           <option key={s} value={s}>{s}</option>
@@ -867,11 +880,15 @@ export default function ServiceList() {
                         <button className="action-view" style={styles.viewBtn} title="View Details" onClick={() => setViewRow(row)}>
                           <VisibilityOutlinedIcon style={{ fontSize: 16, color: "#fff", fill: "#fff" }} />
                         </button>
-                        <button className="action-edit" style={styles.editBtn} title="Edit" onClick={() => openEditForm(row)}>                          <EditOutlinedIcon style={{ fontSize: 16, color: "#fff", fill: "#fff" }} /> 
-                        </button>
-                        <button className="action-delete" style={styles.deleteBtn} title="Delete" onClick={() => handleDelete(row.id)}>
-                          <DeleteOutlineOutlinedIcon style={{ fontSize: 16, color: "#fff", fill: "#fff" }} /> 
-                        </button>
+                        {isAdmin && (
+                          <button className="action-edit" style={styles.editBtn} title="Edit" onClick={() => openEditForm(row)}>                          <EditOutlinedIcon style={{ fontSize: 16, color: "#fff", fill: "#fff" }} /> 
+                          </button>
+                        )}
+                        {isSuperAdmin && (
+                          <button className="action-delete" style={styles.deleteBtn} title="Delete" onClick={() => handleDelete(row.id)}>
+                            <DeleteOutlineOutlinedIcon style={{ fontSize: 16, color: "#fff", fill: "#fff" }} /> 
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1008,8 +1025,9 @@ export default function ServiceList() {
                     <select
                       className={`status-select ${STATUS_PILL[row.status] || "pill-muted"}`}
                       value={row.status}
+                      disabled={!isAdmin}
                       onChange={(e) => handleStatusChange(row.id, e.target.value)}
-                      style={{ width: "100%", fontSize: 12, padding: "7px 12px", borderRadius: 8, border: "none", cursor: "pointer" }}
+                      style={{ width: "100%", fontSize: 12, padding: "7px 12px", borderRadius: 8, border: "none", cursor: isAdmin ? "pointer" : "not-allowed", opacity: isAdmin ? 1 : 0.7 }}
                     >
                       {STATUSES.map((s) => (
                         <option key={s} value={s}>{s}</option>
@@ -1024,20 +1042,24 @@ export default function ServiceList() {
                     >
                       <VisibilityOutlinedIcon style={{ fontSize: 16, color: "#fff", fill: "#fff" }} />
                     </button>
-                    <button
-                      className="action-edit"
-                      style={{ padding: "8px 10px", borderRadius: 8, border: "none", background: "#1a73e8", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center" }}
-                      onClick={() => openEditForm(row)}
-                    >
-                      <EditOutlinedIcon style={{ fontSize: 16, color: "#fff", fill: "#fff" }} />
-                    </button>
-                    <button
-                      className="action-delete"
-                      style={{ padding: "8px 10px", borderRadius: 8, border: "none", background: "#d93025", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center" }}
-                      onClick={() => handleDelete(row.id)}
-                    >
-                      <DeleteOutlineOutlinedIcon style={{ fontSize: 16, color: "#fff", fill: "#fff" }} />
-                    </button>
+                    {isAdmin && (
+                      <button
+                        className="action-edit"
+                        style={{ padding: "8px 10px", borderRadius: 8, border: "none", background: "#1a73e8", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center" }}
+                        onClick={() => openEditForm(row)}
+                      >
+                        <EditOutlinedIcon style={{ fontSize: 16, color: "#fff", fill: "#fff" }} />
+                      </button>
+                    )}
+                    {isSuperAdmin && (
+                      <button
+                        className="action-delete"
+                        style={{ padding: "8px 10px", borderRadius: 8, border: "none", background: "#d93025", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center" }}
+                        onClick={() => handleDelete(row.id)}
+                      >
+                        <DeleteOutlineOutlinedIcon style={{ fontSize: 16, color: "#fff", fill: "#fff" }} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

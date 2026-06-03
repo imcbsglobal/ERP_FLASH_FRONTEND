@@ -9,13 +9,14 @@ import ChallanAdd from "./challan_add";
 const STATUS_STYLES = {
   Paid:    { background: "#188038", color: "#ffffff" },
   Pending: { background: "rgb(247,170,4) ", color: "#ffffff" },
+  Waived:  { background: "#5f6368", color: "#ffffff" },
 };
 
 // Table headers matching Vehicle Master style
-const HEADERS = [
+const BASE_HEADERS = [
   "Sl. no.", "Vehicle", "Default Date", "Challan No", "Challan Date",
   "Offence Type", "Location", "Fine Amt (₹)", "Payment Status",
-  "Challan Doc", "Payment Receipt", "Remark", "Action"
+  "Challan Doc", "Payment Receipt", "Remark"
 ];
 
 export default function ChallanList({ onAdd, onEdit }) {
@@ -37,11 +38,25 @@ export default function ChallanList({ onAdd, onEdit }) {
   const currentUser = (() => {
     try { return JSON.parse(localStorage.getItem("user")) || {}; } catch { return {}; }
   })();
-  const isAdmin = currentUser?.role === "Admin";
+  const userRole         = (currentUser?.role || "").trim().toLowerCase();
+  const isSuperAdmin     = userRole === "super admin";
+  const isAdmin          = userRole === "admin";
+  const isUser           = !isSuperAdmin && !isAdmin;
+  // Super Admin → Edit + Delete | Admin → Edit only | User → no Action column
+  const canSeeActions    = isAdmin || isSuperAdmin;
+  const canDelete        = isSuperAdmin;
+  const canEdit          = isAdmin || isSuperAdmin;
+  const canChangeStatus  = isAdmin || isSuperAdmin;
 
   const fetchChallans = async () => {
     try {
       setLoading(true);
+
+      // No role-based params needed — the backend get_queryset() already
+      // scopes results to the authenticated user's role automatically:
+      //   Super Admin → all challans
+      //   Admin       → challans in their branch
+      //   User        → only their own challans
       const response = await getChallans();
       const challanData = Array.isArray(response)
         ? response
@@ -57,15 +72,28 @@ export default function ChallanList({ onAdd, onEdit }) {
 
   useEffect(() => { fetchChallans(); }, []);
 
-  /* ── filter ── */
-  // Non-admins only see challans they created (matched by created_by_username)
-  const visibleData = isAdmin
+  /* ── Visibility filter — client-side safety net ─────────────────────────────
+     The backend get_queryset() already scopes by role (Super Admin / Admin / User).
+     This pass adds a secondary guard for stale cache, using fields the serializer
+     always returns: created_by_username and created_by_branch_id.
+     If branch info is missing from the stored user object, trust the backend
+     scoping rather than hiding all rows.
+  ────────────────────────────────────────────────────────────────────────── */
+  const currentUserBranchId = currentUser?.branch_id ?? currentUser?.branch ?? null;
+  const visibleData = isSuperAdmin
     ? data
-    : data.filter(
-        (r) =>
-          (r.created_by_username || "").toLowerCase() ===
-          (currentUser?.username || "").toLowerCase()
-      );
+    : isAdmin
+      ? data.filter((r) => {
+          // If we can't read branch from either side, trust the backend result
+          const challanBranch = r.created_by_branch_id ?? r.branch_id ?? null;
+          if (challanBranch == null || currentUserBranchId == null) return true;
+          return String(challanBranch) === String(currentUserBranchId);
+        })
+      : data.filter(
+          (r) =>
+            (r.created_by_username || "").toLowerCase() ===
+            (currentUser?.username || "").toLowerCase()
+        );
 
   const filtered = visibleData.filter(r => {
     const q = search.toLowerCase();
@@ -727,22 +755,33 @@ export default function ChallanList({ onAdd, onEdit }) {
                           {number && <div className="challan-card-vehicle-reg">{number}</div>}
                           {!name && !number && <div className="challan-card-vehicle-reg">—</div>}
                         </div>
-                        <select
-                          value={row.payment_status || "Pending"}
-                          onChange={(e) => handleStatusChange(row.id, e.target.value)}
-                          disabled={updatingStatusId === row.id}
-                          style={{
-                            padding: "3px 6px", borderRadius: 6, border: "none",
+                        {/* Payment Status — editable dropdown for Admin/SuperAdmin, static badge for User */}
+                        {canChangeStatus ? (
+                          <select
+                            value={row.payment_status || "Pending"}
+                            onChange={(e) => handleStatusChange(row.id, e.target.value)}
+                            disabled={updatingStatusId === row.id}
+                            style={{
+                              padding: "3px 6px", borderRadius: 6, border: "none",
+                              background: statusStyle.background, color: statusStyle.color,
+                              fontFamily: "'Google Sans', sans-serif", fontSize: 7,
+                              fontWeight: 700, cursor: updatingStatusId === row.id ? "not-allowed" : "pointer", outline: "none",
+                              flexShrink: 0,
+                              opacity: updatingStatusId === row.id ? 0.7 : 1,
+                            }}
+                          >
+                            <option value="Pending" style={{ background: "#fff", color: "#202124" }}>Pending</option>
+                            <option value="Paid" style={{ background: "#fff", color: "#202124" }}>Paid</option>
+                          </select>
+                        ) : (
+                          <span style={{
+                            padding: "3px 8px", borderRadius: 6,
                             background: statusStyle.background, color: statusStyle.color,
-                            fontFamily: "'Google Sans', sans-serif", fontSize: 7,
-                            fontWeight: 700, cursor: "pointer", outline: "none",
-                            flexShrink: 0,
-                            opacity: updatingStatusId === row.id ? 0.7 : 1,
-                          }}
-                        >
-                          <option value="Pending" style={{ background: "#fff", color: "#202124" }}>Pending</option>
-                          <option value="Paid" style={{ background: "#fff", color: "#202124" }}>Paid</option>
-                        </select>
+                            fontSize: 9, fontWeight: 700, flexShrink: 0,
+                          }}>
+                            {row.payment_status || "Pending"}
+                          </span>
+                        )}
                       </div>
 
                       {/* Row 1: Default Date + Challan No */}
@@ -808,15 +847,21 @@ export default function ChallanList({ onAdd, onEdit }) {
                         </div>
                       )}
 
-                      {/* Actions */}
-                      <div className="challan-card-actions">
-                        <button onClick={() => setEditRow(row)} style={{ background: "#1a73e8", color: "#fff" }}>
-                          <EditOutlinedIcon style={{ fontSize: 11 }} /> Edit
-                        </button>
-                        <button onClick={() => confirmDelete(row.id)} style={{ background: "#d93025", color: "#fff" }}>
-                          <DeleteOutlineOutlinedIcon style={{ fontSize: 11 }} /> Delete
-                        </button>
-                      </div>
+                      {/* Actions — hidden for User role */}
+                      {canSeeActions && (
+                        <div className="challan-card-actions">
+                          {canEdit && (
+                            <button onClick={() => setEditRow(row)} style={{ background: "#1a73e8", color: "#fff" }}>
+                              <EditOutlinedIcon style={{ fontSize: 11 }} /> Edit
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button onClick={() => confirmDelete(row.id)} style={{ background: "#d93025", color: "#fff" }}>
+                              <DeleteOutlineOutlinedIcon style={{ fontSize: 11 }} /> Delete
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -839,7 +884,7 @@ export default function ChallanList({ onAdd, onEdit }) {
                 <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr>
-                      {HEADERS.map(h => (
+                      {[...BASE_HEADERS, ...(canSeeActions ? ["Action"] : [])].map(h => (
                         <th key={h} className={["Challan Date","Offence Type","Location","Challan Doc","Payment Receipt","Remark"].includes(h) ? "col-hide-mobile" : ""} style={thStyle}>{h}</th>
                       ))}
                     </tr>
@@ -899,6 +944,14 @@ export default function ChallanList({ onAdd, onEdit }) {
                         <td style={tdStyle}>
                           {(() => {
                             const statusStyle = STATUS_STYLES[row.payment_status] || STATUS_STYLES["Pending"];
+                            if (!canChangeStatus) {
+                              // User role — static coloured badge, no interaction
+                              return (
+                                <span className="pill" style={{ background: statusStyle.background, color: statusStyle.color }}>
+                                  {row.payment_status || "Pending"}
+                                </span>
+                              );
+                            }
                             return (
                               <select
                                 value={row.payment_status || "Pending"}
@@ -964,32 +1017,40 @@ export default function ChallanList({ onAdd, onEdit }) {
                         </td>
                         
                         {/* Actions */}
-                        <td style={tdStyle}>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            <button 
-                              onClick={() => setEditRow(row)} 
-                              style={{ 
-                                padding: "5px 12px", borderRadius: 6, border: "none", 
-                                background: "#1a73e8", color: "#fff", fontSize: 11, 
-                                fontWeight: 600, cursor: "pointer", display: "flex", 
-                                alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" 
-                              }}
-                            >
-                              <EditOutlinedIcon style={{ fontSize: 13 }} /> Edit
-                            </button>
-                            <button 
-                              onClick={() => confirmDelete(row.id)} 
-                              style={{ 
-                                padding: "5px 12px", borderRadius: 6, border: "none", 
-                                background: "#d93025", color: "#fff", fontSize: 11, 
-                                fontWeight: 600, cursor: "pointer", display: "flex", 
-                                alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" 
-                              }}
-                            >
-                              <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
-                            </button>
-                          </div>
-                        </td>
+                        {canSeeActions && (
+                          <td style={tdStyle}>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              {/* Edit — Admin + Super Admin */}
+                              {canEdit && (
+                                <button 
+                                  onClick={() => setEditRow(row)} 
+                                  style={{ 
+                                    padding: "5px 12px", borderRadius: 6, border: "none", 
+                                    background: "#1a73e8", color: "#fff", fontSize: 11, 
+                                    fontWeight: 600, cursor: "pointer", display: "flex", 
+                                    alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" 
+                                  }}
+                                >
+                                  <EditOutlinedIcon style={{ fontSize: 13 }} /> Edit
+                                </button>
+                              )}
+                              {/* Delete — Super Admin only */}
+                              {canDelete && (
+                                <button 
+                                  onClick={() => confirmDelete(row.id)} 
+                                  style={{ 
+                                    padding: "5px 12px", borderRadius: 6, border: "none", 
+                                    background: "#d93025", color: "#fff", fontSize: 11, 
+                                    fontWeight: 600, cursor: "pointer", display: "flex", 
+                                    alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" 
+                                  }}
+                                >
+                                  <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>

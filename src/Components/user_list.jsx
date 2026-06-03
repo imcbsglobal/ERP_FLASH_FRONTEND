@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { getUsers, createUser, deleteUser, patchUser, getBranches } from "../service/Api";
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-const ROLES    = ["Admin", "User"];
+const ROLES    = ["Admin", "Super Admin", "User"];
 const STATUSES = ["Active", "Inactive"];
 const EMPTY_FORM = {
   username: "", address: "", phone: "", department: "",
@@ -13,7 +14,7 @@ const EMPTY_FORM = {
 };
 
 // ── Column definitions ────────────────────────────────────────────────────────
-const COLS = [
+const BASE_COLS = [
   { key: "sl",       label: "Sl.No",    width: "5%",  align: "center" },
   { key: "username", label: "Username", width: "18%", align: "left"   },
   { key: "address",  label: "Address",  width: "25%", align: "left"   },
@@ -21,8 +22,8 @@ const COLS = [
   { key: "branch",   label: "Branch",   width: "13%", align: "left"   },
   { key: "role",     label: "Role",     width: "10%", align: "left"   },
   { key: "status",   label: "Status",   width: "8%",  align: "center" },
-  { key: "action",   label: "Action",   width: "8%",  align: "center" },
 ];
+const ACTION_COL = { key: "action", label: "Action", width: "8%", align: "center" };
 
 const thStyle = (col) => ({
   padding: "11px 14px",
@@ -391,6 +392,20 @@ function PhotoUpload({ preview, existingUrl, onChange, onClear, onCaptureClick }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function RegisteredUsers() {
+  // ── Role detection ──────────────────────────────────────────────────────────
+  const _currentUserRole = (() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      return (u?.role || u?.user_type || 'user').toLowerCase().trim();
+    }
+    catch { return 'user'; }
+  })();
+  const isSuperAdmin = _currentUserRole === 'super admin' || _currentUserRole === 'superadmin';
+  const isAdmin      = _currentUserRole === 'admin';
+
+  // Build column list — hide Action column entirely for plain users
+  const COLS = (isSuperAdmin || isAdmin) ? [...BASE_COLS, ACTION_COL] : BASE_COLS;
+
   const [users, setUsers] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -718,6 +733,7 @@ export default function RegisteredUsers() {
     fontSize: "13px",
     fontFamily: "var(--ff)",
     background: "var(--surface)",
+    color: "var(--text)",
     outline: "none",
     transition: "border-color 0.2s",
     boxSizing: "border-box",
@@ -927,12 +943,26 @@ export default function RegisteredUsers() {
                       {u.status}
                     </span>
                   </td>
-                  <td style={tdStyle(COLS[7])}>
-                    <div style={{ display: "flex", gap: "5px", justifyContent: "center" }}>
-                      <button onClick={() => handleOpenEdit(u)} style={{ background: "var(--accent)", border: "1px solid var(--border)", color: "white", cursor: "pointer", fontSize: "12px", fontWeight: 600, padding: "4px 10px", borderRadius: "6px", transition: "background 0.15s" }}>Edit</button>
-                      <button onClick={() => handleDelete(u)} style={{ background: "var(--red)", border: "none", color: "white", cursor: "pointer", fontSize: "12px", fontWeight: 600, padding: "4px 10px", borderRadius: "6px", transition: "background 0.15s" }}>Delete</button>
-                    </div>
-                  </td>
+                  {(isSuperAdmin || isAdmin) && (
+                    <td style={tdStyle(ACTION_COL)}>
+                      <div style={{ display: "flex", gap: "5px", justifyContent: "center", alignItems: "center" }}>
+                        {isSuperAdmin ? (
+                          <>
+                            <button onClick={() => handleOpenEdit(u)} style={{ background: "var(--accent)", border: "1px solid var(--border)", color: "white", cursor: "pointer", fontSize: "12px", fontWeight: 600, padding: "4px 10px", borderRadius: "6px", transition: "background 0.15s" }}>Edit</button>
+                            <button onClick={() => handleDelete(u)} style={{ background: "var(--red)", border: "none", color: "white", cursor: "pointer", fontSize: "12px", fontWeight: 600, padding: "4px 10px", borderRadius: "6px", transition: "background 0.15s" }}>Delete</button>
+                          </>
+                        ) : (
+                          <button
+                            className="action-edit"
+                            style={{ padding: "8px 10px", borderRadius: 8, border: "none", background: "#1a73e8", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center" }}
+                            onClick={() => handleOpenEdit(u)}
+                          >
+                            <EditOutlinedIcon style={{ fontSize: 16, color: "#fff", fill: "#fff" }} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -978,8 +1008,20 @@ export default function RegisteredUsers() {
                 </div>
                 {/* Actions */}
                 <div style={{ display: "flex", gap: "8px", marginTop: "4px" }}>
-                  <button onClick={() => handleOpenEdit(u)} style={{ flex: 1, background: "var(--accent)", border: "none", color: "#fff", cursor: "pointer", fontSize: "13px", fontWeight: 600, padding: "8px 0", borderRadius: "6px" }}>Edit</button>
-                  <button onClick={() => handleDelete(u)} style={{ flex: 1, background: "var(--red)", border: "none", color: "#fff", cursor: "pointer", fontSize: "13px", fontWeight: 600, padding: "8px 0", borderRadius: "6px" }}>Delete</button>
+                  {isSuperAdmin ? (
+                    <>
+                      <button onClick={() => handleOpenEdit(u)} style={{ flex: 1, background: "var(--accent)", border: "none", color: "#fff", cursor: "pointer", fontSize: "13px", fontWeight: 600, padding: "8px 0", borderRadius: "6px" }}>Edit</button>
+                      <button onClick={() => handleDelete(u)} style={{ flex: 1, background: "var(--red)", border: "none", color: "#fff", cursor: "pointer", fontSize: "13px", fontWeight: 600, padding: "8px 0", borderRadius: "6px" }}>Delete</button>
+                    </>
+                  ) : isAdmin ? (
+                    <button
+                      className="action-edit"
+                      style={{ padding: "8px 10px", borderRadius: 8, border: "none", background: "#1a73e8", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center" }}
+                      onClick={() => handleOpenEdit(u)}
+                    >
+                      <EditOutlinedIcon style={{ fontSize: 16, color: "#fff", fill: "#fff" }} />
+                    </button>
+                  ) : null}
                 </div>
               </div>
             ))
