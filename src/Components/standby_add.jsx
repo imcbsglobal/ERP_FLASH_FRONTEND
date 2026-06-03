@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { apiFetch, authHeaders, ENDPOINTS } from "../service/Api";
+import { apiFetch, authHeaders, ENDPOINTS, getUsers, getAllDebtors } from "../service/Api";
 
 function getLoggedUserName() {
   try {
@@ -40,6 +40,26 @@ export default function StandbyAdd({ onBack, editRow }) {
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [userOptions, setUserOptions] = useState([]);
+  const [debtors, setDebtors] = useState([]);       // [{ name, place, phone }]
+  const [debtorsLoading, setDebtorsLoading] = useState(true);
+
+  useEffect(() => {
+    getUsers({ status: "Active" })
+      .then((data) => {
+        const results = data?.results ?? [];
+        setUserOptions(results.map((u) => u.username).filter(Boolean));
+      })
+      .catch(() => setUserOptions([]));
+  }, []);
+
+  useEffect(() => {
+    setDebtorsLoading(true);
+    getAllDebtors()
+      .then((list) => setDebtors(list))
+      .catch(() => setDebtors([]))
+      .finally(() => setDebtorsLoading(false));
+  }, []);
 
   // Populate form when editing an existing record
   useEffect(() => {
@@ -117,6 +137,19 @@ export default function StandbyAdd({ onBack, editRow }) {
     if (!form.product.trim()) e.product = "Required";
     if (!form.serialNo.trim()) e.serialNo = "Required";
     return e;
+  };
+
+  // When a customer is picked, auto-fill place & phone
+  const handleCustomerSelect = (e) => {
+    const selectedName = e.target.value;
+    const match = debtors.find((d) => d.name === selectedName);
+    setForm((f) => ({
+      ...f,
+      customerName:  selectedName,
+      customerPlace: match ? match.place : f.customerPlace,
+      customerPhone: match ? match.phone : f.customerPhone,
+    }));
+    setErrors((er) => ({ ...er, customerName: undefined, customerPhone: undefined }));
   };
 
   const handleSubmit = async () => {
@@ -310,30 +343,19 @@ export default function StandbyAdd({ onBack, editRow }) {
               value={form.employee1} onChange={handleChange} />
             <SelectField label="Employee 2" name="employee2"
               value={form.employee2} onChange={handleChange}
-              placeholder="— Select technician —"
-              options={[
-                "Alice Johnson",
-                "Bob Smith",
-                "Charlie Davis",
-                "Diana Lee",
-                "Ethan Brown",
-              ]} />
+              placeholder="— Select User —"
+              options={userOptions} />
           </div>
 
           {/* ── Customer Information ── */}
           <SectionLabel label="Customer Information" />
           <div style={styles.row3} className="standby-row3">
-            <SelectField label="Customer Name" name="customerName"
-              value={form.customerName} onChange={handleChange}
+            <SearchableSelect label="Customer Name" name="customerName"
+              value={form.customerName} onChange={handleCustomerSelect}
               error={errors.customerName} required
-              placeholder="— Select customer —"
-              options={[
-                "Rahul Menon",
-                "Priya Nair",
-                "Suresh Kumar",
-                "Anitha Thomas",
-                "Vijay Krishnan",
-              ]} />
+              placeholder="Type customer name…"
+              options={debtors.map((d) => d.name)}
+              loading={debtorsLoading} />
             <Field label="Place" name="customerPlace" placeholder="City / Area"
               value={form.customerPlace} onChange={handleChange} />
             <Field label="Phone Number" name="customerPhone" placeholder="+91 98765 43210"
@@ -518,6 +540,126 @@ function SelectField({ label, name, value, onChange, error, required, options, p
   );
 }
 
+function SearchableSelect({ label, name, value, onChange, error, required, options, placeholder, loading }) {
+  const [inputVal, setInputVal] = useState(value || "");
+  const [open, setOpen]         = useState(false);
+  const wrapRef  = useRef(null);
+  const inputRef = useRef(null);
+
+  // Keep inputVal in sync when parent resets the value (e.g. form reset)
+  useEffect(() => { setInputVal(value || ""); }, [value]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        // If user typed something but didn't pick — revert to last confirmed value
+        setInputVal(value || "");
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [value]);
+
+  // Filter: starts-with has priority, then contains
+  const q = inputVal.trim().toLowerCase();
+  const filtered = q.length === 0 ? [] : (() => {
+    const starts   = options.filter(o => o.toLowerCase().startsWith(q));
+    const contains = options.filter(o => !o.toLowerCase().startsWith(q) && o.toLowerCase().includes(q));
+    return [...starts, ...contains].slice(0, 100);
+  })();
+
+  const handleInput = (e) => {
+    setInputVal(e.target.value);
+    setOpen(true);
+    // Clear the confirmed selection while user is typing
+    if (value) onChange({ target: { name, value: "" } });
+  };
+
+  const handleSelect = (opt) => {
+    setInputVal(opt);
+    setOpen(false);
+    onChange({ target: { name, value: opt } });
+  };
+
+  const handleClear = (e) => {
+    e.preventDefault();
+    setInputVal("");
+    setOpen(false);
+    onChange({ target: { name, value: "" } });
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") { setInputVal(value || ""); setOpen(false); }
+  };
+  return (
+    <div style={{ ...styles.fieldWrap, position: "relative" }} ref={wrapRef}>
+      <label style={styles.label}>
+        {label}{required && <span style={styles.required}>*</span>}
+      </label>
+      <div style={{ position: "relative" }}>
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputVal}
+          onChange={handleInput}
+          onFocus={() => { if (inputVal.trim()) setOpen(true); }}
+          onKeyDown={handleKeyDown}
+          placeholder={loading ? "Loading customers…" : (placeholder || "Type to search…")}
+          disabled={loading}
+          autoComplete="off"
+          style={{
+            ...styles.input,
+            borderColor: error ? "#ef4444" : open ? "#1e3a5f" : "#e2e8f0",
+            backgroundColor: error ? "#fff5f5" : loading ? "#f8fafc" : "#fff",
+            boxShadow: open ? "0 0 0 3px rgba(30,58,95,0.1)" : "none",
+            paddingRight: inputVal ? 28 : 11,
+          }}
+        />
+        {inputVal && !loading && (
+          <button
+            onMouseDown={handleClear}
+            tabIndex={-1}
+            style={{
+              position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+              background: "none", border: "none", cursor: "pointer",
+              color: "#94a3b8", fontSize: 14, lineHeight: 1, padding: 2,
+            }}
+          >✕</button>
+        )}
+      </div>
+      {open && filtered.length > 0 && (
+        <div style={{
+          position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999,
+          background: "#fff", border: "1.5px solid #1e3a5f", borderRadius: 8,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.13)", marginTop: 2,
+          maxHeight: 220, overflowY: "auto",
+        }}>
+          {filtered.map(opt => (
+            <div
+              key={opt}
+              onMouseDown={() => handleSelect(opt)}
+              style={{
+                padding: "8px 12px", fontSize: 13, cursor: "pointer", textAlign: "left",
+                borderBottom: "1px solid #f1f5f9",
+                color: "#000",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "#f0f7ff"}
+              onMouseLeave={e => e.currentTarget.style.background = "#fff"}
+            >
+              {opt}
+            </div>
+          ))}
+        </div>
+      )}
+      {error && <span style={styles.error}>{error}</span>}
+    </div>
+  );
+}
+
+
 const styles = {
   page: {
     background: "linear-gradient(135deg, #f0f4f8 0%, #e8edf3 100%)",
@@ -533,21 +675,21 @@ const styles = {
     width: "100%", maxWidth: 900,
     background: "#fff", borderRadius: 16,
     boxShadow: "0 8px 48px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06)",
-    overflow: "hidden", animation: "fadeUp 0.4s ease both",
+    overflow: "visible", animation: "fadeUp 0.4s ease both",
   },
   header: { position: "relative", background: "#2c84f7", padding: "14px 28px 12px", overflow: "hidden" },
   headerAccent: { position: "absolute", right: -40, top: -40, width: 180, height: 180, borderRadius: "50%", background: "rgba(44, 123, 214, 0.05)" },
   headerContent: { position: "relative", zIndex: 1 },
   headerTag: { fontSize: 10, fontWeight: 600, letterSpacing: "0.18em", color: "#7eb8f7", display: "block", marginBottom: 3 },
   headerTitle: { fontFamily: "'Google Sans', sans-serif", fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" },
-  body: { padding: "16px 28px 16px" },
+  body: { padding: "16px 28px 16px", overflow: "visible" },
 
   sectionLabel: { display: "flex", alignItems: "center", gap: 8, marginBottom: 10, marginTop: 14 },
   sectionIcon: { fontSize: 15 },
   sectionText: { fontSize: 11, fontWeight: 600, color: "#000", letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" },
   sectionLine: { flex: 1, height: 1, background: "linear-gradient(to right, #cbd5e1, transparent)", marginLeft: 4 },
 
-  row3: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px 16px", marginBottom: 4 },
+  row3: { display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "10px 16px", marginBottom: 4, overflow: "visible" },
   fieldWrap: { display: "flex", flexDirection: "column", gap: 4 },
   label: { fontSize: 12, fontWeight: 500, color: "#000", textAlign: "left" },
   required: { color: "#ef4444", marginLeft: 3 },

@@ -1,5 +1,5 @@
-import { useState, useRef } from "react";
-import { apiFetch, authHeaders, ENDPOINTS, getCurrentUser } from "../service/Api";
+import { useState, useRef, useEffect } from "react";
+import { apiFetch, authHeaders, ENDPOINTS, getCurrentUser, getUsers, getAllDebtors } from "../service/Api";
 
 const getLoggedUserName = () => {
   const user = getCurrentUser();
@@ -128,6 +128,39 @@ export default function ServiceAdd({ onBack, editRow }) {
 
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [userOptions, setUserOptions] = useState([]);
+  const [debtors, setDebtors] = useState([]);       // [{ name, place, phone }]
+  const [debtorsLoading, setDebtorsLoading] = useState(true);
+
+  useEffect(() => {
+    getUsers({ status: "Active" })
+      .then((data) => {
+        const results = data?.results ?? [];
+        setUserOptions(results.map((u) => u.username).filter(Boolean));
+      })
+      .catch(() => setUserOptions([]));
+  }, []);
+
+  useEffect(() => {
+    setDebtorsLoading(true);
+    getAllDebtors()
+      .then((list) => setDebtors(list))
+      .catch(() => setDebtors([]))
+      .finally(() => setDebtorsLoading(false));
+  }, []);
+
+  // When a customer is picked from the dropdown, auto-fill place & phone
+  const handleCustomerSelect = (e) => {
+    const selectedName = e.target.value;
+    const match = debtors.find((d) => d.name === selectedName);
+    setForm((f) => ({
+      ...f,
+      customerName:  selectedName,
+      customerPlace: match ? match.place : f.customerPlace,
+      customerPhone: match ? match.phone : f.customerPhone,
+    }));
+    setErrors((er) => ({ ...er, customerName: undefined, customerPhone: undefined }));
+  };
 
   const handleSubmit = async () => {
     const e = validate();
@@ -258,30 +291,19 @@ export default function ServiceAdd({ onBack, editRow }) {
               value={form.employee1} onChange={handleChange} />
             <SelectField label="Employee 2" name="employee2"
               value={form.employee2} onChange={handleChange}
-              placeholder="— Select technician —"
-              options={[
-                "Alice Johnson",
-                "Bob Smith",
-                "Charlie Davis",
-                "Diana Lee",
-                "Ethan Brown",
-              ]} />
+              placeholder="— Select User —"
+              options={userOptions} />
           </div>
 
           {/* Customer Information */}
           <SectionLabel label="Customer Information" />
           <div className="sa-row3">
-            <SelectField label="Customer Name" name="customerName"
-              value={form.customerName} onChange={handleChange}
+            <SearchableSelect label="Customer Name" name="customerName"
+              value={form.customerName} onChange={handleCustomerSelect}
               error={errors.customerName} required
-              placeholder="— Select customer —"
-              options={[
-                "Rahul Menon",
-                "Priya Nair",
-                "Suresh Kumar",
-                "Anitha Thomas",
-                "Vijay Krishnan",
-              ]} />
+              placeholder={debtorsLoading ? "Loading customers…" : "Search customer…"}
+              options={debtors.map((d) => d.name)}
+              loading={debtorsLoading} />
             <Field label="Place" name="customerPlace" placeholder="City / Area"
               value={form.customerPlace} onChange={handleChange} />
             <Field label="Phone Number" name="customerPhone" placeholder="+91 98765 43210"
@@ -529,6 +551,127 @@ function SelectField({ label, name, value, onChange, error, required, options, p
     </div>
   );
 }
+
+
+function SearchableSelect({ label, name, value, onChange, error, required, options, placeholder, loading }) {
+  const [inputVal, setInputVal] = useState(value || "");
+  const [open, setOpen]         = useState(false);
+  const wrapRef  = useRef(null);
+  const inputRef = useRef(null);
+
+  // Keep inputVal in sync when parent resets the value (e.g. form reset)
+  useEffect(() => { setInputVal(value || ""); }, [value]);
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) {
+        // If user typed something but didn't pick — revert to last confirmed value
+        setInputVal(value || "");
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [value]);
+
+  // Filter: starts-with has priority, then contains
+  const q = inputVal.trim().toLowerCase();
+  const filtered = q.length === 0 ? [] : (() => {
+    const starts   = options.filter(o => o.toLowerCase().startsWith(q));
+    const contains = options.filter(o => !o.toLowerCase().startsWith(q) && o.toLowerCase().includes(q));
+    return [...starts, ...contains].slice(0, 100);
+  })();
+
+  const handleInput = (e) => {
+    setInputVal(e.target.value);
+    setOpen(true);
+    // Clear the confirmed selection while user is typing
+    if (value) onChange({ target: { name, value: "" } });
+  };
+
+  const handleSelect = (opt) => {
+    setInputVal(opt);
+    setOpen(false);
+    onChange({ target: { name, value: opt } });
+  };
+
+  const handleClear = (e) => {
+    e.preventDefault();
+    setInputVal("");
+    setOpen(false);
+    onChange({ target: { name, value: "" } });
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") { setInputVal(value || ""); setOpen(false); }
+  };
+  return (
+    <div className="sa-field-wrap" ref={wrapRef} style={{ position: "relative" }}>
+      <label className="sa-label">
+        {label}{required && <span className="sa-required">*</span>}
+      </label>
+      <div style={{ position: "relative" }}>
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputVal}
+          onChange={handleInput}
+          onFocus={() => { if (inputVal.trim()) setOpen(true); }}
+          onKeyDown={handleKeyDown}
+          placeholder={loading ? "Loading customers…" : (placeholder || "Type to search…")}
+          disabled={loading}
+          autoComplete="off"
+          className="sa-input"
+          style={{
+            borderColor: error ? "#ef4444" : open ? "#1e3a5f" : "#e2e8f0",
+            backgroundColor: error ? "#fff5f5" : loading ? "#f8fafc" : "#fff",
+            boxShadow: open ? "0 0 0 3px rgba(30,58,95,0.1)" : "none",
+            paddingRight: inputVal ? 28 : 11,
+          }}
+        />
+        {inputVal && !loading && (
+          <button
+            onMouseDown={handleClear}
+            tabIndex={-1}
+            style={{
+              position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)",
+              background: "none", border: "none", cursor: "pointer",
+              color: "#94a3b8", fontSize: 14, lineHeight: 1, padding: 2,
+            }}
+          >✕</button>
+        )}
+      </div>
+      {open && filtered.length > 0 && (
+        <div style={{
+          position: "absolute", top: "100%", left: 0, right: 0, zIndex: 9999,
+          background: "#fff", border: "1.5px solid #1e3a5f", borderRadius: 8,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.13)", marginTop: 2,
+          maxHeight: 220, overflowY: "auto",
+        }}>
+          {filtered.map(opt => (
+            <div
+              key={opt}
+              onMouseDown={() => handleSelect(opt)}
+              style={{
+                padding: "8px 12px", fontSize: 13, cursor: "pointer", textAlign: "left",
+                borderBottom: "1px solid #f1f5f9",
+                color: "#000",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "#f0f7ff"}
+              onMouseLeave={e => e.currentTarget.style.background = "#fff"}
+            >
+              {opt}
+            </div>
+          ))}
+        </div>
+      )}
+      {error && <span className="sa-error">{error}</span>}
+    </div>
+  );
+}
+
 
 function YesNo({ label, name, value, onChange }) {
   return (

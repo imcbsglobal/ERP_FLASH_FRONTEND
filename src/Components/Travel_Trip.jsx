@@ -341,7 +341,7 @@ export default function TravelList() {
   const thStyle = {
     padding: "8px 12px",
     textAlign: "left",
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: 700,
     letterSpacing: "0.6px",
     color: "#fdfbfb",
@@ -356,14 +356,15 @@ export default function TravelList() {
   };
 
   const tdStyle = {
-    padding: "4px 12px",
+    padding: "5px 12px",
     textAlign: "left",
-    fontSize: 10,
+    fontSize: 11,
     color: "#000000",
     fontFamily: "'Google Sans', sans-serif",
     borderBottom: "1px solid #f0f0f0",
     verticalAlign: "middle",
     whiteSpace: "nowrap",
+    lineHeight: 1,
   };
 
   const currentTrip = showEndTripModal ? data.find((t) => t.id === showEndTripModal) : null;
@@ -871,12 +872,12 @@ export default function TravelList() {
             <div className="mobile-cards">
               {loading ? (
                 <div style={{ textAlign: "center", padding: "48px 16px", color: "#000" }}>
-                  <div style={{ fontSize: 28, marginBottom: 10 }}>⏳</div>
+                  <div style={{ fontSize: 28, marginBottom: 10 }}></div>
                   <div style={{ fontWeight: 600, fontSize: 15 }}>Loading trips…</div>
                 </div>
               ) : currentData.length === 0 ? (
                 <div style={{ textAlign: "center", padding: "48px 16px", color: "#000" }}>
-                  <div style={{ fontSize: 36, marginBottom: 10 }}>🚗</div>
+                  <div style={{ fontSize: 36, marginBottom: 10 }}></div>
                   <div style={{ fontWeight: 600, fontSize: 15 }}>No travel records found</div>
                   <div style={{ fontSize: 13, marginTop: 4 }}>Add your first entry to get started</div>
                 </div>
@@ -1087,30 +1088,30 @@ export default function TravelList() {
 
                         {/* Start Date */}
                         <td style={tdStyle}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
-                              <AccessTimeIcon style={{ fontSize: 13, color: "#494949", flexShrink: 0 }} />
-                              <span style={{ fontSize: 12, fontWeight: 500, color: "#000", whiteSpace: "nowrap" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+                              <AccessTimeIcon style={{ fontSize: 9, color: "#494949", flexShrink: 0 }} />
+                              <span style={{ fontSize: 11, fontWeight: 500, color: "#000", whiteSpace: "nowrap", lineHeight: 1 }}>
                                 {row.date ? new Date(row.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                               </span>
                             </div>
-                            <span style={{ fontSize: 11, color: "#707070", paddingLeft: 18 }}>{formatTime(row.startTime)}</span>
+                            <span style={{ fontSize: 9, color: "#707070", paddingLeft: 16, lineHeight: 1, marginTop: 2 }}>{formatTime(row.startTime)}</span>
                           </div>
                         </td>
 
                         {/* Vehicle */}
                         <td style={tdStyle}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                             <span style={{
-                              color: "#050505", fontSize: 14, fontWeight: 700,
-                              fontFamily: "'Google Sans', sans-serif", letterSpacing: 0.4,
+                              color: "#050505", fontSize: 11, fontWeight: 700,
+                              fontFamily: "'Google Sans', sans-serif", letterSpacing: 0.4, lineHeight: 1,
                             }}>
                               {row.vehicle || row.vehicle_name || "—"}
                             </span>
                             {(row.vehicleReg || row.registration_number) && (
                               <span style={{
-                                color: "#6b6d6e", fontSize: 10, fontWeight: 600,
-                                fontFamily: "'Google Sans', sans-serif", letterSpacing: 0.6,
+                                color: "#6b6d6e", fontSize: 9, fontWeight: 600,
+                                fontFamily: "'Google Sans', sans-serif", letterSpacing: 0.6, lineHeight: 1, marginTop: 2,
                               }}>
                                 {row.vehicleReg || row.registration_number}
                               </span>
@@ -1120,7 +1121,7 @@ export default function TravelList() {
 
                         {/* Traveled By — Admin/Manager only */}
                         {isAdminOrManager && (
-                          <td style={{ ...tdStyle, fontWeight: 600, fontSize: 14 }}>
+                          <td style={{ ...tdStyle, fontWeight: 600, fontSize: 11 }}>
                             {row.traveledBy || loggedInUser}
                           </td>
                         )}
@@ -1135,7 +1136,7 @@ export default function TravelList() {
                               <RemoveRedEyeOutlinedIcon style={{ fontSize: 22 }} />
                             </button>
                           ) : (
-                            <span style={{ color: "#cbd5e1", fontSize: 12 }}>—</span>
+                            <span style={{ color: "#cbd5e1", fontSize: 11 }}>—</span>
                           )}
                         </td>
 
@@ -1152,29 +1153,29 @@ export default function TravelList() {
 
                         {/* Distance */}
                         <td style={tdStyle}>
-                          <span style={{ fontWeight: 700, fontSize: 14, color: "#030303" }}>
+                          <span style={{ fontWeight: 700, fontSize: 11, color: "#030303" }}>
                             {row.distance || 0} km
                           </span>
                         </td>
 
                         {/* Fuel & Cost */}
                         <td style={{ ...tdStyle, textAlign: "left" }}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                            <div style={{ fontSize: 14, textAlign: "left", color: "#000000" }}>{row.fuel?.toFixed(1) || 0} L</div>
-                            <div style={{ fontSize: 14, textAlign: "center", fontWeight: 700, color: "#080808" }}>₹{(row.cost || 0).toLocaleString()}</div>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                            <div style={{ fontSize: 11, textAlign: "left", color: "#000000", lineHeight: 1 }}>{row.fuel?.toFixed(1) || 0} L</div>
+                            <div style={{ fontSize: 11, textAlign: "right", fontWeight: 700, color: "#080808", lineHeight: 1, marginTop: 2 }}>₹{(row.cost || 0).toLocaleString()}</div>
                           </div>
                         </td>
 
                         {/* End Date */}
                         <td style={tdStyle}>
-                          <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 5, whiteSpace: "nowrap" }}>
-                              <HistoryIcon style={{ fontSize: 13, color: "#b71c1c", flexShrink: 0 }} />
-                              <span style={{ fontSize: 12, fontWeight: 500, color: "#000", whiteSpace: "nowrap" }}>
+                          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+                              <HistoryIcon style={{ fontSize: 12, color: "#b71c1c", flexShrink: 0 }} />
+                              <span style={{ fontSize: 11, fontWeight: 500, color: "#000", whiteSpace: "nowrap", lineHeight: 1 }}>
                                 {(row.endDate || row.end_date) ? new Date(row.endDate || row.end_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
                               </span>
                             </div>
-                            <span style={{ fontSize: 11, color: "#b71c1c", paddingLeft: 18 }}>{formatTime(row.endTime)}</span>
+                            <span style={{ fontSize: 9, color: "#b71c1c", paddingLeft: 16, lineHeight: 1, marginTop: 2 }}>{formatTime(row.endTime)}</span>
                           </div>
                         </td>
                         <td style={{ ...tdStyle, minWidth: 220, textAlign: "center" }}>
@@ -1188,7 +1189,7 @@ export default function TravelList() {
                                 border: "none",
                                 background: row.status === "completed" ? "#06771f" : "#f4b400",
                                 color: "#fdfbfb",
-                                fontSize: 13,
+                                fontSize: 11,
                                 fontWeight: 600,
                                 cursor: row.status === "completed" ? "not-allowed" : "pointer",
                                 display: "flex",
@@ -1212,7 +1213,7 @@ export default function TravelList() {
                                 border: "none",
                                 background: "#d93025",
                                 color: "#fff",
-                                fontSize: 13,
+                                fontSize: 11,
                                 fontWeight: 600,
                                 cursor: "pointer",
                                 display: "flex",
@@ -1293,7 +1294,7 @@ export default function TravelList() {
               </div>
             )}
             {/* Footer - desktop */}
-            <div style={{ textAlign: "center", padding: "10px 16px", borderTop: "1px solid #e8eaed", fontSize: 12, color: "#9aa0a6", fontFamily: "'Google Sans', sans-serif", letterSpacing: "0.01em", flexShrink: 0 }}>
+            <div style={{ textAlign: "center", padding: "10px 16px", borderTop: "1px solid #e8eaed", fontSize: 11, color: "#9aa0a6", fontFamily: "'Google Sans', sans-serif", letterSpacing: "0.01em", flexShrink: 0 }}>
               Powered by <span style={{ fontWeight: 600, color: "#1a73e8" }}>IMCB Solutions LLP</span>
             </div>
           </div>

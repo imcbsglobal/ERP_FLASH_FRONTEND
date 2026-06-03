@@ -170,7 +170,7 @@ export default function ChallanList({ onAdd, onEdit }) {
 
   // Table styles with sticky header
   const thStyle = { 
-    fontSize: 15, 
+    fontSize: 12, 
     fontWeight: 600, 
     letterSpacing: "0.4px", 
     color: "#fdfcfc", 
@@ -187,13 +187,14 @@ export default function ChallanList({ onAdd, onEdit }) {
   };
   
   const tdStyle = { 
-    padding: "12px 14px", 
-    fontSize: 13, 
+    padding: "5px 14px", 
+    fontSize: 11, 
     borderBottom: "1px solid #e8eaed", 
     fontFamily: "'Google Sans', sans-serif", 
     color: "#202124", 
     textAlign: "left", 
-    verticalAlign: "middle" 
+    verticalAlign: "middle",
+    lineHeight: "1.2",
   };
 
   if (loading) {
@@ -216,7 +217,7 @@ export default function ChallanList({ onAdd, onEdit }) {
         .status-select {
           padding: 9px 36px 9px 13px;
           border-radius: 7px;
-          font-size: 13px;
+          font-size: 11px;
           font-weight: 500;
           border: 1px solid #e8eaed;
           cursor: pointer;
@@ -237,7 +238,7 @@ export default function ChallanList({ onAdd, onEdit }) {
           display: inline-block;
           padding: 4px 12px;
           border-radius: 6px;
-          font-size: 12px;
+          font-size: 11px;
           font-weight: 600;
           font-family: "'Google Sans', sans-serif";
         }
@@ -772,11 +773,11 @@ export default function ChallanList({ onAdd, onEdit }) {
                       <div className="challan-card-row">
                         <div className="challan-card-field">
                           <div className="challan-card-field-label"> Offence</div>
-                          <div className="challan-card-field-value" style={{ fontSize: 12 }}>{row.offence_type || "—"}</div>
+                          <div className="challan-card-field-value" style={{ fontSize: 11 }}>{row.offence_type || "—"}</div>
                         </div>
                         <div className="challan-card-field">
                           <div className="challan-card-field-label">Location</div>
-                          <div className="challan-card-field-value" style={{ fontSize: 12 }}>{row.location || "—"}</div>
+                          <div className="challan-card-field-value" style={{ fontSize: 11 }}>{row.location || "—"}</div>
                         </div>
                       </div>
 
@@ -786,13 +787,13 @@ export default function ChallanList({ onAdd, onEdit }) {
                           {row.challan_doc_url && (
                             <button className="challan-card-doc-link" style={{ background: "#fdfdfd", border: "none", cursor: "pointer" }}
                               onClick={() => setDocViewer({ url: row.challan_doc_url, title: "Challan Document" })}>
-                              <VisibilityOutlinedIcon style={{ fontSize: 13 }} /> Challan Doc
+                              <VisibilityOutlinedIcon style={{ fontSize: 11 }} /> Challan Doc
                             </button>
                           )}
                           {row.payment_receipt_url && (
                             <button className="challan-card-doc-link" style={{ background: "#fdfdfd", border: "none", cursor: "pointer" }}
                               onClick={() => setDocViewer({ url: row.payment_receipt_url, title: "Payment Receipt" })}>
-                              <VisibilityOutlinedIcon style={{ fontSize: 13 }} /> Receipt
+                              <VisibilityOutlinedIcon style={{ fontSize: 11 }} /> Receipt
                             </button>
                           )}
                           {row.remark && (
@@ -801,7 +802,7 @@ export default function ChallanList({ onAdd, onEdit }) {
                               className="challan-card-doc-link"
                               style={{ background: "#ffffff", color: "#e65100", border: "none", cursor: "pointer" }}
                             >
-                              <EditNotificationsOutlinedIcon style={{ fontSize: 13 }} /> Remark
+                              <EditNotificationsOutlinedIcon style={{ fontSize: 11 }} /> Remark
                             </button>
                           )}
                         </div>
@@ -810,10 +811,10 @@ export default function ChallanList({ onAdd, onEdit }) {
                       {/* Actions */}
                       <div className="challan-card-actions">
                         <button onClick={() => setEditRow(row)} style={{ background: "#1a73e8", color: "#fff" }}>
-                          <EditOutlinedIcon style={{ fontSize: 13 }} /> Edit
+                          <EditOutlinedIcon style={{ fontSize: 11 }} /> Edit
                         </button>
                         <button onClick={() => confirmDelete(row.id)} style={{ background: "#d93025", color: "#fff" }}>
-                          <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
+                          <DeleteOutlineOutlinedIcon style={{ fontSize: 11 }} /> Delete
                         </button>
                       </div>
                     </div>
@@ -857,14 +858,14 @@ export default function ChallanList({ onAdd, onEdit }) {
                           {(() => {
                             const { number, name } = formatVehicleDisplay(row.vehicle_display || row.vehicle);
                             return (
-                              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                                 {name && (
-                                  <span style={{ fontSize: 13, fontWeight: 600, color: "#1e1e1f", letterSpacing: 0.4 }}>
+                                  <span style={{ fontSize: 11, fontWeight: 600, color: "#1e1e1f", letterSpacing: 0.4 }}>
                                     {name}
                                   </span>
                                 )}
                                 {number && (
-                                  <span style={{ fontSize: 12, fontWeight: 500, color: "#747577" }}>
+                                  <span style={{ fontSize: 9, fontWeight: 500, color: "#747577" }}>
                                     {number}
                                   </span>
                                 )}
@@ -910,7 +911,7 @@ export default function ChallanList({ onAdd, onEdit }) {
                                   background: statusStyle.background,
                                   color: statusStyle.color,
                                   fontFamily: "'Google Sans', sans-serif",
-                                  fontSize: 13,
+                                  fontSize: 11,
                                   fontWeight: 600,
                                   cursor: updatingStatusId === row.id ? "not-allowed" : "pointer",
                                   outline: "none",
@@ -969,7 +970,7 @@ export default function ChallanList({ onAdd, onEdit }) {
                               onClick={() => setEditRow(row)} 
                               style={{ 
                                 padding: "5px 12px", borderRadius: 6, border: "none", 
-                                background: "#1a73e8", color: "#fff", fontSize: 12, 
+                                background: "#1a73e8", color: "#fff", fontSize: 11, 
                                 fontWeight: 600, cursor: "pointer", display: "flex", 
                                 alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" 
                               }}
@@ -980,7 +981,7 @@ export default function ChallanList({ onAdd, onEdit }) {
                               onClick={() => confirmDelete(row.id)} 
                               style={{ 
                                 padding: "5px 12px", borderRadius: 6, border: "none", 
-                                background: "#d93025", color: "#fff", fontSize: 12, 
+                                background: "#d93025", color: "#fff", fontSize: 11, 
                                 fontWeight: 600, cursor: "pointer", display: "flex", 
                                 alignItems: "center", gap: 4, fontFamily: "'Google Sans', sans-serif" 
                               }}

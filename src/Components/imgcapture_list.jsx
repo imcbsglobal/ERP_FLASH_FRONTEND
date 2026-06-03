@@ -307,7 +307,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
       textAlign: "left",
       fontWeight: 600,
       color: "#fbfbfc",
-      fontSize: 15,
+      fontSize: 12,
       letterSpacing: "0.04em",
       textTransform: "capitalize",
       whiteSpace: "nowrap",
@@ -324,7 +324,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
       whiteSpace: "nowrap",
       verticalAlign: "middle",
       textAlign: "left",
-      fontSize: 13,
+      fontSize: 11,
       lineHeight: 1.3,
     },
   };

@@ -205,7 +205,7 @@ function DaysLeftBadge({ days }) {
 /* ─── Table View with fixed header and scrollable body ── */
 function TableView({ vehicles, onEdit, onDelete }) {
   const thStyle = {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: 600,
     letterSpacing: "0.4px",
     color: "#fdfafa",
@@ -223,7 +223,7 @@ function TableView({ vehicles, onEdit, onDelete }) {
   
   const tdStyle = {
     padding: "12px 14px",
-    fontSize: 14,
+    fontSize: 11,
     borderBottom: "1px solid #e8eaed",
     fontFamily: "'Google Sans', sans-serif",
     color: "#202124",
@@ -396,8 +396,8 @@ function CardView({ vehicles, onEdit, onDelete }) {
             {/* Vehicle name + reg overlay on image bottom */}
             <div style={{ padding: "14px 16px" }}>
               <div style={{ marginBottom: 10 }}>
-                <div style={{ fontSize: 17, fontWeight: 700, color: "#202124" }}>{v.name}</div>
-                <div style={{ fontSize: 12, color: "#5f6368", fontFamily: "'Google Sans', sans-serif", fontWeight: 600, letterSpacing: 0.4 }}>{v.reg}</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#202124" }}>{v.name}</div>
+                <div style={{ fontSize: 9, color: "#5f6368", fontFamily: "'Google Sans', sans-serif", fontWeight: 600, letterSpacing: 0.4 }}>{v.reg}</div>
               </div>
               {[
                 ["Company",          v.company],

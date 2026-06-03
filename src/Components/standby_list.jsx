@@ -3,7 +3,7 @@ import MoveDownIcon from '@mui/icons-material/MoveDown';
 import MoveUpIcon from '@mui/icons-material/MoveUp';
 import LockResetIcon from '@mui/icons-material/LockReset';
 import StandbyAdd from "./standby_add.jsx";
-import { apiFetch, authHeaders, ENDPOINTS } from "../service/Api";
+import { apiFetch, authHeaders, ENDPOINTS, getUsers } from "../service/Api";
 
 /** Normalize an API Standby record to the shape this component expects. */
 function normalize(r) {
@@ -110,17 +110,24 @@ function ViewModal({ row, onClose, onEdit }) {
           </VmSection>
 
           {/* ── Stage Progress ── */}
-          <VmSection title="Stage Progress">
-            <VmField label="Issue"                value={row.stage_issue               ? "Done" : "Pending"} badge={row.stage_issue               ? "green" : "grey"} />
-            <VmField label="Return from Customer" value={row.stage_returnFromCustomer  ? "Done" : "Pending"} badge={row.stage_returnFromCustomer  ? "green" : "grey"} />
-            <VmField label="Return to Office"     value={row.stage_returnToOffice      ? "Done" : "Pending"} badge={row.stage_returnToOffice      ? "green" : "grey"} />
-          </VmSection>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{
+              fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+              color: "#1b85f0", borderBottom: "1.5px solid #e2e8f0", paddingBottom: 4, marginBottom: 10,
+              textAlign: "left",
+            }}>Stage Progress</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "6px 12px" }}>
+              <VmField label="Issue"                value={row.stage_issue              ? "Done" : "Pending"} badge={row.stage_issue              ? "green" : "grey"} />
+              <VmField label="Return from Customer" value={row.stage_returnFromCustomer ? "Done" : "Pending"} badge={row.stage_returnFromCustomer ? "green" : "grey"} />
+              <VmField label="Return to Office"     value={row.stage_returnToOffice     ? "Done" : "Pending"} badge={row.stage_returnToOffice     ? "green" : "grey"} />
+            </div>
+          </div>
 
           {/* ── Notes & Status ── */}
           <VmSection title="Notes & Status">
             <VmField label="Notes" value={raw.notes} />
-            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>Status</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-start" }}>
+              <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600, textAlign: "left" }}>Status</span>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, borderRadius: 20, padding: "3px 10px", background: meta.bg, color: meta.color, width: "fit-content" }}>
                 <span style={{ width: 7, height: 7, borderRadius: "50%", background: meta.dot, flexShrink: 0, display: "inline-block" }} />
                 {row.status}
@@ -153,6 +160,7 @@ function VmSection({ title, children }) {
       <div style={{
         fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
         color: "#1b85f0", borderBottom: "1.5px solid #e2e8f0", paddingBottom: 4, marginBottom: 10,
+        textAlign: "left",
       }}>{title}</div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px" }}>
         {children}
@@ -164,8 +172,8 @@ function VmSection({ title, children }) {
 function VmField({ label, value, mono, badge }) {
   const display = value || "—";
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>{label}</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 2, alignItems: "flex-start" }}>
+      <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600, textAlign: "left" }}>{label}</span>
       {badge ? (
         <span style={{
           fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "2px 8px",
@@ -348,14 +356,17 @@ export default function StandbyList({ onAdd }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // ── Employee list for dropdowns (demo) ──────────────────────
-  const [employees] = useState([
-    { id: 1, name: "Arun Kumar" },
-    { id: 2, name: "Basil Mathew" },
-    { id: 3, name: "Divya Nair" },
-    { id: 4, name: "Faisal Rahman" },
-    { id: 5, name: "Greeshma Pillai" },
-  ]);
+  // ── Employee list for Employee 2 dropdowns ──────────────────
+  const [employees, setEmployees] = useState([]);
+
+  useEffect(() => {
+    getUsers({ status: "Active" })
+      .then((res) => {
+        const users = Array.isArray(res) ? res : (res?.results ?? []);
+        setEmployees(users.map((u) => u.username).filter(Boolean));
+      })
+      .catch(() => setEmployees([]));
+  }, []);
 
   // Reload list after add/edit
   const handleBackFromAdd = () => {
@@ -713,16 +724,16 @@ export default function StandbyList({ onAdd }) {
                           <td style={{ ...styles.td, color: "#64748b" }}>{row.date}</td>
 
                           {/* Customer Name */}
-                          <td style={{ ...styles.td, fontWeight: 600 }}>{row.customerName}</td>
+                          <td style={{ ...styles.td, fontWeight: 600, whiteSpace: "normal", minWidth: 120, maxWidth: 180, wordBreak: "break-word" }}>{row.customerName}</td>
 
                           {/* Employee Name */}
                           <td style={styles.td}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                            <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                               {row.employee1 && (
                                 <span style={{ fontWeight: 500 }}>{row.employee1}</span>
                               )}
                               {row.employee2 && (
-                                <span style={{ color: "#64748b", fontSize: 12 }}>{row.employee2}</span>
+                                <span style={{ color: "#64748b", fontSize: 9 }}>{row.employee2}</span>
                               )}
                               {!row.employee1 && !row.employee2 && "—"}
                             </div>
@@ -974,7 +985,7 @@ export default function StandbyList({ onAdd }) {
                     >
                       <option value="">— Select Employee 2 —</option>
                       {employees.map((emp) => (
-                        <option key={emp.id ?? emp} value={emp.name ?? emp}>{emp.name ?? emp}</option>
+                        <option key={emp} value={emp}>{emp}</option>
                       ))}
                     </select>
                   </div>
@@ -1055,7 +1066,7 @@ export default function StandbyList({ onAdd }) {
                     >
                       <option value="">— Select Employee 2 —</option>
                       {employees.map((emp) => (
-                        <option key={emp.id ?? emp} value={emp.name ?? emp}>{emp.name ?? emp}</option>
+                        <option key={emp} value={emp}>{emp}</option>
                       ))}
                     </select>
                   </div>
@@ -1109,7 +1120,7 @@ export default function StandbyList({ onAdd }) {
                     >
                       <option value="">— Select Employee 2 —</option>
                       {employees.map((emp) => (
-                        <option key={emp.id ?? emp} value={emp.name ?? emp}>{emp.name ?? emp}</option>
+                        <option key={emp} value={emp}>{emp}</option>
                       ))}
                     </select>
                   </div>
@@ -1223,6 +1234,11 @@ const css = `
       font-size: 15px;
       font-weight: 700;
       color: #1e293b;
+      white-space: normal;
+      word-break: break-word;
+      flex: 1;
+      min-width: 0;
+      margin-right: 8px;
     }
     .standby-card-sl {
       font-size: 11px;
@@ -1397,12 +1413,12 @@ const styles = {
   th: {
     padding: "6px 10px", textAlign: "left",
     background: "#1b85f0",
-    fontSize: 13, fontWeight: 700, color: "#ffffff",
+    fontSize: 12, fontWeight: 700, color: "#ffffff",
     letterSpacing: "0.04em", textTransform: "capitalize",
     borderBottom: "1.5px solid #e2e8f0", whiteSpace: "nowrap",
   },
   tr: { borderBottom: "1px solid #f1f5f9", transition: "background 0.15s" },
-  td: { padding: "5px 10px", color: "#1e293b", fontSize: 12, verticalAlign: "middle", whiteSpace: "nowrap", textAlign: "left" },
+  td: { padding: "5px 10px", color: "#1e293b", fontSize: 11, verticalAlign: "middle", whiteSpace: "nowrap", textAlign: "left", lineHeight: "1.2" },
 
   // Return date
   returnDateChip: {

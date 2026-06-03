@@ -89,7 +89,7 @@ function MobileCard({ payment, index, startIndex, STATUS_OPTIONS, updatingId, on
           <div className="mc-lbl">Date</div>
           <div className="mc-val">{formatDate(payment.date)}</div>
           {(payment.createdByName || payment.created_by_name) && (
-            <div style={{ fontSize: 10, color: "#5f6368", marginTop: 2, display: "flex", alignItems: "center", gap: 3, fontWeight: 500 }}>
+            <div style={{ fontSize: 10, color: "#5f6368", marginTop: 1, display: "flex", alignItems: "center", gap: 3, fontWeight: 500 }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="9" height="9" style={{ flexShrink: 0 }}>
                 <circle cx="12" cy="8" r="4" />
                 <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
@@ -569,7 +569,7 @@ const PaymentTable = ({ mode = 'all' }) => {
   ];
 
   const thStyle = { 
-    fontSize: 15, 
+    fontSize: 12, 
     fontWeight: 600, 
     letterSpacing: "0.4px", 
     color: "#fcfbfb", 
@@ -586,13 +586,15 @@ const PaymentTable = ({ mode = 'all' }) => {
   };
   
   const tdStyle = { 
-    padding: "5px 14px", 
+    padding: "4px 14px", 
     fontSize: 12, 
     borderBottom: "1px solid #e8eaed", 
     fontFamily: "'Google Sans', sans-serif", 
     color: "#202124", 
     textAlign: "left", 
-    verticalAlign: "middle" 
+    verticalAlign: "middle",
+    whiteSpace: "nowrap",
+    lineHeight: "1.2",
   };
 
   // ── Loading / Error states ─────────────────────────────────────
@@ -689,7 +691,7 @@ const PaymentTable = ({ mode = 'all' }) => {
         .pt-modal-body { padding: 24px; }
         
         .client-info { display: flex; flex-direction: column; gap: 1px; }
-        .client-name { font-weight: 600; color: #111827; font-size: 11px; }
+        .client-name { font-weight: 600; color: #111827; font-size: 11px; white-space: normal; word-break: break-word; line-height: 1.3; }
         .client-place { font-size: 13px; color: #0c0c0c; display: flex; align-items: center; gap: 2px; }
         .client-phone { font-size: 13px; color: #0a0a0a; display: flex; align-items: center; gap: 2px; margin-top: 0; }
         .client-place svg, .client-phone svg { width: 11px; height: 11px; opacity: 0.7; flex-shrink: 0; }
@@ -708,7 +710,6 @@ const PaymentTable = ({ mode = 'all' }) => {
         .branch-cell, .paidfor-cell {
           white-space: normal;
           word-wrap: break-word;
-          max-width: 160px;
         }
 
         .single-scroll-table-container {
@@ -721,8 +722,10 @@ const PaymentTable = ({ mode = 'all' }) => {
         }
         
         .data-table {
-          width: 100%;
+          width: max-content;
+          min-width: 100%;
           border-collapse: collapse;
+          table-layout: auto;
         }
         
         .data-table thead tr th {
@@ -1124,7 +1127,21 @@ const PaymentTable = ({ mode = 'all' }) => {
         {filteredPayments.length > 0 ? (
           <>
             <div className="single-scroll-table-container">
-              <table className="data-table" style={{ width: "100%", borderCollapse: "collapse" }}>
+              <table className="data-table" style={{ borderCollapse: "collapse" }}>
+                <colgroup>
+                  <col style={{ width: "1%", whiteSpace: "nowrap" }} />
+                  <col style={{ width: "1%", whiteSpace: "nowrap" }} />
+                  <col style={{ width: "1%", whiteSpace: "nowrap" }} />
+                  <col style={{ width: "1%", whiteSpace: "nowrap" }} />
+                  <col style={{ width: "1%", whiteSpace: "nowrap" }} />
+                  <col style={{ width: "1%", whiteSpace: "nowrap" }} />
+                  <col style={{ width: "1%", whiteSpace: "nowrap" }} />
+                  <col style={{ width: "1%", whiteSpace: "nowrap" }} />
+                  <col style={{ width: "1%", whiteSpace: "nowrap" }} />
+                  <col style={{ width: "1%", whiteSpace: "nowrap" }} />
+                  <col style={{ width: "1%", whiteSpace: "nowrap" }} />
+                  {canActOnRows && <col style={{ width: "1%", whiteSpace: "nowrap" }} />}
+                </colgroup>
                 <thead>
                   <tr>
                     {headers.map(h => (
@@ -1149,7 +1166,7 @@ const PaymentTable = ({ mode = 'all' }) => {
                         <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>
                           <div style={{ fontWeight: 500 }}>{formatDate(payment.date)}</div>
                           {(payment.createdByName || payment.created_by_name) && (
-                            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 2, fontSize: 10, color: "#0a0a0a", fontWeight: 500 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 3, marginTop: 1, fontSize: 10, color: "#0a0a0a", fontWeight: 500 }}>
                               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="10" height="10" style={{ flexShrink: 0 }}>
                                 <circle cx="12" cy="8" r="4" />
                                 <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" />
@@ -1158,12 +1175,12 @@ const PaymentTable = ({ mode = 'all' }) => {
                             </div>
                           )}
                         </td>
-                        <td style={{ ...tdStyle, textAlign: 'left' }}>
+                        <td style={{ ...tdStyle, whiteSpace: "normal", wordBreak: "break-word", maxWidth: 180, textAlign: 'left' }}>
                           <div className="client-info">
                             <div className="client-name">{payment.clientName}</div>
                           </div>
                         </td>
-                        <td className="col-hide-mobile" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 180 }}>
+                        <td className="col-hide-mobile" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word" }}>
                           {payment.department ? (
                             <span className="department-badge">{payment.department}</span>
                           ) : (
@@ -1172,7 +1189,7 @@ const PaymentTable = ({ mode = 'all' }) => {
                         </td>
                         <td style={tdStyle}>{payment.collectionType}</td>
                         <td style={{ ...tdStyle, textAlign: "right", fontWeight: "600" }}>{formatCurrency(payment.amount)}</td>
-                        <td className="paidfor-cell col-hide-mobile" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word", maxWidth: 160 }}>{payment.paidFor}</td>
+                        <td className="paidfor-cell col-hide-mobile" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word" }}>{payment.paidFor}</td>
                         
                         {/* Cash Received Column */}
                         <td className="col-hide-mobile" style={{ ...tdStyle, textAlign: "center" }}>
@@ -1187,7 +1204,7 @@ const PaymentTable = ({ mode = 'all' }) => {
                                 ✓ Yes
                               </span>
                               {cashAmountVal && (
-                                <div style={{ fontSize: 13, fontWeight: 600, color: "#188038", marginTop: 4, textAlign: "right", width: "100%" }}>
+                                <div style={{ fontSize: 13, fontWeight: 600, color: "#188038", marginTop: 1, textAlign: "right", width: "100%" }}>
                                   ₹{parseFloat(cashAmountVal).toLocaleString('en-IN')}
                                 </div>
                               )}

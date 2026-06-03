@@ -27,7 +27,7 @@ const COLS = [
 const thStyle = (col) => ({
   padding: "11px 14px",
   textAlign: col.align,
-  fontSize: "15px",
+  fontSize: "12px",
   fontWeight: 600,
   color: "white",
   textTransform: "capitalize",
@@ -100,7 +100,7 @@ function UserAvatar({ user }) {
       color: "#fff",
       display: "grid",
       placeItems: "center",
-      fontSize: "13px",
+      fontSize: "12px",
       fontWeight: 700,
       border: "2px solid var(--accent)",
       boxSizing: "border-box",
@@ -913,7 +913,7 @@ export default function RegisteredUsers() {
                   <td style={tdStyle(COLS[1])}>
                     <div style={{ display: "flex", alignItems: "center", gap: "9px", overflow: "hidden" }}>
                       <UserAvatar user={u} />
-                      <span style={{ fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "13px" }}>{u.username}</span>
+                      <span style={{ fontWeight: 600, color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "11px" }}>{u.username}</span>
                     </div>
                   </td>
                   <td className="col-hide-mobile" style={tdStyle(COLS[2], { color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" })} title={u.address}>{u.address}</td>

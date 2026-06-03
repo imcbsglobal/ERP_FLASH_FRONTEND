@@ -92,6 +92,9 @@ export const ENDPOINTS = {
   servicePostService:   (id) => `${BASE_URL}/services/${id}/post-service/`,
   serviceDeliver:       (id) => `${BASE_URL}/services/${id}/deliver/`,
 
+  // Debtors (external FlashERP)
+  debtorsExternal: `https://flasherp.imcbs.com/api/debtors/`,
+
   // Standby Items
   standbys:             `${BASE_URL}/standbys/`,
   standby:              (id) => `${BASE_URL}/standbys/${id}/`,
@@ -1060,6 +1063,66 @@ export async function fetchDebtors(search = '') {
     place:   d.place   || d.city  || d.area || '',
     address: d.address || '',
   }));
+}
+
+/**
+ * Fetch ALL debtors via the backend proxy (paginates automatically).
+ * Names are converted to Title Case for clean dropdown display.
+ * Returns: [{ name, place, phone }]
+ */
+function _toTitleCase(str) {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .split(/\s+/)
+    .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(' ')
+    .trim();
+}
+
+export async function getAllDebtors() {
+  const all = [];
+  let page = 1;
+  const pageSize = 200;
+
+  while (true) {
+    const url = `${ENDPOINTS.debtors}?page=${page}&page_size=${pageSize}`;
+    let data;
+    try {
+      data = await apiFetch(url, { method: 'GET', headers: authHeaders() });
+    } catch {
+      break;
+    }
+    if (!data) break;
+
+    const results = Array.isArray(data) ? data : (data?.results ?? []);
+    if (results.length === 0) break;
+
+    results.forEach(d => {
+      const rawName = (d.name || '').trim();
+      if (!rawName) return;
+      all.push({
+        name:  _toTitleCase(rawName),
+        place: _toTitleCase((d.place || d.city || d.area || '').trim()),
+        phone: (d.phone2 || d.phone || '').trim(),
+      });
+    });
+
+    const total = data?.count ?? null;
+    if (total !== null && all.length >= total) break;
+    if (results.length < pageSize) break;
+    page++;
+  }
+
+  // Deduplicate and sort alphabetically
+  const seen = new Set();
+  const unique = all.filter(d => {
+    if (seen.has(d.name)) return false;
+    seen.add(d.name);
+    return true;
+  });
+  unique.sort((a, b) => a.name.localeCompare(b.name));
+  return unique;
 }
 
 export async function fetchDepartments() {

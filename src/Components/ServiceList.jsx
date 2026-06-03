@@ -12,7 +12,7 @@ import TwoWheelerOutlinedIcon from '@mui/icons-material/TwoWheelerOutlined';
 import Woman2OutlinedIcon from '@mui/icons-material/Woman2Outlined';
 import SupervisorAccountOutlinedIcon from '@mui/icons-material/SupervisorAccountOutlined';
 import ServiceAdd from "./service_add.jsx";
-import { apiFetch, authHeaders, ENDPOINTS } from "../service/Api.js";
+import { apiFetch, authHeaders, ENDPOINTS, getUsers } from "../service/Api.js";
 
 // Normalize API response row → component row shape
 function normalize(r) {
@@ -162,6 +162,16 @@ export default function ServiceList() {
   const [data, setData] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
+  const [usersList, setUsersList] = useState([]);
+
+  useEffect(() => {
+    getUsers({ status: "Active" })
+      .then((res) => {
+        const users = Array.isArray(res) ? res : (res?.results ?? []);
+        setUsersList(users.map((u) => u.username).filter(Boolean));
+      })
+      .catch(() => setUsersList([]));
+  }, []);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [customerFilter, setCustomerFilter] = useState("All");
@@ -1085,8 +1095,8 @@ export default function ServiceList() {
                   style={modalStyles.input}
                 >
                   <option value="">-- Select Employee 2 --</option>
-                  {uniqueEmployees.filter((e) => e !== "All").map((e) => (
-                    <option key={e} value={e}>{e}</option>
+                  {usersList.map((u) => (
+                    <option key={u} value={u}>{u}</option>
                   ))}
                 </select>
               </div>
@@ -1170,8 +1180,8 @@ export default function ServiceList() {
                   style={modalStyles.input}
                 >
                   <option value="">-- Select Employee 2 --</option>
-                  {uniqueEmployees.filter((e) => e !== "All").map((e) => (
-                    <option key={e} value={e}>{e}</option>
+                  {usersList.map((u) => (
+                    <option key={u} value={u}>{u}</option>
                   ))}
                 </select>
               </div>
@@ -1238,8 +1248,8 @@ export default function ServiceList() {
                   style={modalStyles.input}
                 >
                   <option value="">-- Select Employee 2 --</option>
-                  {uniqueEmployees.filter((e) => e !== "All").map((e) => (
-                    <option key={e} value={e}>{e}</option>
+                  {usersList.map((u) => (
+                    <option key={u} value={u}>{u}</option>
                   ))}
                 </select>
               </div>
@@ -1305,8 +1315,8 @@ export default function ServiceList() {
                   style={modalStyles.input}
                 >
                   <option value="">-- Select Employee 2 --</option>
-                  {uniqueEmployees.filter((e) => e !== "All").map((e) => (
-                    <option key={e} value={e}>{e}</option>
+                  {usersList.map((u) => (
+                    <option key={u} value={u}>{u}</option>
                   ))}
                 </select>
               </div>
@@ -1389,8 +1399,8 @@ export default function ServiceList() {
                   style={modalStyles.input}
                 >
                   <option value="">-- Select Employee 2 --</option>
-                  {uniqueEmployees.filter((e) => e !== "All").map((e) => (
-                    <option key={e} value={e}>{e}</option>
+                  {usersList.map((u) => (
+                    <option key={u} value={u}>{u}</option>
                   ))}
                 </select>
               </div>
@@ -1601,12 +1611,12 @@ export default function ServiceList() {
 
               {/* Section: Received */}
               <ViewSection title="Received">
-                <ViewField label="Received Date" value={viewRow.receivedDate} />
-                <ViewField label="Employee 1"    value={viewRow.employee1} />
-                <ViewField label="Employee 2"    value={viewRow.employee2} />
-                <ViewField label="Warranty"      value={viewRow.warranty ? "Yes" : "No"} badge={viewRow.warranty ? "green" : "red"} />
+                <ViewField label="Received Date"     value={viewRow.receivedDate} />
+                <ViewField label="Employee 1"        value={viewRow.employee1} />
+                <ViewField label="Employee 2"        value={viewRow.employee2} />
+                <ViewField label="Warranty"          value={viewRow.warranty ? "Yes" : "No"} badge={viewRow.warranty ? "green" : "red"} />
                 <ViewField label="Standby Issued"    value={viewRow.standbyItem ? "Yes" : "No"} badge={viewRow.standbyItem ? "green" : "red"} />
-                <ViewField label="Standby Returned"  value={viewRow.standbyReturned ? "Yes" : "No"} badge={viewRow.standbyReturned ? "green" : "red"} />
+                <ViewField label="Standby Returned"  value={viewRow.standbyItem ? (viewRow.standbyReturned ? "Yes" : "No") : "—"} badge={viewRow.standbyItem ? (viewRow.standbyReturned ? "green" : "red") : undefined} />
               </ViewSection>
 
               {/* Section: Pre Service */}
@@ -1701,12 +1711,12 @@ export default function ServiceList() {
 // ── Small helper components for the View modal ──────────────────────────
 function ViewSection({ title, children }) {
   return (
-    <div style={{ marginBottom: 16 }}>
+    <div style={{ marginBottom: 20 }}>
       <div style={{
         fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
-        color: "#1b85f0", borderBottom: "1.5px solid #e2e8f0", paddingBottom: 4, marginBottom: 10,
+        color: "#1b85f0", borderBottom: "1.5px solid #e2e8f0", paddingBottom: 5, marginBottom: 12,
       }}>{title}</div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 16px", alignItems: "start" }}>
         {children}
       </div>
     </div>
@@ -1830,21 +1840,22 @@ function ViewImagesSection({ row, onLoadImages }) {
 function ViewField({ label, value, mono, badge, statusPill }) {
   const displayValue = value || "—";
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-      <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>{label}</span>
+    <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0, width: "100%", alignItems: "flex-start", textAlign: "left" }}>
+      <span style={{ fontSize: 11, color: "#94a3b8", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em", display: "block", textAlign: "left" }}>{label}</span>
       {badge ? (
         <span style={{
-          fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "2px 8px",
-          display: "inline-block", width: "fit-content",
+          fontSize: 12, fontWeight: 700, borderRadius: 6, padding: "2px 10px",
+          display: "inline-block",
           background: badge === "green" ? "#dcfce7" : "#fee2e2",
           color: badge === "green" ? "#166534" : "#991b1b",
+          textAlign: "left",
         }}>{displayValue}</span>
       ) : statusPill ? (
-        <span className={`status-select ${statusPill}`} style={{ fontSize: 11, fontWeight: 700, borderRadius: 6, padding: "3px 10px", display: "inline-block", width: "fit-content" }}>
+        <span className={`status-select ${statusPill}`} style={{ fontSize: 11, fontWeight: 700, borderRadius: 6, padding: "3px 10px", display: "inline-block", textAlign: "left" }}>
           {displayValue}
         </span>
       ) : (
-        <span style={{ fontSize: 13, color: "#111827", fontFamily: mono ? "monospace" : "inherit", fontWeight: mono ? 500 : 400 }}>
+        <span style={{ fontSize: 13, color: "#111827", fontFamily: mono ? "monospace" : "inherit", fontWeight: mono ? 600 : 400, wordBreak: "break-word", textAlign: "left", display: "block" }}>
           {displayValue}
         </span>
       )}
@@ -2103,26 +2114,26 @@ const styles = {
   th: {
     padding: "12px 14px", textAlign: "left",
     background: "#1b85f0ff", borderBottom: "2px solid #e2e8f0",
-    fontWeight: 600, fontSize: 15, color: "#ffffffff",
+    fontWeight: 600, fontSize: 12, color: "#ffffffff",
     letterSpacing: "0.04em", textTransform: "capitalize",
     whiteSpace: "nowrap", userSelect: "none", textAlign: "left",
   },
   td: {
-    padding: "11px 14px", borderBottom: "1px solid #f1f5f9",
-    verticalAlign: "top", fontSize: 13, color: "#000",
-    textAlign: "left",
+    padding: "5px 14px", borderBottom: "1px solid #f1f5f9",
+    verticalAlign: "middle", fontSize: 11, color: "#000",
+    textAlign: "left", lineHeight: "1.2",
   },
   emptyCell: { padding: "48px", textAlign: "center" },
   emptyState: { display: "flex", flexDirection: "column", alignItems: "center" },
 
   // Stacked cell styles
   stackMain: { fontSize: 13, fontWeight: 500, color: "#000", lineHeight: 1.4 },
-  stackSub: { fontSize: 11, color: "#64748b", marginTop: 2, lineHeight: 1.4 },
+  stackSub: { fontSize: 11, color: "#64748b", marginTop: 0, lineHeight: 1.2 },
 
   // Complaint cell
-  complaintText: { fontSize: 12, color: "#000", lineHeight: 1.5 },
+  complaintText: { fontSize: 12, color: "#000", lineHeight: 1.3 },
   moreBtn: {
-    marginTop: 4, fontSize: 11, color: "#1e3a5f",
+    marginTop: 1, fontSize: 11, color: "#1e3a5f",
     background: "none", border: "none", cursor: "pointer",
     fontWeight: 600, padding: 0,
   },

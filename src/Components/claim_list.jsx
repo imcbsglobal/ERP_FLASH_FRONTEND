@@ -683,9 +683,9 @@ function MobileClaimsListTable({
                       <td style={{ ...desktopListStyles.td, whiteSpace: "normal", minWidth: 160 }}>
                         <div style={{ fontWeight: 500, color: "#111827" }}>{claim.expense || "—"}</div>
                         {(claim.expense_type === "travel_expense" || claim.expense_type === "Travel Expense" || (claim.expense || "").toLowerCase().includes("travel")) && (claim.vehicleNumber || claim.vehicleName) && (
-                          <div style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 5 }}>
-                            <span style={{ fontSize: 13 }}></span>
-                            <span style={{ fontSize: 12,textAlign: "left", color: "#818080", fontWeight: 600 }}>
+                          <div style={{ display: "inline-flex", alignItems: "center", gap: 5, marginTop: 1 }}>
+                            <span style={{ fontSize: 11 }}></span>
+                            <span style={{ fontSize: 9,textAlign: "left", color: "#818080", fontWeight: 600 }}>
                               {[claim.vehicleNumber, claim.vehicleName].filter(Boolean).join(" · ")}
                             </span>
                           </div>
@@ -700,7 +700,7 @@ function MobileClaimsListTable({
                             onClick={() => onViewReceipt(claim)}
                             style={desktopListStyles.viewBtn}
                           >
-                            <VisibilityOutlinedIcon style={{ fontSize: 13 }} /> View
+                            <VisibilityOutlinedIcon style={{ fontSize: 12 }} /> View
                           </button>
                         ) : (
                           <span style={{ color: "#9ca3af" }}>—</span>
@@ -732,13 +732,13 @@ function MobileClaimsListTable({
                             onClick={() => onEditClaim(claim)}
                             style={desktopListStyles.editBtn}
                           >
-                            <EditOutlinedIcon style={{ fontSize: 13 }} /> Edit
+                            <EditOutlinedIcon style={{ fontSize: 12 }} /> Edit
                           </button>
                           <button
                             onClick={() => onDeleteClaim(claim.id)}
                             style={desktopListStyles.deleteBtn}
                           >
-                            <DeleteOutlineOutlinedIcon style={{ fontSize: 13 }} /> Delete
+                            <DeleteOutlineOutlinedIcon style={{ fontSize: 12 }} /> Delete
                           </button>
                         </div>
                       </td>
@@ -1146,7 +1146,7 @@ const desktopListStyles = {
     textAlign: "left",
     fontWeight: 600,
     color: "#fbfbfc",
-    fontSize: 15,
+    fontSize: 12,
     letterSpacing: "0.04em",
     textTransform: "capitalize",
     whiteSpace: "nowrap",
@@ -1157,26 +1157,27 @@ const desktopListStyles = {
     zIndex: 10,
   },
   td: {
-    padding: "13px 16px",
+    padding: "5px 16px",
     color: "#0d0d0e",
     borderBottom: "1px solid #f0f0f0",
     whiteSpace: "nowrap",
     verticalAlign: "middle",
     textAlign: "left",
-    fontSize: 12,
+    fontSize: 11,
+    lineHeight: "1.2",
   },
   dateContainer: {
     display: "flex",
     flexDirection: "column",
-    gap: 4,
+    gap: 0,
   },
   dateText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 600,
     color: "#1e293b",
   },
   timeText: {
-    fontSize: 12,
+    fontSize: 9,
     fontWeight: 500,
     color: "#64748b",
   },
