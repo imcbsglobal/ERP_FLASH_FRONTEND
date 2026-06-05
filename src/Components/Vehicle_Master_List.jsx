@@ -14,7 +14,7 @@ import NavigateNextOutlinedIcon from "@mui/icons-material/NavigateNextOutlined";
 import FirstPageOutlinedIcon from "@mui/icons-material/FirstPageOutlined";
 import LastPageOutlinedIcon from "@mui/icons-material/LastPageOutlined";
 import VehicleForm from "./Vehicle_Master_Add";
-import { getVehicles, deleteVehicle, ENDPOINTS } from "../service/Api";
+import { getVehicles, deleteVehicle, ENDPOINTS, apiFetch, authHeaders } from "../service/Api";
 
 const VEHICLE_TYPES  = ["All Types", "Car", "Bike", "Truck", "Van", "Bus", "Other"];
 const STATUS_OPTIONS = ["All", "Active", "Inactive"];
@@ -31,6 +31,7 @@ function normalise(v) {
   const rawPhoto = v.vehicle_photo_url || v.vehicle_photo || null;
   return {
     id:               v.id,
+    branch:           v.branch_name || "—",
     name:             v.vehicle_name,
     reg:              v.registration_number,
     company:          v.company_brand       || "—",
@@ -43,6 +44,7 @@ function normalise(v) {
     total_trips:      v.total_trips         ?? 0,
     status:           v.status || "Active",
     image:            resolveImageUrl(rawPhoto),
+    created_at:       v.created_at || null,
     // keep raw for edit pre-fill
     _raw: v,
   };
@@ -231,7 +233,7 @@ function TableView({ vehicles, onEdit, onDelete, isAdmin, isSuperAdmin }) {
     verticalAlign: "middle",
   };
 
-  const headers = ["Sl. no.", "Photo", "Reg. no.", "Vehicle", "Ownership", "Type", "Insurance Expiry", "Days Left", "Pollution Expiry", "Status", "Action"];
+  const headers = ["Sl. no.", "Photo", "Branch", "Reg. no.", "Vehicle", "Ownership", "Type", "Insurance Expiry", "Days Left", "Pollution Expiry", "Status", "Action"];
 
   return (
     <>
@@ -264,6 +266,10 @@ function TableView({ vehicles, onEdit, onDelete, isAdmin, isSuperAdmin }) {
 
               {/* Fields grid */}
               <div className="vm-card-fields">
+                <div className="vm-card-field">
+                  <div className="vm-card-field-label">🏢 Branch</div>
+                  <div className="vm-card-field-value">{v.branch}</div>
+                </div>
                 <div className="vm-card-field">
                   <div className="vm-card-field-label">🏢 Ownership</div>
                   <div className="vm-card-field-value">{v.ownership}</div>
@@ -340,6 +346,7 @@ function TableView({ vehicles, onEdit, onDelete, isAdmin, isSuperAdmin }) {
                         <div style={{ width: 48, height: 36, borderRadius: 6, border: "1.5px dashed #d0d0d0", background: "#f8f9fa", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "#c5cad3" }}>🚗</div>
                       )}
                     </td>
+                    <td style={{ ...tdStyle, fontWeight: 600 }}>{v.branch}</td>
                     <td style={{ ...tdStyle, fontWeight: 700, letterSpacing: "0.5px" }}>{v.reg}</td>
                     <td style={{ ...tdStyle, fontWeight: 600 }}>{v.name}</td>
                     <td style={tdStyle}>{v.ownership}</td>
@@ -400,6 +407,7 @@ function CardView({ vehicles, onEdit, onDelete }) {
                 <div style={{ fontSize: 9, color: "#5f6368", fontFamily: "'Google Sans', sans-serif", fontWeight: 600, letterSpacing: 0.4 }}>{v.reg}</div>
               </div>
               {[
+                ["Branch",           v.branch],
                 ["Company",          v.company],
                 ["Ownership",        v.ownership],
                 ["Type",             v.type],
@@ -640,18 +648,69 @@ export default function VehicleMasterList({ onVehicleSaved }) {
   const [currentPage,  setCurrentPage]  = useState(1);
   const [pageSize,     setPageSize]     = useState(PAGE_SIZE);
 
+  // Branch list for filter dropdown
+  const [branches,        setBranches]        = useState([]);
+  const [branchesLoading, setBranchesLoading] = useState(true);
+
   // Filter state
-  const [search,       setSearch]       = useState("");
-  const [typeFilter,   setTypeFilter]   = useState("All Types");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [search,        setSearch]        = useState("");
+  const [typeFilter,    setTypeFilter]    = useState("All Types");
+  const [statusFilter,  setStatusFilter]  = useState("All");
+  const [branchFilter,  setBranchFilter]  = useState("");
+  const [dateFrom,      setDateFrom]      = useState("");
+  const [dateTo,        setDateTo]        = useState("");
   // Applied filters (used for actual API call)
   const [appliedSearch,  setAppliedSearch]  = useState("");
   const [appliedType,    setAppliedType]    = useState("All Types");
   const [appliedStatus,  setAppliedStatus]  = useState("All");
+  const [appliedBranch,  setAppliedBranch]  = useState("");
+  const [appliedDateFrom,setAppliedDateFrom]= useState("");
+  const [appliedDateTo,  setAppliedDateTo]  = useState("");
 
   const [viewMode,     setViewMode]     = useState("card");
   const [editVehicle,  setEditVehicle]  = useState(null);
   const [showAddForm,  setShowAddForm]  = useState(false);
+
+  // ── Fetch branch list for filter dropdown ────────────────────
+  useEffect(() => {
+    const initBranches = async () => {
+      try {
+        // Fetch departments from FlashERP API only — { department_id, department }[]
+        const res = await apiFetch(ENDPOINTS.departments, { headers: authHeaders() });
+        const raw = Array.isArray(res) ? res : (res?.data ?? res?.results ?? []);
+        const list = raw
+          .map(d => ({ id: d.department_id, name: d.department }))
+          .filter(b => b.name)
+          .sort((a, b) => a.name.localeCompare(b.name));
+        setBranches(list);
+
+        // Default branch filter to the logged-in user's branch (admin & super admin)
+        if (isAdmin) {
+          try {
+            const u = JSON.parse(localStorage.getItem('user') || '{}');
+            let userBranch = u.branch_name || u.branch || '';
+            if (!userBranch && u.branch_id) {
+              const match = list.find(b => String(b.id) === String(u.branch_id));
+              if (match) userBranch = match.name;
+            }
+            if (userBranch) {
+              // branchFilter uses the department id (String) as value
+              const matchById = list.find(b => b.name === userBranch);
+              if (matchById) {
+                setBranchFilter(String(matchById.id));
+                setAppliedBranch(String(matchById.id));
+              }
+            }
+          } catch { /* keep empty (All Branches) */ }
+        }
+      } catch {
+        setBranches([]);
+      } finally {
+        setBranchesLoading(false);
+      }
+    };
+    initBranches();
+  }, [isAdmin]);
 
   // ── Fetch vehicles from backend (with pagination) ─────────────────────────────
   const fetchVehicles = useCallback(async (page = currentPage, size = pageSize) => {
@@ -662,6 +721,9 @@ export default function VehicleMasterList({ onVehicleSaved }) {
         search:       appliedSearch,
         status:       appliedStatus,
         vehicle_type: appliedType,
+        branch:       appliedBranch,
+        date_from:    appliedDateFrom,
+        date_to:      appliedDateTo,
         page:         page,
         page_size:    size,
       });
@@ -683,7 +745,7 @@ export default function VehicleMasterList({ onVehicleSaved }) {
     } finally {
       setLoading(false);
     }
-  }, [appliedSearch, appliedType, appliedStatus, currentPage, pageSize]);
+  }, [appliedSearch, appliedType, appliedStatus, appliedBranch, appliedDateFrom, appliedDateTo, currentPage, pageSize]);
 
   // Fetch when filters or page changes
   useEffect(() => {
@@ -707,16 +769,41 @@ export default function VehicleMasterList({ onVehicleSaved }) {
     setAppliedSearch(search);
     setAppliedType(typeFilter);
     setAppliedStatus(statusFilter);
+    setAppliedBranch(branchFilter);
+    setAppliedDateFrom(dateFrom);
+    setAppliedDateTo(dateTo);
     setCurrentPage(1); // Reset to first page when applying filters
   };
 
   const handleReset = () => {
+    // Determine user's default branch
+    let defaultBranch = "";
+    if (isAdmin) {
+      try {
+        const u = JSON.parse(localStorage.getItem('user') || '{}');
+        let userBranch = u.branch_name || u.branch || '';
+        if (!userBranch && u.branch_id) {
+          const match = branches.find(b => String(b.id) === String(u.branch_id));
+          if (match) userBranch = match.name;
+        }
+        if (userBranch) {
+          const matchById = branches.find(b => b.name === userBranch);
+          if (matchById) defaultBranch = String(matchById.id);
+        }
+      } catch { /* keep empty */ }
+    }
     setSearch(""); 
     setTypeFilter("All Types"); 
     setStatusFilter("All");
+    setBranchFilter(defaultBranch);
+    setDateFrom("");
+    setDateTo("");
     setAppliedSearch(""); 
     setAppliedType("All Types"); 
     setAppliedStatus("All");
+    setAppliedBranch(defaultBranch);
+    setAppliedDateFrom("");
+    setAppliedDateTo("");
     setCurrentPage(1);
   };
 
@@ -781,7 +868,7 @@ export default function VehicleMasterList({ onVehicleSaved }) {
           .vml-header { height: auto !important; padding: 10px 16px !important; }
           .vml-view-label { display: none; }
 
-          /* ── Filters: 2×2 grid ── */
+          /* ── Filters: 2-col grid on mobile ── */
           .vml-filters {
             display: grid !important;
             grid-template-columns: 1fr 1fr !important;
@@ -792,10 +879,11 @@ export default function VehicleMasterList({ onVehicleSaved }) {
           .vml-filters > div { width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; flex: unset !important; }
           .vml-filters select { width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; }
           .vml-filters input  { width: 100% !important; min-width: 0 !important; box-sizing: border-box !important; }
-          /* Row 2: Status (3rd child) + Buttons (4th child) */
-          .vml-filters > div:nth-child(3) { grid-column: 1 !important; }
-          .vml-filters > div:nth-child(4) { grid-column: 2 !important; display: flex !important; flex-direction: column !important; gap: 6px !important; }
-          .vml-filters > div:nth-child(4) button { width: 100% !important; justify-content: center !important; padding: 9px 4px !important; font-size: 12px !important; white-space: nowrap !important; }
+          /* Search spans full width */
+          .vml-filters > div:nth-child(1) { grid-column: 1 / -1 !important; }
+          /* Buttons (last child) span full width */
+          .vml-filters > div:last-child { grid-column: 1 / -1 !important; display: flex !important; flex-direction: row !important; gap: 8px !important; }
+          .vml-filters > div:last-child button { flex: 1 !important; justify-content: center !important; padding: 9px 4px !important; font-size: 12px !important; white-space: nowrap !important; }
 
           /* ── Table → Cards on mobile ── */
           .vm-desktop-table { display: none !important; }
@@ -974,6 +1062,17 @@ export default function VehicleMasterList({ onVehicleSaved }) {
               </div>
             </div>
 
+            {/* Branch */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#0f0f0f", display: "block", marginBottom: 6, textTransform: "capitalize", textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>Branch</label>
+              <select value={branchFilter} onChange={e => setBranchFilter(e.target.value)} style={selectStyle} disabled={branchesLoading}>
+                <option value="">{branchesLoading ? "Loading..." : "All Branches"}</option>
+                {branches.map(b => (
+                  <option key={b.id} value={String(b.id)}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+
             {/* Vehicle Type */}
             <div>
               <label style={{ fontSize: 13, fontWeight: 600, color: "#0f0f0f", display: "block", marginBottom: 6, textTransform: "capitalize",textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>Vehicle Type</label>
@@ -988,6 +1087,20 @@ export default function VehicleMasterList({ onVehicleSaved }) {
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={selectStyle}>
                 {STATUS_OPTIONS.map(s => <option key={s}>{s}</option>)}
               </select>
+            </div>
+
+            {/* Date From */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#0f0f0f", display: "block", marginBottom: 6, textTransform: "capitalize", textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>Date From</label>
+              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)}
+                style={{ ...selectStyle, minWidth: 140, cursor: "pointer" }} />
+            </div>
+
+            {/* Date To */}
+            <div>
+              <label style={{ fontSize: 13, fontWeight: 600, color: "#0f0f0f", display: "block", marginBottom: 6, textTransform: "capitalize", textAlign: "left", letterSpacing: "0.8px", fontFamily: "'Google Sans', sans-serif" }}>Date To</label>
+              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)}
+                style={{ ...selectStyle, minWidth: 140, cursor: "pointer" }} />
             </div>
 
             {/* Buttons */}

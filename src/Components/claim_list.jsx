@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import ClaimsAdd from "./claim_add";
 import ClaimsEdit from "./claim_edit";
-import { fetchClaims, deleteClaim, updateClaimStatus } from "../service/Api";
+import { fetchClaims, deleteClaim, updateClaimStatus, authService, ENDPOINTS, authHeaders, apiFetch } from "../service/Api";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
@@ -47,7 +47,7 @@ export default function MobileResponsiveClaimsList() {
     setLoading(true);
     setFetchError("");
     try {
-      const data = await fetchClaims();
+      const data = await fetchClaims({ all_branches: 1 });
       setClaims(data);
     } catch (err) {
       setFetchError(err.message || "Failed to load claims.");
@@ -211,6 +211,11 @@ function MobileClaimsListTable({
   const [statusUpdating, setStatusUpdating] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
+  const [filterBranch, setFilterBranch] = useState("all");
+  const [branchList, setBranchList] = useState([]);   // [{id, name}]
+  const [userBranchName, setUserBranchName] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   // Super Admin → all claims; Admin → branch claims (filtered server-side, shown as-is);
   // Regular User → own claims only (client-side filter by username)
@@ -288,7 +293,15 @@ function MobileClaimsListTable({
       (c.expense || "").toLowerCase().includes(q)
     );
     const matchesStatus = statusFilter === "all" || c.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesBranch = filterBranch === "all" || (() => {
+      const sel = branchList.find(b => b.name === filterBranch);
+      if (!sel) return true;
+      return String(c.branch_id) === String(sel.id);
+    })();
+    const rowDate = c.date ? new Date(c.date) : null;
+    const matchFrom = !dateFrom || (rowDate && rowDate >= new Date(dateFrom));
+    const matchTo   = !dateTo   || (rowDate && rowDate <= new Date(dateTo + "T23:59:59"));
+    return matchesSearch && matchesStatus && matchesBranch && matchFrom && matchTo;
   });
 
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
@@ -298,6 +311,47 @@ function MobileClaimsListTable({
   // Reset to page 1 whenever filters/search change
   const handleSearchChange = (val) => { setSearch(val); setCurrentPage(1); };
   const handleStatusFilter = (val) => { setStatusFilter(val); setCurrentPage(1); };
+
+  // ── Branch init ──────────────────────────────────────────────
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const initBranches = async () => {
+      // 1. Fetch departments from FlashERP for dropdown names
+      let deptNames = [];
+      try {
+        const deptData = await apiFetch(ENDPOINTS.departments, { headers: authHeaders() });
+        const raw = Array.isArray(deptData) ? deptData : (deptData?.data ?? deptData?.results ?? []);
+        deptNames = raw.map(d => d.department).filter(Boolean);
+      } catch { /* ignore */ }
+
+      // 2. Fetch local branches to get id↔name mapping
+      let localBranches = [];
+      try {
+        const branchData = await apiFetch(ENDPOINTS.branches, { headers: authHeaders() });
+        localBranches = Array.isArray(branchData) ? branchData : (branchData?.results ?? []);
+      } catch { /* ignore */ }
+
+      // 3. Build branchList as [{id, name}] using dept names matched to local branch ids
+      const nameToId = {};
+      localBranches.forEach(b => { if (b.name) nameToId[b.name.trim().toLowerCase()] = b.id; });
+      const merged = deptNames.map(name => ({
+        id: nameToId[name.trim().toLowerCase()] ?? null,
+        name,
+      })).filter(b => b.id !== null).sort((a, b) => a.name.localeCompare(b.name));
+      setBranchList(merged.length > 0 ? merged : localBranches.filter(b => b.name).sort((a, b) => a.name.localeCompare(b.name)));
+
+      // 4. Get live branch_id for the logged-in user from /auth/me/
+      try {
+        const me = await authService.getMe();
+        if (me) localStorage.setItem('user', JSON.stringify(me));
+        if (me?.branch_id) {
+          const match = localBranches.find(b => String(b.id) === String(me.branch_id));
+          if (match?.name) { setUserBranchName(match.name); setFilterBranch(match.name); }
+        }
+      } catch { /* fallback */ }
+    };
+    if (isSuperAdmin || isAdmin) initBranches();
+  }, [isSuperAdmin, isAdmin]);
 
   const getVisiblePages = () => {
     const maxVisible = 5;
@@ -595,34 +649,63 @@ function MobileClaimsListTable({
         .row-hover:hover { background: #f0f4ff !important; transition: background 0.15s; }
       `}</style>
 
-      {/* Single top bar: title left, search + buttons right */}
-      <div style={desktopListStyles.header}>
+      {/* Row 1: Title + Refresh + Add New */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10, flexShrink: 0 }}>
         <h1 style={desktopListStyles.title}>Claims Management</h1>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={desktopListStyles.searchWrap}>
-            <SearchIcon style={{ color: "#9ca3af", fontSize: 18, marginRight: 8 }} />
-            <input
-              style={desktopListStyles.searchInput}
-              placeholder="Search by name, client, department…"
-              value={search}
-              onChange={(e) => handleSearchChange(e.target.value)}
-            />
-          </div>
-          <button style={desktopListStyles.refreshBtn} onClick={onRefresh}>
-            ↻ Refresh
-          </button>
-          <button style={desktopListStyles.addNewBtn} onClick={onAddNew}>
-            + Add New Claim
-          </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button style={desktopListStyles.refreshBtn} onClick={onRefresh}>&#x21BB; Refresh</button>
+          <button style={desktopListStyles.addNewBtn} onClick={onAddNew}>+ Add New Claim</button>
         </div>
+      </div>
+
+      {/* Row 2: Search + Filters — full width */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexShrink: 0, width: "100%" }}>
+        <div style={{ ...desktopListStyles.searchWrap, flex: 1, width: "auto" }}>
+          <SearchIcon style={{ color: "#9ca3af", fontSize: 18, marginRight: 8, flexShrink: 0 }} />
+          <input
+            style={desktopListStyles.searchInput}
+            placeholder="Search by name, client, branch..."
+            value={search}
+            onChange={(e) => handleSearchChange(e.target.value)}
+          />
+        </div>
+
+        {(isSuperAdmin || isAdmin) && (
+          <>
+            <select value={statusFilter} onChange={(e) => handleStatusFilter(e.target.value)}
+              style={{ flex: 1, padding: "8px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans',sans-serif", background: "#fff", outline: "none", cursor: "pointer", height: 38, minWidth: 110 }}>
+              <option value="all">All Status</option>
+              <option value="Rejected">Rejected</option>
+              <option value="Pending">Pending</option>
+              <option value="Accepted">Accepted</option>
+            </select>
+
+            <select value={filterBranch} onChange={(e) => { setFilterBranch(e.target.value); setCurrentPage(1); }}
+              style={{ flex: 1, padding: "8px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans',sans-serif", background: "#fff", outline: "none", cursor: "pointer", height: 38, minWidth: 130 }}>
+              <option value="all">All Branches</option>
+              {branchList.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+            </select>
+
+            <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setCurrentPage(1); }}
+              style={{ flex: 1, padding: "8px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans',sans-serif", background: "#fff", outline: "none", height: 38, boxSizing: "border-box", minWidth: 130 }} />
+
+            <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setCurrentPage(1); }}
+              style={{ flex: 1, padding: "8px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans',sans-serif", background: "#fff", outline: "none", height: 38, boxSizing: "border-box", minWidth: 130 }} />
+
+            {(filterBranch !== (userBranchName || "all") || dateFrom || dateTo || statusFilter !== "all") && (
+              <button onClick={() => { setFilterBranch(userBranchName || "all"); setDateFrom(""); setDateTo(""); handleStatusFilter("all"); }}
+                style={{ padding: "8px 14px", border: "1px solid #d1d9e0", borderRadius: 8, background: "#fff", color: "#5f6368", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Google Sans',sans-serif", height: 38, whiteSpace: "nowrap", flexShrink: 0 }}>
+                Clear
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       {fetchError && (
         <div style={desktopListStyles.errorBanner}>
           ⚠️ {fetchError}{" "}
-          <button style={desktopListStyles.retryBtn} onClick={onRefresh}>
-            Retry
-          </button>
+          <button style={desktopListStyles.retryBtn} onClick={onRefresh}>Retry</button>
         </div>
       )}
 
@@ -635,7 +718,7 @@ function MobileClaimsListTable({
                 <th style={desktopListStyles.th}>Date</th>
                 <th style={desktopListStyles.th}>Claimed By</th>
                 <th style={desktopListStyles.th}>Client Name</th>
-                <th style={desktopListStyles.th}>Department</th>
+                <th style={desktopListStyles.th}>Branch</th>
                 <th style={desktopListStyles.th}>Expense</th>
                 <th style={{ ...desktopListStyles.th, textAlign: "right" }}>Amount</th>
                 <th style={desktopListStyles.th}>Receipt</th>
@@ -1181,7 +1264,6 @@ const desktopListStyles = {
     border: "1.5px solid #e5e7eb",
     borderRadius: 10,
     padding: "0 12px",
-    width: 280,
     boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
   },
   searchInput: {

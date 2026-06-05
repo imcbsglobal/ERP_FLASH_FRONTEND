@@ -15,6 +15,10 @@ import {
   startTrip,
   endTrip,
   deleteTrip,
+  authService,
+  ENDPOINTS,
+  authHeaders,
+  apiFetch,
 } from "../service/Api";
 
 const statusColors = {
@@ -207,6 +211,11 @@ export default function TravelList() {
   const [showStartTrip, setShowStartTrip] = useState(false);
   const [vehicleRefreshKey, setVehicleRefreshKey] = useState(0);
   const [search, setSearch] = useState("");
+  const [filterBranch, setFilterBranch] = useState("all");
+  const [branchList, setBranchList] = useState([]);
+  const [userBranchName, setUserBranchName] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [deleteId, setDeleteId] = useState(null);
   const [showEndTripModal, setShowEndTripModal] = useState(null);
   const [endTripError, setEndTripError] = useState("");
@@ -220,6 +229,34 @@ export default function TravelList() {
 
   useEffect(() => {
     loadTrips();
+  }, []);
+
+  // ── Fetch branches + set default branch filter from logged-in user ──────
+  useEffect(() => {
+    const initBranches = async () => {
+      // 1. Fetch departments from FlashERP for the branch dropdown
+      try {
+        const data = await apiFetch(ENDPOINTS.departments, { headers: authHeaders() });
+        const raw = Array.isArray(data) ? data : (data?.data ?? data?.results ?? []);
+        setBranchList(raw.map(d => d.department).filter(Boolean).sort());
+      } catch { /* ignore */ }
+
+      // 2. Get live branch_id for the logged-in user from /auth/me/
+      try {
+        const me = await authService.getMe();
+        if (me) localStorage.setItem('user', JSON.stringify(me));
+        if (me?.branch_id) {
+          const branchData = await apiFetch(ENDPOINTS.branches, { headers: authHeaders() });
+          const allBranches = Array.isArray(branchData) ? branchData : (branchData?.results ?? []);
+          const match = allBranches.find(b => String(b.id) === String(me.branch_id));
+          if (match?.name) {
+            setUserBranchName(match.name);
+            setFilterBranch(match.name);
+          }
+        }
+      } catch { /* fallback: stay on 'all' */ }
+    };
+    initBranches();
   }, []);
 
   const loadTrips = async () => {
@@ -250,16 +287,26 @@ export default function TravelList() {
   // No client-side ownership filter is needed or applied here — a redundant
   // frontend filter caused admins to see only their own trips when the role
   // string had a case mismatch or localStorage wasn't fully populated yet.
-  const filtered = data.filter(
-    (r) =>
+  const filtered = data.filter((r) => {
+    const matchSearch =
       !search ||
       r.vehicle_name?.toLowerCase().includes(search.toLowerCase()) ||
       r.vehicle?.toLowerCase().includes(search.toLowerCase()) ||
       r.traveled_by?.toLowerCase().includes(search.toLowerCase()) ||
       r.traveledBy?.toLowerCase().includes(search.toLowerCase()) ||
       r.purpose_of_trip?.toLowerCase().includes(search.toLowerCase()) ||
-      r.purpose?.toLowerCase().includes(search.toLowerCase())
-  );
+      r.purpose?.toLowerCase().includes(search.toLowerCase());
+
+    const matchBranch =
+      filterBranch === "all" ||
+      (r.branch_name || "").trim().toLowerCase() === filterBranch.trim().toLowerCase();
+
+    const tripDate = r.date ? new Date(r.date) : null;
+    const matchFrom = !dateFrom || (tripDate && tripDate >= new Date(dateFrom));
+    const matchTo   = !dateTo   || (tripDate && tripDate <= new Date(dateTo + "T23:59:59"));
+
+    return matchSearch && matchBranch && matchFrom && matchTo;
+  });
 
   // Pagination calculations
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
@@ -420,12 +467,14 @@ export default function TravelList() {
           flex-wrap: wrap;
         }
         .tt-search {
-          padding: 9px 16px;
-          border-radius: 10px;
+          padding: 0 14px;
+          border-radius: 8px;
           border: 1.5px solid #c8d8e8;
           font-size: 13px;
           font-family: 'Google Sans', sans-serif;
-          width: 260px;
+          flex: 1;
+          min-width: 120px;
+          height: 34px;
           background: #fff;
           color: #000;
           outline: none;
@@ -433,8 +482,9 @@ export default function TravelList() {
         }
         .tt-search:focus { border-color: #1a73e8; }
         .tt-start-btn {
-          padding: 9px 22px;
-          border-radius: 10px;
+          padding: 0 20px;
+          height: 34px;
+          border-radius: 8px;
           border: none;
           background: linear-gradient(135deg, #1a6fdb, #0d4fa8);
           color: #fff;
@@ -771,6 +821,82 @@ export default function TravelList() {
           font-family: 'Google Sans', sans-serif;
         }
       
+        /* ── Unified Toolbar ── */
+        .tt-toolbar {
+          display: flex;
+          align-items: flex-end;
+          gap: 10px;
+          background: #fff;
+          border: 1px solid #e8eaed;
+          border-radius: 10px;
+          padding: 10px 14px;
+          flex-wrap: nowrap;
+          width: 100%;
+          box-sizing: border-box;
+        }
+        .tt-toolbar-field {
+          display: flex;
+          flex-direction: column;
+          gap: 3px;
+          flex-shrink: 0;
+        }
+        .tt-toolbar-label {
+          font-size: 10px;
+          font-weight: 600;
+          color: #5f6368;
+          letter-spacing: 0.4px;
+          text-transform: uppercase;
+        }
+        .tt-toolbar-select,
+        .tt-toolbar-input {
+          padding: 7px 10px;
+          border: 1.5px solid #e5e7eb;
+          border-radius: 8px;
+          font-size: 13px;
+          font-family: 'Google Sans', sans-serif;
+          background: #fff;
+          color: #202124;
+          outline: none;
+          cursor: pointer;
+          height: 34px;
+          box-sizing: border-box;
+        }
+        .tt-toolbar-select { min-width: 140px; }
+        .tt-toolbar-select--disabled { background: #f8f9fa; cursor: not-allowed; }
+        .tt-toolbar-input { cursor: default; }
+        .tt-toolbar-clear {
+          padding: 0 12px;
+          height: 34px;
+          border: 1px solid #d1d9e0;
+          border-radius: 8px;
+          background: #fff;
+          color: #5f6368;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          font-family: 'Google Sans', sans-serif;
+          white-space: nowrap;
+          flex-shrink: 0;
+        }
+        @media (max-width: 900px) {
+          .tt-toolbar { flex-wrap: wrap; }
+          .tt-search { width: 100% !important; }
+        }
+        @media (max-width: 600px) {
+          .tt-toolbar {
+            flex-direction: column;
+            align-items: stretch;
+            padding: 10px 12px;
+            gap: 8px;
+          }
+          .tt-toolbar-field { flex-direction: row; align-items: center; gap: 8px; }
+          .tt-toolbar-label { width: 50px; flex-shrink: 0; }
+          .tt-toolbar-select, .tt-toolbar-input { flex: 1; min-width: 0; }
+          .tt-toolbar-clear { width: 100%; }
+          .tt-search { width: 100% !important; }
+          .tt-start-btn { width: 100%; justify-content: center; }
+        }
+
         /* ── IMCB Footer ── */
         .imcb-footer {
           text-align: center;
@@ -847,49 +973,95 @@ export default function TravelList() {
             </div>
           )}
 
-          <div style={{ margin: "0 0 22px 0", width: "100%", flexShrink: 0, padding: "0" }}>
-            <div className="tt-header-wrap">
-              <h1 className="tt-title" style={{ margin: 0, fontSize: 25, fontWeight: "600", color: "black", letterSpacing: -0.5 }}>
-                {isSuperAdmin
-                  ? "All Travel Logs"
-                  : (isAdmin || isManager)
-                    ? "Branch Travel Logs"
-                    : "My Travel Logs"}
-                {isAdminOrManager && (
-                  <span style={{
-                    marginLeft: 10,
-                    fontSize: 12,
-                    fontWeight: 600,
-                    background: isSuperAdmin ? "#fce8e6" : "#e8f0fe",
-                    color:      isSuperAdmin ? "#c5221f"  : "#1a6fdb",
-                    borderRadius: 20,
-                    padding: "2px 10px",
-                    verticalAlign: "middle",
-                    letterSpacing: 0.3,
-                  }}>
-                    {loggedInRole}
-                  </span>
+          <div style={{ margin: "0 0 16px 0", width: "100%", flexShrink: 0 }}>
+            {/* Title row */}
+            <h1 className="tt-title" style={{ margin: "0 0 12px 0", fontSize: 25, fontWeight: "600", color: "black", letterSpacing: -0.5 }}>
+              {isSuperAdmin
+                ? "All Travel Logs"
+                : (isAdmin || isManager)
+                  ? "Branch Travel Logs"
+                  : "My Travel Logs"}
+              {isAdminOrManager && (
+                <span style={{
+                  marginLeft: 10,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  background: isSuperAdmin ? "#fce8e6" : "#e8f0fe",
+                  color:      isSuperAdmin ? "#c5221f"  : "#1a6fdb",
+                  borderRadius: 20,
+                  padding: "2px 10px",
+                  verticalAlign: "middle",
+                  letterSpacing: 0.3,
+                }}>
+                  {loggedInRole}
+                </span>
+              )}
+            </h1>
+
+            {/* ── Single unified toolbar: Filter + Search + Start Trip ── */}
+            <div className="tt-toolbar">
+              {/* Branch */}
+              <div className="tt-toolbar-field">
+                <label className="tt-toolbar-label">Branch</label>
+                {isAdminOrManager ? (
+                  <select
+                    value={filterBranch}
+                    onChange={(e) => { setFilterBranch(e.target.value); setCurrentPage(1); }}
+                    className="tt-toolbar-select"
+                  >
+                    <option value="all">All Branches</option>
+                    {branchList.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                ) : (
+                  <select disabled className="tt-toolbar-select tt-toolbar-select--disabled">
+                    <option>{filterBranch || "My Branch"}</option>
+                  </select>
                 )}
-              </h1>
-              <div className="tt-controls">
-                <input
-                  className="tt-search"
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Search vehicle, driver, purpose…"
-                />
-                <button
-                  className="tt-start-btn"
-                  onClick={() => setShowStartTrip(true)}
-                  disabled={actionLoading}
-                  style={{ opacity: actionLoading ? 0.7 : 1 }}
-                >
-                  Start Trip
-                </button>
               </div>
+
+              {/* From Date */}
+              <div className="tt-toolbar-field">
+                <label className="tt-toolbar-label">From</label>
+                <input type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setCurrentPage(1); }}
+                  className="tt-toolbar-input"
+                />
+              </div>
+
+              {/* To Date */}
+              <div className="tt-toolbar-field">
+                <label className="tt-toolbar-label">To</label>
+                <input type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setCurrentPage(1); }}
+                  className="tt-toolbar-input"
+                />
+              </div>
+
+              {/* Clear button */}
+              {(filterBranch !== (userBranchName || "all") || dateFrom || dateTo) && (
+                <button
+                  onClick={() => { setFilterBranch(userBranchName || "all"); setDateFrom(""); setDateTo(""); setCurrentPage(1); }}
+                  className="tt-toolbar-clear"
+                >
+                  Clear
+                </button>
+              )}
+
+              {/* Search */}
+              <input
+                className="tt-search"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
+                placeholder="Search vehicle, driver, purpose…"
+              />
+
+              {/* Start Trip */}
+              <button
+                className="tt-start-btn"
+                onClick={() => setShowStartTrip(true)}
+                disabled={actionLoading}
+                style={{ opacity: actionLoading ? 0.7 : 1 }}
+              >
+                Start Trip
+              </button>
             </div>
           </div>
 

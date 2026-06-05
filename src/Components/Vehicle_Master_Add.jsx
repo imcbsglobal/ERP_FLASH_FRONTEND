@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import AddAPhotoOutlinedIcon from '@mui/icons-material/AddAPhotoOutlined';
-import { createVehicle, updateVehicle } from '../service/Api';
+import { createVehicle, updateVehicle, getBranches } from '../service/Api';
 
 /**
  * VehicleMasterAdd
@@ -12,6 +12,7 @@ import { createVehicle, updateVehicle } from '../service/Api';
 const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
   // ── State ───────────────────────────────────────────────────
   const [basicInfo, setBasicInfo] = useState({
+    branch: '',
     vehicleName: '',
     companyBrand: '',
     registrationNumber: '',
@@ -54,6 +55,24 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
   const [apiError, setApiError] = useState('');
   const [showCamera, setShowCamera] = useState(false);
   const [isMobile, setIsMobile] = useState(() => window.innerWidth <= 768);
+  const [departments, setDepartments] = useState([]);
+  const [departmentsLoading, setDepartmentsLoading] = useState(true);
+
+  // ── Fetch Branches from API ──────────────────────────────────
+  useEffect(() => {
+    const fetchBranches = async () => {
+      try {
+        const list = await getBranches();
+        setDepartments(list || []);
+      } catch (err) {
+        console.error('Error fetching branches:', err);
+        setDepartments([]);
+      } finally {
+        setDepartmentsLoading(false);
+      }
+    };
+    fetchBranches();
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 768px)');
@@ -67,6 +86,7 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
     if (!editData) return;
     const d = editData;
     setBasicInfo({
+      branch:               d.branch != null ? String(d.branch) : '',
       vehicleName:          d.vehicle_name        || '',
       companyBrand:         d.company_brand        || '',
       registrationNumber:   d.registration_number || '',
@@ -176,6 +196,7 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
   // ── Map API snake_case errors → camelCase keys ───────────────
   const mapApiErrors = (data) => {
     const keyMap = {
+      branch:                 'branch',
       vehicle_name:           'vehicleName',
       company_brand:          'companyBrand',
       registration_number:    'registrationNumber',
@@ -243,7 +264,7 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
 
   // ── Reset ─────────────────────────────────────────────────────
   const handleReset = () => {
-    setBasicInfo({ vehicleName: '', companyBrand: '', registrationNumber: '', vehicleType: '', ownership: '', fuelType: '', vehiclePhoto: null, vehiclePhotoPreview: null });
+    setBasicInfo({ branch: '', vehicleName: '', companyBrand: '', registrationNumber: '', vehicleType: '', ownership: '', fuelType: '', vehiclePhoto: null, vehiclePhotoPreview: null });
     setOwnershipInsurance({ ownerName: '', insuranceNo: '', insuranceExpiredDate: '', pollutionExpiredDate: '' });
     setMaintenance({ lastServiceDate: '', nextServiceDate: '', currentOdometer: '' });
     setTechnical({ chassisNumber: '', engineNumber: '' });
@@ -479,6 +500,22 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
               <h2 style={styles.sectionTitle}>Basic Information</h2>
             </div>
             <div className="vma-grid3" style={styles.grid3cols}>
+              {/* Branch - Dropdown */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Branch <span style={styles.required}>*</span></label>
+                <select name="branch" value={basicInfo.branch}
+                  onChange={handleBasicChange} style={fieldInput('branch', errors.branch)}
+                  required disabled={departmentsLoading}>
+                  <option value="">{departmentsLoading ? 'Loading branches...' : 'Select Branch'}</option>
+                  {departments.map((dept) => (
+                    <option key={dept.id} value={String(dept.id)}>
+                      {dept.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.branch && <span style={styles.errorMsg}>{errors.branch}</span>}
+              </div>
+
               {/* Vehicle Name */}
               <div style={styles.formGroup}>
                 <label style={styles.label}>Vehicle Name <span style={styles.required}>*</span></label>
@@ -525,7 +562,10 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
                   <option>Leased</option><option>Rental</option>
                 </select>
               </div>
+            </div>
 
+            {/* Fuel Type & Vehicle Photo - Same Line */}
+            <div className="vma-grid2" style={styles.grid2cols}>
               {/* Fuel Type */}
               <div style={styles.formGroup}>
                 <label style={styles.label}>Fuel Type</label>
@@ -535,43 +575,43 @@ const VehicleMasterAdd = ({ onClose, onSaved, editData = null }) => {
                   <option>Electric</option><option>Hybrid</option><option>CNG</option>
                 </select>
               </div>
-            </div>
 
-            {/* Vehicle Photo */}
-            <div style={{ ...styles.formGroup, marginTop: 14 }}>
-              <label style={styles.label}>Vehicle Photo</label>
-              <div style={styles.photoArea}>
-                <input type="file" id="vehiclePhoto" accept="image/*"
-                  onChange={handlePhotoChange} style={{ display: 'none' }} />
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  {/* Upload file button — always visible */}
-                  <button type="button" style={styles.photoBtn}
-                    onClick={() => document.getElementById('vehiclePhoto').click()}>
-                    <AddAPhotoOutlinedIcon style={{ fontSize: 20 }} />
-                    Upload
-                  </button>
-                  {/* Capture button — mobile only */}
-                  {isMobile && (
+              {/* Vehicle Photo */}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Vehicle Photo</label>
+                <div style={styles.photoArea}>
+                  <input type="file" id="vehiclePhoto" accept="image/*"
+                    onChange={handlePhotoChange} style={{ display: 'none' }} />
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* Upload file button — always visible */}
                     <button type="button" style={styles.photoBtn}
-                      onClick={() => setShowCamera(true)}
-                      title="Capture using webcam">
-                      📸 Capture
+                      onClick={() => document.getElementById('vehiclePhoto').click()}>
+                      <AddAPhotoOutlinedIcon style={{ fontSize: 20 }} />
+                      Upload
                     </button>
+                    {/* Capture button — mobile only */}
+                    {isMobile && (
+                      <button type="button" style={styles.photoBtn}
+                        onClick={() => setShowCamera(true)}
+                        title="Capture using webcam">
+                        📸 Capture
+                      </button>
+                    )}
+                  </div>
+                  {basicInfo.vehiclePhotoPreview && (
+                    <div style={styles.photoPreview}>
+                      <img src={basicInfo.vehiclePhotoPreview} alt="Vehicle Preview" style={styles.previewImage} />
+                      <button type="button" style={styles.removePhoto}
+                        onClick={() => {
+                          setBasicInfo((prev) => ({ ...prev, vehiclePhoto: null, vehiclePhotoPreview: null }));
+                          const inp = document.getElementById('vehiclePhoto');
+                          if (inp) inp.value = '';
+                        }}>
+                        ✕
+                      </button>
+                    </div>
                   )}
                 </div>
-                {basicInfo.vehiclePhotoPreview && (
-                  <div style={styles.photoPreview}>
-                    <img src={basicInfo.vehiclePhotoPreview} alt="Vehicle Preview" style={styles.previewImage} />
-                    <button type="button" style={styles.removePhoto}
-                      onClick={() => {
-                        setBasicInfo((prev) => ({ ...prev, vehiclePhoto: null, vehiclePhotoPreview: null }));
-                        const inp = document.getElementById('vehiclePhoto');
-                        if (inp) inp.value = '';
-                      }}>
-                      ✕
-                    </button>
-                  </div>
-                )}
               </div>
             </div>
           </div>

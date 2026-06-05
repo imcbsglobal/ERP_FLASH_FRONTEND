@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ImageCaptureLinkGenerator from './Image_link';
 import ImageCaptureFlow from './Image_capture';
-import { getAllCaptures, updateCaptureManualStatus, deleteCapture } from '../service/Api';
+import { getAllCaptures, updateCaptureManualStatus, deleteCapture, authService, ENDPOINTS, authHeaders, apiFetch } from '../service/Api';
 import API_BASE_URL from '../service/apiConfig';
 
 const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
@@ -22,18 +22,35 @@ const ImageCaptureList = ({ onGenerateLink }) => {
   const [screen, setScreen]             = useState(null);
   const [flowPhone, setFlowPhone]       = useState("");
   const [flowCustomer, setFlowCustomer] = useState("");
+  const [flowBranch, setFlowBranch]     = useState("");
 
   // ── Role detection ────────────────────────────────────────────
-  const currentUser = (() => {
+  const currentUser = useMemo(() => {
     try { return JSON.parse(localStorage.getItem("user")) || {}; } catch { return {}; }
-  })();
-  const isSuperAdmin = currentUser?.role === "Super Admin";
-  const isAdmin = currentUser?.role === "Admin" || isSuperAdmin;
+  }, []);
+  const role = (currentUser?.role || currentUser?.user_type || "").toLowerCase().trim();
+  const isSuperAdmin = role === "super admin" || role === "superadmin";
+  const isAdmin = role === "admin" || isSuperAdmin;
 
   // ── API data ──────────────────────────────────────────────────
   const [captureData, setCaptureData] = useState([]);
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState("");
+  const [dateFrom, setDateFrom]       = useState("");
+  const [dateTo, setDateTo]           = useState("");
+  const [filterBranch, setFilterBranch] = useState("all");
+  const [branchList, setBranchList]     = useState([]);
+  const [userBranchName, setUserBranchName] = useState("");
+  const [branchesReady, setBranchesReady] = useState(!isAdmin);
+
+  const resolveUserBranchName = useCallback((user, branches = []) => {
+    if (!user) return "";
+    if (user.branch_id) {
+      const match = branches.find(b => String(b.id) === String(user.branch_id));
+      if (match?.name) return match.name;
+    }
+    return user.branch_name || user.branch || "";
+  }, []);
 
   const normalizeImageUrl = (url) => {
     if (!url) return null;
@@ -72,6 +89,11 @@ const ImageCaptureList = ({ onGenerateLink }) => {
       verificationTime: item.verification_time || '',
       status:           item.status           || 'pending',
       manualStatus:     toDisplayStatus(item.manual_status || 'pending'),
+      branch:           (item.branch != null && item.branch !== '')
+        ? item.branch
+        : (item.branch_name != null && item.branch_name !== '')
+          ? item.branch_name
+          : 'General',
     };
   };
 
@@ -86,9 +108,13 @@ const ImageCaptureList = ({ onGenerateLink }) => {
   };
 
   const fetchData = useCallback(async () => {
+    if (!branchesReady) return;
     setLoading(true); setError('');
     try {
-      const data = await getAllCaptures();
+      const filters = isAdmin
+        ? (filterBranch === "all" ? { allBranches: true } : { branch: filterBranch })
+        : {};
+      const data = await getAllCaptures(filters);
       const list = Array.isArray(data) ? data : (data?.results ?? []);
       setCaptureData(list.map(normalize));
     } catch (e) {
@@ -96,9 +122,57 @@ const ImageCaptureList = ({ onGenerateLink }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [branchesReady, filterBranch, isAdmin]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const initBranches = async () => {
+      let allBranches = [];
+      try {
+        // Fetch departments from FlashERP API — { department_id, department }[]
+        const res = await apiFetch(ENDPOINTS.departments, { headers: authHeaders() });
+        const raw = Array.isArray(res) ? res : (res?.data ?? res?.results ?? []);
+        allBranches = raw
+          .map(d => ({ id: d.department_id, name: d.department }))
+          .filter(b => b.name)
+          .sort((a, b) => a.name.localeCompare(b.name));
+        setBranchList(allBranches);
+      } catch { /* ignore */ }
+
+      const applyDefaultBranch = (branchName) => {
+        // Both Admin and Super Admin default to their own branch on login,
+        // but can switch freely via the dropdown (including "All Branches")
+        if (!branchName) return;
+        setUserBranchName(branchName);
+        setFilterBranch(branchName);
+      };
+
+      applyDefaultBranch(resolveUserBranchName(currentUser, allBranches));
+
+      try {
+        const me = await authService.getMe();
+        if (me) localStorage.setItem("user", JSON.stringify(me));
+        applyDefaultBranch(resolveUserBranchName(me, allBranches));
+      } catch { /* keep fallback */ }
+
+      setBranchesReady(true);
+    };
+
+    initBranches();
+  }, [currentUser, isAdmin, resolveUserBranchName]);
+
+  // ── Date filter — branch filtering is done server-side via ?branch= or ?all_branches=1 ──
+  const filteredData = captureData.filter(item => {
+    const vt = item.verificationTime;
+    if (!vt) return !dateFrom && !dateTo;
+    const d = new Date(vt);
+    const matchFrom = !dateFrom || d >= new Date(dateFrom);
+    const matchTo   = !dateTo   || d <= new Date(dateTo + "T23:59:59");
+    return matchFrom && matchTo;
+  });
 
   // null | "generateLink" | "manualCapture"
   const [modalMode, setModalMode] = useState(null);
@@ -307,7 +381,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
 
   // Table styles
   const tableStyles = {
-    table: { width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 1000 },
+    table: { width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 1100 },
     theadRow: { background: "#0990eb" },
     th: {
       padding: "8px 12px",
@@ -389,11 +463,54 @@ const ImageCaptureList = ({ onGenerateLink }) => {
       <ImageCaptureFlow
         customerName={flowCustomer}
         phone={flowPhone}
+        branch={flowBranch}
         skipVerification={true}
         onSuccess={() => { setScreen(null); fetchData(); }}
       />
     );
   }
+
+  /* ── Auto-delete countdown badge (verified_at + 14 days) ── */
+  const DeletionBadge = ({ verificationTime }) => {
+    if (!verificationTime) return null;
+
+    const verifiedDate = new Date(verificationTime.replace(' ', 'T'));
+    if (isNaN(verifiedDate.getTime())) return null;
+
+    const deleteDate = new Date(verifiedDate.getTime() + 14 * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const msLeft = deleteDate.getTime() - now.getTime();
+    const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+
+    let bg, border, color, label;
+    if (daysLeft <= 0) {
+      bg = '#f3f4f6'; border = '#d1d5db'; color = '#6b7280'; label = 'Expired';
+    } else if (daysLeft <= 3) {
+      bg = '#fef2f2'; border = '#fecaca'; color = '#dc2626';
+      label = daysLeft === 1 ? '1 day left' : `${daysLeft} days left`;
+    } else if (daysLeft <= 7) {
+      bg = '#fffbeb'; border = '#fde68a'; color = '#d97706';
+      label = `${daysLeft} days left`;
+    } else {
+      bg = '#f0fdf4'; border = '#bbf7d0'; color = '#15803d';
+      label = `${daysLeft} days left`;
+    }
+
+    return (
+      <span style={{
+        display: 'inline-flex', alignItems: 'center', gap: 4,
+        background: bg, border: `1px solid ${border}`,
+        color, fontSize: 11, fontWeight: 700,
+        padding: '3px 8px', borderRadius: 20,
+        whiteSpace: 'nowrap',
+      }}>
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+        </svg>
+        {label}
+      </span>
+    );
+  };
 
   /* ── GPS Detected badge with hoverable coordinate tooltip ── */
   const GpsBadge = ({ item }) => {
@@ -632,6 +749,41 @@ const ImageCaptureList = ({ onGenerateLink }) => {
         </div>
         </div>
 
+        {isAdmin && (
+          <div style={{ display: "flex", flexWrap: "wrap", gap: "10px 14px", alignItems: "flex-end", margin: "0 0 14px 0", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "12px 16px" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 180 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#5f6368", textTransform: "uppercase", letterSpacing: "0.4px" }}>Branch</label>
+              <select
+                value={filterBranch}
+                onChange={(e) => setFilterBranch(e.target.value)}
+                disabled={!branchesReady}
+                style={{ padding: "7px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: "#fff", outline: "none", cursor: branchesReady ? "pointer" : "not-allowed", minWidth: 180 }}
+              >
+                <option value="all">{branchesReady ? "All Branches" : "Loading..."}</option>
+                {branchList.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+              </select>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#5f6368", textTransform: "uppercase", letterSpacing: "0.4px" }}>From Date</label>
+              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+                style={{ padding: "7px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: "#fff", outline: "none" }} />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: "#5f6368", textTransform: "uppercase", letterSpacing: "0.4px" }}>To Date</label>
+              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+                style={{ padding: "7px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: "#fff", outline: "none" }} />
+            </div>
+            {(filterBranch !== (userBranchName || "all") || dateFrom || dateTo) && (
+              <button
+                onClick={() => { setFilterBranch(userBranchName || "all"); setDateFrom(""); setDateTo(""); }}
+                style={{ alignSelf: "flex-end", padding: "7px 14px", border: "1px solid #d1d9e0", borderRadius: 8, background: "#fff", color: "#5f6368", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Google Sans', sans-serif" }}
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Loading / Error */}
         {loading && (
           <div style={{ textAlign: 'center', padding: '48px 0', color: '#6b7280', fontFamily: "'Google Sans', sans-serif" }}>
@@ -656,22 +808,36 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                   <tr style={tableStyles.theadRow}>
                     <th style={tableStyles.th}>Sl. No</th>
                     <th style={tableStyles.th}>Client Details</th>
+                    <th style={tableStyles.th}>Branch</th>
                     <th style={tableStyles.th}>Image</th>
                     <th style={tableStyles.th}>Location</th>
                     <th style={tableStyles.th}>Verification Time</th>
+                    <th style={tableStyles.th}>Auto Delete</th>
                     <th style={tableStyles.th}>Status</th>
                     <th style={tableStyles.th}>Manual Status</th>
                     <th style={tableStyles.th}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {captureData.map((item, index) => (
+                  {filteredData.map((item, index) => (
                     <tr key={item.id} className="hover:bg-gray-50 transition-colors">
                       <td style={tableStyles.td}>{index + 1}</td>
                       <td style={tableStyles.td}>
                         <div className="font-medium text-gray-900">{item.clientDetails.name}</div>
                         
                         <div className="text-gray-500 text-xs">{item.clientDetails.phone}</div>
+                      </td>
+                      <td style={tableStyles.td}>
+                        <span style={{
+                          display: 'inline-block',
+                          padding: '2px 8px',
+                          borderRadius: 12,
+                          background: item.branch === 'General' ? '#f3f4f6' : '#e8f0fe',
+                          color: item.branch === 'General' ? '#6b7280' : '#1a73e8',
+                          fontSize: 11,
+                          fontWeight: 600,
+                          whiteSpace: 'nowrap',
+                        }}>{item.branch}</span>
                       </td>
                       <td style={tableStyles.td}>
                         <img
@@ -683,6 +849,9 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                       </td>
                       <td style={{...tableStyles.td, whiteSpace: 'normal', wordWrap: 'break-word', maxWidth: '200px'}}>{item.location}</td>
                       <td style={tableStyles.td}>{item.verificationTime}</td>
+                      <td style={tableStyles.td}>
+                        <DeletionBadge verificationTime={item.verificationTime} />
+                      </td>
                       <td style={tableStyles.td}>
                         <GpsBadge item={item} />
                       </td>
@@ -753,7 +922,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
             </div>
 
             {/* Empty State */}
-            {captureData.length === 0 && (
+            {filteredData.length === 0 && (
               <div className="text-center py-12">
                 <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -770,7 +939,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
         {/* ── MOBILE: Card View ── */}
         {!loading && !error && isMobile && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {captureData.length === 0 && (
+            {filteredData.length === 0 && (
               <div style={{ textAlign: 'center', padding: '48px 0', color: '#9ca3af' }}>
                 <svg style={{ margin: '0 auto 8px', display: 'block' }} width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -779,7 +948,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
               </div>
             )}
 
-            {captureData.map((item, index) => (
+            {filteredData.map((item, index) => (
               <div
                 key={item.id}
                 style={{
@@ -816,6 +985,23 @@ const ImageCaptureList = ({ onGenerateLink }) => {
 
                 {/* Card Body: info rows */}
                 <div style={{ padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {/* Branch */}
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <svg width="13" height="13" style={{ flexShrink: 0 }} fill="none" stroke="#6b7280" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500, minWidth: 70, flexShrink: 0 }}>Branch:</span>
+                    <span style={{
+                      display: 'inline-block',
+                      padding: '2px 8px',
+                      borderRadius: 12,
+                      background: item.branch === 'General' ? '#f3f4f6' : '#e8f0fe',
+                      color: item.branch === 'General' ? '#6b7280' : '#1a73e8',
+                      fontSize: 11,
+                      fontWeight: 600,
+                    }}>{item.branch}</span>
+                  </div>
+
                   {/* Location */}
                   <div style={{ display: 'flex', gap: 6, alignItems: 'flex-start' }}>
                     <svg width="13" height="13" style={{ marginTop: 1, flexShrink: 0 }} fill="none" stroke="#6b7280" viewBox="0 0 24 24">
@@ -833,6 +1019,14 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                     </svg>
                     <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500, minWidth: 70, flexShrink: 0 }}>Verified At:</span>
                     <span style={{ fontSize: 12, color: '#111827' }}>{item.verificationTime}</span>
+                  </div>
+                  {/* Auto-delete countdown */}
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <svg width="13" height="13" style={{ flexShrink: 0 }} fill="none" stroke="#6b7280" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500, minWidth: 70, flexShrink: 0 }}>Auto Delete:</span>
+                    <DeletionBadge verificationTime={item.verificationTime} />
                   </div>
                   {/* Manual Status */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
@@ -1138,15 +1332,17 @@ const ImageCaptureList = ({ onGenerateLink }) => {
               isModal={true}
               modalMode={modalMode}
               onBack={() => setModalMode(null)}
-              onLinkClick={({ customerName, phone }) => {
+              onLinkClick={({ customerName, phone, branch }) => {
                 setFlowCustomer(customerName || "");
                 setFlowPhone(phone || "");
+                setFlowBranch(branch || "");
                 setModalMode(null);
                 setScreen("captureFlow");
               }}
-              onManualCapture={({ customerName, phone }) => {
+              onManualCapture={({ customerName, phone, branch }) => {
                 setFlowCustomer(customerName || "");
                 setFlowPhone(phone || "");
+                setFlowBranch(branch || "");
                 setModalMode(null);
                 setScreen("captureFlow");
               }}

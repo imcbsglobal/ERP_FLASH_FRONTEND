@@ -95,6 +95,11 @@ export const ENDPOINTS = {
   // Debtors (external FlashERP)
   debtorsExternal: `https://flasherp.imcbs.com/api/debtors/`,
 
+  // Suppliers
+  suppliers:            `${BASE_URL}/suppliers/`,
+  supplier:             (id) => `${BASE_URL}/suppliers/${id}/`,
+  supplierToggleStatus: (id) => `${BASE_URL}/suppliers/${id}/toggle-status/`,
+
   // Standby Items
   standbys:             `${BASE_URL}/standbys/`,
   standby:              (id) => `${BASE_URL}/standbys/${id}/`,
@@ -659,6 +664,7 @@ const _toSnake = (data) => {
 };
 
 const _flattenVehicle = ({ basicInfo, ownershipInsurance, maintenance, technical, additionalDetails }) => ({
+  branch: basicInfo.branch,
   vehicleName: basicInfo.vehicleName, companyBrand: basicInfo.companyBrand,
   registrationNumber: basicInfo.registrationNumber, vehicleType: basicInfo.vehicleType,
   ownership: basicInfo.ownership, fuelType: basicInfo.fuelType, vehiclePhoto: basicInfo.vehiclePhoto,
@@ -688,6 +694,9 @@ export const getVehicles = async (params = {}) => {
   if (params.vehicle_type && params.vehicle_type !== 'All Types')q.set('vehicle_type',    params.vehicle_type);
   if (params.ownership)                                          q.set('ownership',       params.ownership);
   if (params.fuel_type)                                          q.set('fuel_type',       params.fuel_type);
+  if (params.branch)                                             q.set('branch',          params.branch);
+  if (params.date_from)                                          q.set('date_from',       params.date_from);
+  if (params.date_to)                                            q.set('date_to',         params.date_to);
   if (params.ordering)                                           q.set('ordering',        params.ordering);
   if (params.page)                                               q.set('page',            params.page);
   if (params.exclude_ongoing)                                    q.set('exclude_ongoing', params.exclude_ongoing);
@@ -839,6 +848,7 @@ function _mapClaim(c) {
     purpose: c.purpose || '', notes: c.notes || '',
     vehicleNumber: c.vehicle_number || '',
     vehicleName:   c.vehicle_name   || '',
+    branch_id: c.branch_id ?? null,
     _raw: c,
   };
 }
@@ -1011,7 +1021,7 @@ export async function createPayment(formData) {
   payload.append('place',           formData.place           || '');
   payload.append('phone_number',    formData.phoneNumber      || '');
   payload.append('department',      formData.department       || '');
-  payload.append('branch',          formData.branch);
+  payload.append('branch',          formData.department       || formData.branch || '');
   payload.append('collection_type', formData.collectionType);
   payload.append('amount',          formData.amount);
   payload.append('paid_for',        formData.paidFor);
@@ -1206,6 +1216,7 @@ function _normaliseTrip(raw) {
     maintenanceCost:     parseFloat(raw.maintenance_cost) || 0,
     services:            raw.services_list  ?? [],
     branch_id:           raw.branch_id      ?? null,
+    branch_name:         raw.branch_name    ?? null,
     // snake_case mirrors (for compatibility)
     vehicle_name:        raw.vehicle_name        ?? '',
     registration_number: raw.registration_number ?? '',
@@ -1350,6 +1361,7 @@ export async function generateCaptureLink(data) {
   const body = {
     customer_name: data.customerName || null,
     phone: data.phone,
+    branch: data.branch || "",
     expires_in_hours: data.expiresInHours || 24,
   };
   if (data.customerId) body.customer_id = data.customerId;
@@ -1437,6 +1449,8 @@ export async function getAllCaptures(filters = {}) {
   if (filters.status) params.append('status', filters.status);
   if (filters.manualStatus) params.append('manual_status', filters.manualStatus);
   if (filters.search) params.append('search', filters.search);
+  if (filters.branch) params.append('branch', filters.branch);
+  if (filters.allBranches) params.append('all_branches', '1');
   const query = params.toString() ? `?${params}` : '';
   
   const doFetch = () => fetch(`${ENDPOINTS.imageCaptureList}${query}`, {
@@ -1513,4 +1527,54 @@ export const imageCaptureService = {
   
   // Helpers
   getImageUrl: getCaptureImageUrl,
+};
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+//  SUPPLIER SERVICE
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** GET /api/suppliers/?search=&status= */
+export async function getSuppliers(filters = {}) {
+  const params = new URLSearchParams();
+  if (filters.search) params.append('search', filters.search);
+  if (filters.status) params.append('status', filters.status);
+  const query = params.toString() ? `?${params}` : '';
+  return apiFetch(`${ENDPOINTS.suppliers}${query}`);
+}
+
+/** POST /api/suppliers/ */
+export async function createSupplier(data) {
+  return apiFetch(ENDPOINTS.suppliers, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}
+
+/** PATCH /api/suppliers/<id>/ */
+export async function updateSupplier(id, data) {
+  return apiFetch(ENDPOINTS.supplier(id), {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+}
+
+/** DELETE /api/suppliers/<id>/ */
+export async function deleteSupplier(id) {
+  return apiFetch(ENDPOINTS.supplier(id), { method: 'DELETE' });
+}
+
+/** PATCH /api/suppliers/<id>/toggle-status/ */
+export async function toggleSupplierStatus(id) {
+  return apiFetch(ENDPOINTS.supplierToggleStatus(id), { method: 'PATCH' });
+}
+
+export const supplierService = {
+  getAll:       getSuppliers,
+  create:       createSupplier,
+  update:       updateSupplier,
+  delete:       deleteSupplier,
+  toggleStatus: toggleSupplierStatus,
 };

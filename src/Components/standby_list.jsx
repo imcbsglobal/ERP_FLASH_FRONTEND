@@ -9,6 +9,7 @@ import { apiFetch, authHeaders, ENDPOINTS, getUsers, authService } from "../serv
 function normalize(r) {
   return {
     id:                    r.id,
+    branch_id:             r.branch_id ?? null,
     date:                  r.received_date,
     customerName:          r.customer_name,
     employeeName:          [r.employee1, r.employee2].filter(Boolean).join(", "),
@@ -336,6 +337,11 @@ export default function StandbyList({ onAdd }) {
   const [search, setSearch]                 = useState("");
   const [customerFilter, setCustomerFilter] = useState("All");
   const [statusFilter, setStatusFilter]     = useState("All");
+  const [filterBranch, setFilterBranch]     = useState("all");
+  const [branchList, setBranchList]         = useState([]);   // [{id, name}]
+  const [userBranchName, setUserBranchName] = useState("");
+  const [dateFrom, setDateFrom]             = useState("");
+  const [dateTo, setDateTo]                 = useState("");
   const [viewRow, setViewRow]               = useState(null);
   const [deleteRow, setDeleteRow]           = useState(null);
   const [deleting, setDeleting]             = useState(false);
@@ -368,6 +374,46 @@ export default function StandbyList({ onAdd }) {
   }, [isAdmin, currentUser?.username]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // ── Branch init ──────────────────────────────────────────────
+  useEffect(() => {
+    const initBranches = async () => {
+      // 1. Fetch departments from FlashERP for dropdown names
+      let deptNames = [];
+      try {
+        const deptData = await apiFetch(ENDPOINTS.departments, { headers: authHeaders() });
+        const raw = Array.isArray(deptData) ? deptData : (deptData?.data ?? deptData?.results ?? []);
+        deptNames = raw.map(d => d.department).filter(Boolean);
+      } catch { /* ignore */ }
+
+      // 2. Fetch local branches to get id↔name mapping
+      let localBranches = [];
+      try {
+        const branchData = await apiFetch(ENDPOINTS.branches, { headers: authHeaders() });
+        localBranches = Array.isArray(branchData) ? branchData : (branchData?.results ?? []);
+      } catch { /* ignore */ }
+
+      // 3. Build branchList as [{id, name}] using dept names matched to local branch ids
+      const nameToId = {};
+      localBranches.forEach(b => { if (b.name) nameToId[b.name.trim().toLowerCase()] = b.id; });
+      const merged = deptNames.map(name => ({
+        id: nameToId[name.trim().toLowerCase()] ?? null,
+        name,
+      })).filter(b => b.id !== null).sort((a, b) => a.name.localeCompare(b.name));
+      setBranchList(merged.length > 0 ? merged : localBranches.filter(b => b.name).sort((a, b) => a.name.localeCompare(b.name)));
+
+      // 4. Get live branch_id for the logged-in user from /auth/me/
+      try {
+        const me = await authService.getMe();
+        if (me) localStorage.setItem('user', JSON.stringify(me));
+        if (me?.branch_id) {
+          const match = localBranches.find(b => String(b.id) === String(me.branch_id));
+          if (match?.name) { setUserBranchName(match.name); setFilterBranch(match.name); }
+        }
+      } catch { /* fallback */ }
+    };
+    initBranches();
+  }, []);
 
   // ── Employee list for Employee 2 dropdowns ──────────────────
   const [employees, setEmployees] = useState([]);
@@ -411,7 +457,15 @@ export default function StandbyList({ onAdd }) {
       r.standbyProduct.toLowerCase().includes(q);
     const matchCustomer = customerFilter === "All" || r.customerName === customerFilter;
     const matchStatus   = statusFilter   === "All" || r.status === statusFilter;
-    return matchSearch && matchCustomer && matchStatus;
+    const matchBranch   = filterBranch === "all" || (() => {
+      const sel = branchList.find(b => b.name === filterBranch);
+      if (!sel) return true;
+      return String(r.branch_id) === String(sel.id);
+    })();
+    const rowDate = r.date ? new Date(r.date) : null;
+    const matchFrom = !dateFrom || (rowDate && rowDate >= new Date(dateFrom));
+    const matchTo   = !dateTo   || (rowDate && rowDate <= new Date(dateTo + "T23:59:59"));
+    return matchSearch && matchCustomer && matchStatus && matchBranch && matchFrom && matchTo;
   });
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
@@ -618,10 +672,12 @@ export default function StandbyList({ onAdd }) {
   };
 
   const resetFilters = () => {
-    setSearch(""); setCustomerFilter("All"); setStatusFilter("All"); setCurrentPage(1);
+    setSearch(""); setCustomerFilter("All"); setStatusFilter("All");
+    setFilterBranch(userBranchName || "all"); setDateFrom(""); setDateTo(""); setCurrentPage(1);
   };
 
-  const hasActiveFilter = search || customerFilter !== "All" || statusFilter !== "All";
+  const hasActiveFilter = search || customerFilter !== "All" || statusFilter !== "All" ||
+    filterBranch !== (userBranchName || "all") || dateFrom || dateTo;
 
   return (
     <>
@@ -689,6 +745,31 @@ export default function StandbyList({ onAdd }) {
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>
+              </div>
+              {/* Branch filter — Admin/Super Admin */}
+              {isAdmin && (
+                <div style={styles.selectWrap}>
+                  <select
+                    style={styles.filterSelect}
+                    value={filterBranch}
+                    onChange={(e) => { setFilterBranch(e.target.value); setCurrentPage(1); }}
+                  >
+                    <option value="all">All Branches</option>
+                    {branchList.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                  </select>
+                </div>
+              )}
+              {/* From Date */}
+              <div style={styles.selectWrap}>
+                <input type="date" value={dateFrom} placeholder="From"
+                  onChange={(e) => { setDateFrom(e.target.value); setCurrentPage(1); }}
+                  style={styles.filterSelect} />
+              </div>
+              {/* To Date */}
+              <div style={styles.selectWrap}>
+                <input type="date" value={dateTo} placeholder="To"
+                  onChange={(e) => { setDateTo(e.target.value); setCurrentPage(1); }}
+                  style={styles.filterSelect} />
               </div>
               {hasActiveFilter && (
                 <button style={styles.clearFilterBtn} onClick={resetFilters}>✕ Clear</button>

@@ -410,6 +410,7 @@ export default function ImageCaptureFlow({
   uuid,
   phone: propPhone = "",
   customerName: propCustomerName = "",
+  branch: propBranch = "",
   API_BASE,
   onSuccess,
 }) {
@@ -600,6 +601,7 @@ export default function ImageCaptureFlow({
 
       formData.append("image", fileToUpload);
       if (uuid)               formData.append("uuid",          uuid);
+      if (propBranch)         formData.append("branch",        propBranch);
       if (propCustomerName)   formData.append("customer_name", propCustomerName);
       if (propPhone)          formData.append("phone",         propPhone);
       if (gps) {

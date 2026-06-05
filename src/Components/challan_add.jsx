@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { getVehicles, createChallan, updateChallan } from "../service/Api";
+import { getVehicles, createChallan, updateChallan, authService } from "../service/Api";
 
 const offenceTypes = [
   "Signal Jumping","Over Speeding","Drunk Driving","Wrong Parking",
@@ -24,7 +24,24 @@ function ChallanAdd({ onBack, onSuccess, initialData }) {
 
   const fetchVehicles = useCallback(async () => {
     try {
-      const data = await getVehicles({ status: "Active" });
+      // Fetch live branch_id from /auth/me/ so it's always current
+      let branchId = null;
+      try {
+        const me = await authService.getMe();
+        branchId = me?.branch_id ?? null;
+        if (me) localStorage.setItem('user', JSON.stringify(me));
+      } catch {
+        // Fallback to localStorage if /me/ call fails
+        try {
+          const userJson = localStorage.getItem('user');
+          if (userJson) branchId = JSON.parse(userJson)?.branch_id ?? null;
+        } catch { /* ignore */ }
+      }
+
+      const fetchParams = { status: 'Active' };
+      if (branchId != null) fetchParams.branch = branchId;
+
+      const data = await getVehicles(fetchParams);
       const list = Array.isArray(data) ? data : (data.results || []);
       setVehicles(list);
     } catch (err) {

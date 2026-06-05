@@ -8,7 +8,7 @@ import AirOutlinedIcon from '@mui/icons-material/AirOutlined';
 import OilBarrelOutlinedIcon from '@mui/icons-material/OilBarrelOutlined';
 import PlayArrowOutlinedIcon from '@mui/icons-material/PlayArrowOutlined';
 import CloseOutlinedIcon from '@mui/icons-material/CloseOutlined';
-import { getVehicles } from '../service/Api';
+import { getVehicles, authService } from '../service/Api';
 
 const StartTrip = ({ onClose, onStart, refreshKey }) => {
   // Mobile detection utility
@@ -83,7 +83,25 @@ const StartTrip = ({ onClose, onStart, refreshKey }) => {
       setVehicleLoading(true);
       setVehicleError('');
       try {
-        const res = await getVehicles({ status: "Active", exclude_ongoing: "true" });
+        // Always fetch fresh user data from /auth/me/ so branch_id is never stale
+        let branchId = null;
+        try {
+          const me = await authService.getMe();
+          branchId = me?.branch_id ?? null;
+          // Also update localStorage so other parts of the app stay in sync
+          if (me) localStorage.setItem('user', JSON.stringify(me));
+        } catch {
+          // Fallback to localStorage if /me/ fails (e.g. offline)
+          try {
+            const userJson = localStorage.getItem('user');
+            if (userJson) branchId = JSON.parse(userJson)?.branch_id ?? null;
+          } catch { /* ignore */ }
+        }
+
+        const fetchParams = { status: 'Active', exclude_ongoing: 'true' };
+        if (branchId != null) fetchParams.branch = branchId;
+
+        const res = await getVehicles(fetchParams);
         const list = Array.isArray(res) ? res : (res?.results || []);
         setVehicles(list);
         if (!list.length) {
@@ -430,6 +448,8 @@ const StartTrip = ({ onClose, onStart, refreshKey }) => {
 
           /* Vehicle row full width */
           .st-vehicle-row     { width: 100% !important; }
+          /* Vehicle/Date/Time grid — stack on mobile */
+          .st-vdt-grid        { grid-template-columns: 1fr !important; }
 
           /* Form fields */
           .st-input, .st-select { font-size: 13px !important; padding: 9px 10px !important; }
@@ -498,7 +518,7 @@ const StartTrip = ({ onClose, onStart, refreshKey }) => {
             <DirectionsCarOutlinedIcon style={{ fontSize: 16 }} />
             Basic Information
           </div>
-          <div className="st-vehicle-row" style={{ marginBottom: 12 }}>
+          <div className="st-vdt-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: 12, marginBottom: 12 }}>
             <div style={S.formGroup} className='st-form-group'>
               <label style={S.label}>
                 Vehicle <span style={S.required}>*</span>
@@ -537,8 +557,6 @@ const StartTrip = ({ onClose, onStart, refreshKey }) => {
                 <span style={S.errorMsg}>{errors.vehicleId}</span>
               )}
             </div>
-          </div>
-          <div className="st-grid2" style={{ ...S.grid2, marginBottom: 12 }}>
             <div style={S.formGroup} className='st-form-group'>
               <label style={S.label}>
                 Date <span style={S.required}>*</span>

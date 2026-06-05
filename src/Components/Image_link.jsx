@@ -86,6 +86,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
   const filteredCustomers = q
     ? customers.filter(c => cleanName(c.name).toLowerCase().startsWith(q))
     : customers;
+  const selectedBranchName = branches.find(b => String(b.id) === String(selectedBranch))?.name || "";
 
   const handleGenerate = async () => {
     const name = mode === "select" ? cleanName(selectedCustomer?.name) : manualName;
@@ -97,6 +98,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
         customerId:     null,                                              // debtors have no local DB id
         customerName:   mode === "select" ? cleanName(selectedCustomer?.name) : manualName,
         phone:          phone,
+        branch:         selectedBranchName,
         expiresInHours: EXPIRES_IN_HOURS,                                 // FIX 1: use constant
       });
       setSuccessData({
@@ -142,7 +144,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
   const handleOpenLink = (e) => {
     e.preventDefault();
     const customerName = mode === "select" ? cleanName(selectedCustomer?.name) : manualName;
-    onLinkClick?.({ customerName, phone: successData?.phone || phone });
+    onLinkClick?.({ customerName, phone: successData?.phone || phone, branch: selectedBranchName });
   };
 
   const handleReset = () => {
@@ -161,7 +163,7 @@ export default function ImageCaptureLinkGenerator({ onBack, isModal = false, mod
 
   const handleContinueToUpload = () => {
     if (!customerName || !phone) return;
-    onManualCapture?.({ customerName, phone });
+    onManualCapture?.({ customerName, phone, branch: selectedBranchName });
   };
 
   const isContinueDisabled = !phone || (mode === "select" ? !selectedCustomer : !manualName);

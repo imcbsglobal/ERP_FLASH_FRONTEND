@@ -28,6 +28,7 @@ import WarningAmberOutlinedIcon from '@mui/icons-material/WarningAmberOutlined';
 import CameraIcon from '@mui/icons-material/Camera';
 import Diversity3Icon from '@mui/icons-material/Diversity3';
 import DialpadIcon from '@mui/icons-material/Dialpad';
+import StorefrontOutlinedIcon from '@mui/icons-material/StorefrontOutlined';
 
 import EmergencyOutlinedIcon from '@mui/icons-material/EmergencyOutlined';
 import ClaimsList from "../Components/claim_list.jsx";
@@ -41,6 +42,7 @@ import ChallanAdd from "../Components/challan_add.jsx";
 import ServiceDashboard from "../Components/ServiceDashboard.jsx";
 import ServiceList from "../Components/ServiceList.jsx";
 import StandbyList from "../Components/standby_list.jsx";
+import SupplierList from "../Components/supplier_list.jsx";
 
 const NAV = [
   {
@@ -164,6 +166,12 @@ const NAV = [
         label: "Vehicle Master",
         icon: <DirectionsCarOutlinedIcon style={{ width: 18, height: 18 }} />
       },
+      {
+        id: "mm_supplier",
+        permKey: "mm_supplier",
+        label: "Supplier Master",
+        icon: <StorefrontOutlinedIcon style={{ width: 18, height: 18 }} />
+      },
     ],
   },
 ];
@@ -173,6 +181,7 @@ const PAGE_META = {
   um_users:    { title: "All Users",            tag: "User Management",     desc: "Browse, search and manage every registered user account." },
   um_roles:    { title: "Roles & Access",       tag: "User Management",     desc: "Define permissions and control what each role can do." },
   mm_vehicle:  { title: "Vehicle",              tag: "Master Menu",         desc: "Manage vehicle records, types and configurations." },
+  mm_supplier: { title: "Supplier",             tag: "Master Menu",         desc: "Manage supplier records and contact information." },
   vm_vehicle:  { title: "Vehicle Master",       tag: "Vehicle Management",  desc: "Manage vehicle records, types and configurations." },
   vm_trips:    { title: "Trip Management",      tag: "Vehicle Management",  desc: "Track and manage all vehicle trips and assignments." },
   vm_fuel:     { title: "Fuel Logs",            tag: "Vehicle Management",  desc: "Record and monitor fuel consumption across the fleet." },
@@ -313,6 +322,7 @@ export default function Layout({ children }) {
   const isUsersPage    = active === "um_users";
   const isRolesPage    = active === "um_roles";
   const isVehiclePage  = active === "mm_vehicle";
+  const isSupplierPage = active === "mm_supplier";
   const isVmVehiclePage = active === "vm_vehicle";
   const isVmTripsPage  = active === "vm_trips";
   const isVmFuelPage   = active === "vm_fuel";
@@ -587,6 +597,10 @@ export default function Layout({ children }) {
           <> 
           {isVehiclePage && (
             <div className="page-full"><VehicleMaster /></div>
+          )}
+
+          {isSupplierPage && (
+            <div className="page-full"><SupplierList /></div>
           )}
 
           {isVmVehiclePage && (

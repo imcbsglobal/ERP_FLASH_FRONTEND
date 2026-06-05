@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getUsers, createUser, deleteUser, patchUser, getBranches } from "../service/Api";
+import { getUsers, createUser, deleteUser, patchUser, apiFetch, ENDPOINTS, authHeaders } from "../service/Api";
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -427,6 +427,7 @@ export default function RegisteredUsers() {
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const deleteInFlight = useRef(false);
+  const [filterBranch, setFilterBranch] = useState('all');
   const [showCameraCreate, setShowCameraCreate] = useState(false);
   const [showCameraEdit, setShowCameraEdit] = useState(false);
 
@@ -452,14 +453,31 @@ export default function RegisteredUsers() {
 
   const fetchDepartmentsList = useCallback(async () => {
     try {
-      // getBranches() merges FlashERP departments with local /branches/
-      // Returns { id (integer FK), name, deptId (string like "CL") }[]
-      const list = await getBranches();
-      setDepartments(list || []);
+      // Fetch departments from FlashERP API only — { department_id, department }[]
+      const res = await apiFetch(ENDPOINTS.departments, { headers: authHeaders() });
+      const raw = Array.isArray(res) ? res : (res?.data ?? res?.results ?? []);
+      const list = raw
+        .map(d => ({ id: d.department_id, name: d.department }))
+        .filter(b => b.name)
+        .sort((a, b) => a.name.localeCompare(b.name));
+      setDepartments(list);
+
+      // Default branch filter to the logged-in user's branch (admin & super admin)
+      if (isSuperAdmin || isAdmin) {
+        try {
+          const u = JSON.parse(localStorage.getItem('user') || '{}');
+          let userBranch = u.branch_name || u.branch || '';
+          if (!userBranch && u.branch_id) {
+            const match = list.find(b => String(b.id) === String(u.branch_id));
+            if (match) userBranch = match.name;
+          }
+          if (userBranch) setFilterBranch(userBranch);
+        } catch { /* keep 'all' */ }
+      }
     } catch (err) {
-      console.error("Failed to fetch branches:", err);
+      console.error("Failed to fetch departments:", err);
     }
-  }, []);
+  }, [isAdmin, isSuperAdmin]);
 
   useEffect(() => { fetchUsers(); fetchDepartmentsList(); }, [fetchUsers, fetchDepartmentsList]);
 
@@ -495,7 +513,7 @@ export default function RegisteredUsers() {
     // Fall back: look up departments list by branch_id
     if (user.branch_id != null) {
       const match = departments.find(
-        d => String(d.id) === String(user.branch_id) || String(d.deptId) === String(user.branch_id)
+        d => String(d.id) === String(user.branch_id)
       );
       if (match) return match.name;
     }
@@ -620,11 +638,10 @@ export default function RegisteredUsers() {
   const handleOpenEdit = (user) => {
     setEditingUser(user);
     // Match user.branch_id against the departments list to find the right option value
-    // departments entries have { id (integer), name, deptId (string) }
     let branchValue = "";
     if (user.branch_id != null) {
       const match = departments.find(
-        d => String(d.id) === String(user.branch_id) || String(d.deptId) === String(user.branch_id)
+        d => String(d.id) === String(user.branch_id)
       );
       branchValue = match ? String(match.id) : String(user.branch_id);
     }
@@ -738,6 +755,11 @@ export default function RegisteredUsers() {
     transition: "border-color 0.2s",
     boxSizing: "border-box",
   });
+
+  // ── Filtered users ──────────────────────────────────────────────────────────
+  const filteredUsers = filterBranch === 'all'
+    ? users
+    : users.filter(u => getBranchName(u).trim().toLowerCase() === filterBranch.trim().toLowerCase());
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
@@ -885,6 +907,24 @@ export default function RegisteredUsers() {
         <button className="btn btn-p add-user-btn" onClick={() => setOpen(true)} style={{ padding: "8px 20px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6, borderRadius: 8, border: "none", background: "var(--accent)", color: "#fff", fontWeight: 700, fontSize: 14, fontFamily: "var(--ff)" }}>+ Add User</button>
       </div>
 
+      {/* Branch Filter */}
+      <div style={{ padding: "8px 24px", borderBottom: "1px solid var(--border)", background: "var(--surface)", flexShrink: 0, display: "flex", alignItems: "center", gap: 10 }}>
+        <label style={{ fontSize: 12, fontWeight: 600, color: "var(--muted)", letterSpacing: "0.6px", whiteSpace: "nowrap" }}>Branch</label>
+        <select
+          value={filterBranch}
+          onChange={e => setFilterBranch(e.target.value)}
+          style={{ padding: "6px 12px", border: "1px solid var(--border)", borderRadius: 7, fontSize: 13, fontFamily: "var(--ff)", background: "var(--surface)", color: "var(--text)", outline: "none", minWidth: 160, cursor: "pointer" }}
+        >
+          <option value="all">All Branches</option>
+          {departments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+        </select>
+        {filterBranch !== 'all' && (
+          <button onClick={() => setFilterBranch('all')} style={{ padding: "6px 14px", borderRadius: 7, border: "1px solid var(--border)", background: "var(--surface)", color: "var(--muted)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--ff)" }}>
+            Clear
+          </button>
+        )}
+      </div>
+
       {/* API Error Banner */}
       {apiError && (
         <div style={{ background: "var(--red-lt)", color: "var(--red)", padding: "10px 24px", fontSize: "13px", display: "flex", justifyContent: "space-between", alignItems: "center" }} className="api-error-banner">
@@ -911,7 +951,7 @@ export default function RegisteredUsers() {
           <tbody>
             {loading ? (
               <tr><td colSpan={COLS.length} style={{ textAlign: "center", padding: "80px 20px", color: "var(--muted)", fontSize: "18px" }}>Loading users…</td></tr>
-            ) : users.length === 0 ? (
+            ) : filteredUsers.length === 0 ? (
               <tr>
                 <td colSpan={COLS.length} style={{ textAlign: "center", padding: "80px 20px", color: "var(--muted)" }}>
                   <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "12px" }}>
@@ -921,7 +961,7 @@ export default function RegisteredUsers() {
                 </td>
               </tr>
             ) : (
-              users.map((u, i) => (
+              filteredUsers.map((u, i) => (
                 <tr key={u.id} style={{ borderBottom: "1px solid var(--border)", transition: "background 0.15s" }}
                   onMouseEnter={e => e.currentTarget.style.background = "var(--surface2)"}
                   onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
@@ -974,13 +1014,13 @@ export default function RegisteredUsers() {
         <div className="user-cards" style={{ flexDirection: "column", gap: "10px", padding: "12px 14px" }}>
           {loading ? (
             <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--muted)", fontSize: "15px" }}>Loading users…</div>
-          ) : users.length === 0 ? (
+          ) : filteredUsers.length === 0 ? (
             <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--muted)" }}>
               <div style={{ fontSize: "40px", marginBottom: "10px", opacity: 0.4 }}>👥</div>
               <div style={{ fontSize: "15px" }}>No users yet. Tap <strong style={{ color: "var(--accent)" }}>+ Add User</strong> above.</div>
             </div>
           ) : (
-            users.map((u, i) => (
+            filteredUsers.map((u, i) => (
               <div key={u.id} className="user-card">
                 {/* Top row: avatar + name + status */}
                 <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getChallans, deleteChallan, updateChallan } from "../service/Api";
+import { getChallans, deleteChallan, updateChallan, authService, ENDPOINTS, authHeaders, apiFetch } from "../service/Api";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import VisibilityOutlinedIcon from "@mui/icons-material/VisibilityOutlined";
@@ -24,6 +24,11 @@ export default function ChallanList({ onAdd, onEdit }) {
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [filterBranch, setFilterBranch] = useState("all");
+  const [branchList, setBranchList]   = useState([]);   // [{ id, name }]
+  const [userBranchName, setUserBranchName] = useState("");
+  const [dateFrom, setDateFrom]       = useState("");
+  const [dateTo, setDateTo]           = useState("");
   const [delId, setDelId]             = useState(null);
   const [editRow, setEditRow]         = useState(null);
   const [updatingStatusId, setUpdatingStatusId] = useState(null);
@@ -72,6 +77,50 @@ export default function ChallanList({ onAdd, onEdit }) {
 
   useEffect(() => { fetchChallans(); }, []);
 
+  // ── Fetch branches + set default branch filter from logged-in user ──────
+  useEffect(() => {
+    const initBranches = async () => {
+      // 1. Fetch departments from FlashERP for dropdown names
+      let deptNames = [];
+      try {
+        const deptData = await apiFetch(ENDPOINTS.departments, { headers: authHeaders() });
+        const raw = Array.isArray(deptData) ? deptData : (deptData?.data ?? deptData?.results ?? []);
+        deptNames = raw.map(d => d.department).filter(Boolean);
+      } catch { /* ignore */ }
+
+      // 2. Fetch local branches to get id↔name mapping
+      let localBranches = [];
+      try {
+        const branchData = await apiFetch(ENDPOINTS.branches, { headers: authHeaders() });
+        localBranches = Array.isArray(branchData) ? branchData : (branchData?.results ?? []);
+      } catch { /* ignore */ }
+
+      // 3. Build branchList as [{id, name}] using dept names, matched to local branch ids
+      const nameToId = {};
+      localBranches.forEach(b => { if (b.name) nameToId[b.name.trim().toLowerCase()] = b.id; });
+      const merged = deptNames.map(name => ({
+        id: nameToId[name.trim().toLowerCase()] ?? null,
+        name,
+      })).filter(b => b.id !== null).sort((a, b) => a.name.localeCompare(b.name));
+      // Fallback to local branches if departments API returned nothing
+      setBranchList(merged.length > 0 ? merged : localBranches.filter(b => b.name).sort((a, b) => a.name.localeCompare(b.name)));
+
+      // 4. Get live branch_id for the logged-in user from /auth/me/
+      try {
+        const me = await authService.getMe();
+        if (me) localStorage.setItem('user', JSON.stringify(me));
+        if (me?.branch_id) {
+          const match = localBranches.find(b => String(b.id) === String(me.branch_id));
+          if (match?.name) {
+            setUserBranchName(match.name);
+            setFilterBranch(match.name);
+          }
+        }
+      } catch { /* fallback: stay on 'all' */ }
+    };
+    initBranches();
+  }, []);
+
   /* ── Visibility filter — client-side safety net ─────────────────────────────
      The backend get_queryset() already scopes by role (Super Admin / Admin / User).
      This pass adds a secondary guard for stale cache, using fields the serializer
@@ -103,7 +152,21 @@ export default function ChallanList({ onAdd, onEdit }) {
       (r.offence_type   || "").toLowerCase().includes(q) ||
       (r.location       || "").toLowerCase().includes(q);
     const matchStatus = statusFilter === "All" || r.payment_status === statusFilter;
-    return matchSearch && matchStatus;
+
+    // Branch: resolve selected branch name → id, then compare against challan's created_by_branch_id
+    const matchBranch = (() => {
+      if (filterBranch === "all") return true;
+      const selected = branchList.find(b => b.name === filterBranch);
+      if (!selected) return true; // can't resolve → show all
+      return String(r.created_by_branch_id) === String(selected.id);
+    })();
+
+    const rowDate = r.challan_date || r.date;
+    const d = rowDate ? new Date(rowDate) : null;
+    const matchFrom = !dateFrom || (d && d >= new Date(dateFrom));
+    const matchTo   = !dateTo   || (d && d <= new Date(dateTo + "T23:59:59"));
+
+    return matchSearch && matchStatus && matchBranch && matchFrom && matchTo;
   });
 
   // Pagination calculations
@@ -731,7 +794,65 @@ export default function ChallanList({ onAdd, onEdit }) {
                   <option value="Pending">Pending</option>
                 </select>
               </div>
+
+              {/* Branch Filter */}
+              <div className="cl-filter-item">
+                <label className="cl-filter-label">Branch</label>
+                {canSeeActions ? (
+                  <select
+                    className="status-select"
+                    value={filterBranch}
+                    onChange={e => { setFilterBranch(e.target.value); setCurrentPage(1); }}
+                    style={{ width: "100%" }}
+                  >
+                    <option value="all">All Branches</option>
+                    {branchList.map(b => (
+                      <option key={b.id} value={b.name}>{b.name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <select className="status-select" disabled style={{ width: "100%" }}>
+                    <option>{filterBranch || "My Branch"}</option>
+                  </select>
+                )}
+              </div>
+
+              {/* From Date */}
+              <div className="cl-filter-item">
+                <label className="cl-filter-label">From Date</label>
+                <input
+                  type="date"
+                  className="cl-filter-input"
+                  value={dateFrom}
+                  onChange={e => { setDateFrom(e.target.value); setCurrentPage(1); }}
+                  style={{ width: "100%" }}
+                />
+              </div>
+
+              {/* To Date */}
+              <div className="cl-filter-item">
+                <label className="cl-filter-label">To Date</label>
+                <input
+                  type="date"
+                  className="cl-filter-input"
+                  value={dateTo}
+                  onChange={e => { setDateTo(e.target.value); setCurrentPage(1); }}
+                  style={{ width: "100%" }}
+                />
+              </div>
             </div>
+
+            {/* Clear filters */}
+            {(filterBranch !== "all" || dateFrom || dateTo) && (
+              <div style={{ marginTop: 10 }}>
+                <button
+                  onClick={() => { setFilterBranch(userBranchName || "all"); setDateFrom(""); setDateTo(""); setCurrentPage(1); }}
+                  style={{ padding: "5px 14px", border: "1px solid #d1d9e0", borderRadius: 7, background: "#fff", color: "#5f6368", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Google Sans', sans-serif" }}
+                >
+                  Clear Filters
+                </button>
+              </div>
+            )}
           </div>
 
           

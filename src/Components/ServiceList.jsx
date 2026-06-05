@@ -12,12 +12,13 @@ import TwoWheelerOutlinedIcon from '@mui/icons-material/TwoWheelerOutlined';
 import Woman2OutlinedIcon from '@mui/icons-material/Woman2Outlined';
 import SupervisorAccountOutlinedIcon from '@mui/icons-material/SupervisorAccountOutlined';
 import ServiceAdd from "./service_add.jsx";
-import { apiFetch, authHeaders, ENDPOINTS, getUsers, authService } from "../service/Api.js";
+import { apiFetch, authHeaders, ENDPOINTS, getUsers, getSuppliers, authService } from "../service/Api.js";
 
 // Normalize API response row → component row shape
 function normalize(r) {
   return {
     id:                  r.id,
+    branch_id:           r.branch_id ?? null,
     receivedDate:        r.received_date,
     personName:          r.person_name,
     phoneNumber:         r.phone_number,
@@ -167,6 +168,7 @@ export default function ServiceList() {
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState("");
   const [usersList, setUsersList] = useState([]);
+  const [suppliersList, setSuppliersList] = useState([]);
 
   useEffect(() => {
     getUsers({ status: "Active" })
@@ -176,10 +178,24 @@ export default function ServiceList() {
       })
       .catch(() => setUsersList([]));
   }, []);
+
+  useEffect(() => {
+    getSuppliers({ status: "Active" })
+      .then((res) => {
+        const suppliers = Array.isArray(res) ? res : (res?.results ?? []);
+        setSuppliersList(suppliers.map((s) => s.name).filter(Boolean));
+      })
+      .catch(() => setSuppliersList([]));
+  }, []);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
   const [customerFilter, setCustomerFilter] = useState("All");
   const [employeeFilter, setEmployeeFilter] = useState("All");
+  const [filterBranch, setFilterBranch] = useState("all");
+  const [branchList, setBranchList] = useState([]);
+  const [userBranchName, setUserBranchName] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const [expandedComplaints, setExpandedComplaints] = useState({});
   const [imageGallery, setImageGallery] = useState(null); // { rowId, images, activeIdx }
   const [preServiceModal, setPreServiceModal] = useState(null);
@@ -213,6 +229,46 @@ export default function ServiceList() {
   }, [isAdmin, currentUser?.username]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // ── Branch init: fetch branches + set default from logged-in user ──────
+  useEffect(() => {
+    const initBranches = async () => {
+      // 1. Fetch departments from FlashERP for dropdown names
+      let deptNames = [];
+      try {
+        const deptData = await apiFetch(ENDPOINTS.departments, { headers: authHeaders() });
+        const raw = Array.isArray(deptData) ? deptData : (deptData?.data ?? deptData?.results ?? []);
+        deptNames = raw.map(d => d.department).filter(Boolean);
+      } catch { /* ignore */ }
+
+      // 2. Fetch local branches to get id↔name mapping
+      let localBranches = [];
+      try {
+        const branchData = await apiFetch(ENDPOINTS.branches, { headers: authHeaders() });
+        localBranches = Array.isArray(branchData) ? branchData : (branchData?.results ?? []);
+      } catch { /* ignore */ }
+
+      // 3. Build branchList as [{id, name}] using dept names matched to local branch ids
+      const nameToId = {};
+      localBranches.forEach(b => { if (b.name) nameToId[b.name.trim().toLowerCase()] = b.id; });
+      const merged = deptNames.map(name => ({
+        id: nameToId[name.trim().toLowerCase()] ?? null,
+        name,
+      })).filter(b => b.id !== null).sort((a, b) => a.name.localeCompare(b.name));
+      setBranchList(merged.length > 0 ? merged : localBranches.filter(b => b.name).sort((a, b) => a.name.localeCompare(b.name)));
+
+      // 4. Get live branch_id for the logged-in user from /auth/me/
+      try {
+        const me = await authService.getMe();
+        if (me) localStorage.setItem('user', JSON.stringify(me));
+        if (me?.branch_id) {
+          const match = localBranches.find(b => String(b.id) === String(me.branch_id));
+          if (match?.name) { setUserBranchName(match.name); setFilterBranch(match.name); }
+        }
+      } catch { /* fallback: stay on 'all' */ }
+    };
+    initBranches();
+  }, []);
 
   const [galleryLoading, setGalleryLoading] = useState(false);
 
@@ -658,7 +714,7 @@ export default function ServiceList() {
   const uniqueCustomers = ["All", ...Array.from(new Set(data.map((r) => r.customerName)))];
   const uniqueEmployees = ["All", ...Array.from(new Set(data.flatMap((r) => [r.employee1, r.employee2].filter(Boolean))))];
 
-  const uniqueSuppliers = Array.from(new Set(data.map((r) => r.dispatchSupplier).filter(Boolean)));
+  // suppliersList is fetched from the Suppliers API (Active only) — see useEffect above
 
   const toggleComplaints = (id) =>
     setExpandedComplaints((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -692,7 +748,15 @@ export default function ServiceList() {
     const matchStatus   = statusFilter   === "All" || r.status === statusFilter;
     const matchCustomer = customerFilter === "All" || r.customerName === customerFilter;
     const matchEmployee = employeeFilter === "All" || r.employee1 === employeeFilter || r.employee2 === employeeFilter;
-    return matchSearch && matchStatus && matchCustomer && matchEmployee;
+    const matchBranch = filterBranch === "all" || (() => {
+      const sel = branchList.find(b => b.name === filterBranch);
+      if (!sel) return true;
+      return String(r.branch_id) === String(sel.id);
+    })();
+    const rowDate = r.receivedDate ? new Date(r.receivedDate) : null;
+    const matchFrom = !dateFrom || (rowDate && rowDate >= new Date(dateFrom));
+    const matchTo   = !dateTo   || (rowDate && rowDate <= new Date(dateTo + "T23:59:59"));
+    return matchSearch && matchStatus && matchCustomer && matchEmployee && matchBranch && matchFrom && matchTo;
   });
 
 
@@ -729,10 +793,37 @@ export default function ServiceList() {
           <FilterSelect label="Status" value={statusFilter} options={["All", ...STATUSES]} onChange={setStatusFilter} />
           <FilterSelect label="Customer" value={customerFilter} options={uniqueCustomers} onChange={setCustomerFilter} />
           {isAdmin && <FilterSelect label="Employee" value={employeeFilter} options={uniqueEmployees} onChange={setEmployeeFilter} />}
-          {(statusFilter !== "All" || customerFilter !== "All" || (isAdmin && employeeFilter !== "All") || search) && (
+          {/* Branch filter — Admin/Super Admin only */}
+          {isAdmin && (
+            <div style={filterSelectStyles.wrap} className="sl-filter-item">
+              <label style={filterSelectStyles.label}>Branch</label>
+              <select
+                value={filterBranch}
+                onChange={(e) => setFilterBranch(e.target.value)}
+                style={filterSelectStyles.select}
+              >
+                <option value="all">All Branches</option>
+                {branchList.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+              </select>
+            </div>
+          )}
+          {/* From Date */}
+          <div style={filterSelectStyles.wrap} className="sl-filter-item">
+            <label style={filterSelectStyles.label}>From</label>
+            <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+              style={{ ...filterSelectStyles.select, paddingRight: 8 }} />
+          </div>
+          {/* To Date */}
+          <div style={filterSelectStyles.wrap} className="sl-filter-item">
+            <label style={filterSelectStyles.label}>To</label>
+            <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+              style={{ ...filterSelectStyles.select, paddingRight: 8 }} />
+          </div>
+          {(statusFilter !== "All" || customerFilter !== "All" || (isAdmin && employeeFilter !== "All") || filterBranch !== (userBranchName || "all") || dateFrom || dateTo || search) && (
             <button style={styles.resetBtn} className="sl-reset-btn" onClick={() => {
               setSearch(""); setStatusFilter("All");
               setCustomerFilter("All"); setEmployeeFilter("All");
+              setFilterBranch(userBranchName || "all"); setDateFrom(""); setDateTo("");
             }}>✕ Clear</button>
           )}
         </div>
@@ -1350,7 +1441,7 @@ export default function ServiceList() {
                   style={modalStyles.input}
                 >
                   <option value="">-- Select Supplier --</option>
-                  {uniqueSuppliers.map((s) => (
+                  {suppliersList.map((s) => (
                     <option key={s} value={s}>{s}</option>
                   ))}
                 </select>

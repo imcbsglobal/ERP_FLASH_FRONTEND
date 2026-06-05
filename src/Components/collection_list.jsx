@@ -4,7 +4,7 @@ import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import AddTaskIcon from '@mui/icons-material/AddTask';
-import { fetchPayments, fetchPaymentById, deletePayment, updatePaymentStatus, updatePayment, normalizePayment, ENDPOINTS, authHeaders, apiFetch } from '../service/Api';
+import { fetchPayments, fetchPaymentById, deletePayment, updatePaymentStatus, updatePayment, normalizePayment, ENDPOINTS, authHeaders, apiFetch, authService } from '../service/Api';
 
 class AuthError extends Error {
   constructor(message) {
@@ -247,6 +247,9 @@ const PaymentTable = ({ mode = 'all' }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterBranch, setFilterBranch] = useState('all');
+  const [branchList, setBranchList] = useState([]);
+  const [userBranchName, setUserBranchName] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [showPaymentForm, setShowPaymentForm] = useState(false);
@@ -327,6 +330,41 @@ const PaymentTable = ({ mode = 'all' }) => {
   }, [searchTerm, filterType, mode]);
 
   useEffect(() => { loadPayments(); }, [loadPayments]);
+
+  // ── Fetch branch list + set default branch filter from logged-in user ──────
+  useEffect(() => {
+    const initBranches = async () => {
+      // 1. Fetch departments from FlashERP for the branch dropdown
+      try {
+        const data = await apiFetch(ENDPOINTS.departments, { headers: authHeaders() });
+        const raw = Array.isArray(data) ? data : (data?.data ?? data?.results ?? []);
+        setBranchList(raw.map(d => d.department).filter(Boolean).sort());
+      } catch { /* ignore */ }
+
+      // 2. Get live branch_id for the logged-in user from /auth/me/
+      try {
+        const me = await authService.getMe();
+        if (me) localStorage.setItem('user', JSON.stringify(me));
+        if (me?.branch_id) {
+          // Resolve branch name from branch list or fetch directly
+          const branchData = await apiFetch(ENDPOINTS.branches, { headers: authHeaders() });
+          const allBranches = Array.isArray(branchData) ? branchData : (branchData?.results ?? []);
+          const match = allBranches.find(b => String(b.id) === String(me.branch_id));
+          if (match?.name) {
+            setUserBranchName(match.name);
+            // For Admin & Super Admin: default to their own branch but allow changing
+            // For regular User: lock to their branch
+            setFilterBranch(match.name);
+          }
+        }
+        // If no branch_id (e.g. platform-wide admin), stay on 'all'
+      } catch { /* fallback: stay on 'all' */ }
+    };
+    initBranches();
+  }, []);
+
+  // ── Reset page when branch filter changes ──────────────────────
+  useEffect(() => { setCurrentPage(1); }, [filterBranch]);
 
   // ── Add new payment from PaymentForm ──────────────────────────
   const handleNewPayment = async (normalizedPayment) => {
@@ -493,6 +531,10 @@ const PaymentTable = ({ mode = 'all' }) => {
       (payment.phoneNumber || '').includes(searchTerm);
     const matchesType = filterType === 'all' || payment.collectionType === filterType;
     const matchesStatus = filterStatus === 'all' || (payment.status || '').toLowerCase() === filterStatus.toLowerCase();
+    const matchesBranch = filterBranch === 'all' || (
+      (payment.branch || '').trim().toLowerCase() === filterBranch.trim().toLowerCase() &&
+      payment.branch !== 'undefined'
+    );
     const payDate = payment.date ? new Date(payment.date) : null;
     const matchesFrom = !dateFrom || (payDate && payDate >= new Date(dateFrom));
     const matchesTo = !dateTo || (payDate && payDate <= new Date(dateTo + 'T23:59:59'));
@@ -504,7 +546,7 @@ const PaymentTable = ({ mode = 'all' }) => {
       }
       return true;
     })();
-    return matchesSearch && matchesType && matchesStatus && matchesFrom && matchesTo && matchesUser;
+    return matchesSearch && matchesType && matchesStatus && matchesBranch && matchesFrom && matchesTo && matchesUser;
   });
 
   // Pagination calculations
@@ -567,6 +609,7 @@ const PaymentTable = ({ mode = 'all' }) => {
   };
 
   const collectionTypes = ['all', 'Cash', 'Cheque', 'Bank Transfer', 'Credit Card', 'Debit Card', 'Online Payment'];
+  const branchOptions = ['all', ...branchList];
 
   // Table headers - Added "Pending Amount" column
   const canEditRows = isAdmin;     // Admin + Super Admin can edit
@@ -1099,6 +1142,25 @@ const PaymentTable = ({ mode = 'all' }) => {
                   <option value="Rejected">Rejected</option>
                 </select>
               </div>
+              <div className="filter-item">
+                <label className="filter-label">Branch</label>
+                {isAdmin ? (
+                  <select
+                    className="pt-select"
+                    value={filterBranch}
+                    onChange={(e) => setFilterBranch(e.target.value)}
+                  >
+                    <option value="all">All Branches</option>
+                    {branchList.filter(b => b != null && b !== '').map(b => (
+                      <option key={b} value={b}>{b}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <select className="pt-select" value={filterBranch} disabled>
+                    <option value={filterBranch}>{filterBranch || 'My Branch'}</option>
+                  </select>
+                )}
+              </div>
             </div>
             <div className="filter-row-dates">
               <div className="filter-item">
@@ -1118,11 +1180,11 @@ const PaymentTable = ({ mode = 'all' }) => {
                 />
               </div>
             </div>
-            {(dateFrom || dateTo || filterStatus !== 'all') && (
+            {(dateFrom || dateTo || filterStatus !== 'all' || filterBranch !== 'all') && (
               <div className="filter-clear-wrap">
                 <button 
                   className="filter-clear-btn"
-                  onClick={() => { setDateFrom(''); setDateTo(''); setFilterStatus('all'); }}
+                  onClick={() => { setDateFrom(''); setDateTo(''); setFilterStatus('all'); setFilterBranch(userBranchName || 'all'); }}
                 >
                   Clear Filters
                 </button>
@@ -1191,8 +1253,8 @@ const PaymentTable = ({ mode = 'all' }) => {
                           </div>
                         </td>
                         <td className="col-hide-mobile" style={{ ...tdStyle, whiteSpace: "normal", wordWrap: "break-word" }}>
-                          {payment.department ? (
-                            <span className="department-badge">{payment.department}</span>
+                          {payment.branch ? (
+                            <span className="department-badge">{payment.branch}</span>
                           ) : (
                             <span style={{ color: '#9ca3af', fontSize: '12px' }}>—</span>
                           )}
