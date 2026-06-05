@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { getUsers, createUser, deleteUser, patchUser, apiFetch, ENDPOINTS, authHeaders } from "../service/Api";
+import { getUsers, createUser, deleteUser, patchUser, getBranches, apiFetch, ENDPOINTS, authHeaders } from "../service/Api";
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import VisibilityOffOutlinedIcon from '@mui/icons-material/VisibilityOffOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
@@ -453,14 +453,13 @@ export default function RegisteredUsers() {
 
   const fetchDepartmentsList = useCallback(async () => {
     try {
-      // Fetch departments from FlashERP API only — { department_id, department }[]
-      const res = await apiFetch(ENDPOINTS.departments, { headers: authHeaders() });
-      const raw = Array.isArray(res) ? res : (res?.data ?? res?.results ?? []);
-      const list = raw
-        .map(d => ({ id: d.department_id, name: d.department }))
+      // getBranches() maps FlashERP dept names → local integer Branch PKs
+      // so form.department will always be a valid integer for branch_id
+      const list = await getBranches();
+      const sorted = list
         .filter(b => b.name)
         .sort((a, b) => a.name.localeCompare(b.name));
-      setDepartments(list);
+      setDepartments(sorted);
 
       // Default branch filter to the logged-in user's branch (admin & super admin)
       if (isSuperAdmin || isAdmin) {
@@ -468,7 +467,7 @@ export default function RegisteredUsers() {
           const u = JSON.parse(localStorage.getItem('user') || '{}');
           let userBranch = u.branch_name || u.branch || '';
           if (!userBranch && u.branch_id) {
-            const match = list.find(b => String(b.id) === String(u.branch_id));
+            const match = sorted.find(b => String(b.id) === String(u.branch_id));
             if (match) userBranch = match.name;
           }
           if (userBranch) setFilterBranch(userBranch);

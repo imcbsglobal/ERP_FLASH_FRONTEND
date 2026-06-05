@@ -446,7 +446,12 @@ const _buildBody = (payload) => {
   if (photo instanceof File) {
     const fd = new FormData();
     Object.entries(rest).forEach(([k, v]) => {
-      if (v !== undefined && v !== null) fd.append(k, String(v));
+      // Always include branch_id (even null/empty) so backend can clear it
+      if (k === 'branch_id') {
+        fd.append(k, v != null ? String(v) : '');
+      } else if (v !== undefined && v !== null) {
+        fd.append(k, String(v));
+      }
     });
     fd.append('photo', photo);
     return fd;
