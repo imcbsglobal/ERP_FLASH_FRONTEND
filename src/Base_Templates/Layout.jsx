@@ -416,12 +416,29 @@ export default function Layout({ children }) {
         @media (max-width: 768px) {
           .shell { position: relative; }
           .collapse-btn-header { display: none !important; }
-          .sidebar { position: fixed !important; top: 0; left: 0; height: 100vh !important; width: 260px !important; min-width: 260px !important; z-index: 300; transform: translateX(-100%); transition: transform 0.28s cubic-bezier(0.4,0,0.2,1) !important; box-shadow: none; }
+          .sidebar {
+            position: fixed !important; top: 0; left: 0;
+            height: 100vh !important; height: 100dvh !important;
+            width: 260px !important; min-width: 260px !important;
+            z-index: 300; transform: translateX(-100%);
+            transition: transform 0.28s cubic-bezier(0.4,0,0.2,1) !important;
+            box-shadow: none;
+            display: flex !important; flex-direction: column !important;
+          }
           .sidebar.mobile-drawer-open { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.15); }
+          .sidebar .sb-nav {
+            flex: 1 !important;
+            overflow-y: auto !important;
+            -webkit-overflow-scrolling: touch !important;
+          }
+          .sidebar .sb-footer {
+            flex-shrink: 0 !important;
+            padding: 12px 16px !important;
+            padding-bottom: max(16px, env(safe-area-inset-bottom)) !important;
+          }
           .sidebar.collapsed .sb-sec-lbl, .sidebar.collapsed .sb-child-label, .sidebar.collapsed .sb-chevron, .sidebar.collapsed .sb-group-label { display: block !important; }
           .sidebar.collapsed .sb-sec { justify-content: flex-start !important; padding: 11px 22px !important; }
           .sidebar.collapsed .sb-child { justify-content: flex-start !important; padding: 8px 22px 8px 46px !important; }
-          .sidebar.collapsed .sb-footer { padding: 12px 16px 46px !important; }
           .sidebar.collapsed .sb-user-section { justify-content: flex-start !important; }
           .sidebar.collapsed .sb-user-info { display: block !important; }
           .sidebar.collapsed .sb-divider { margin: 6px 22px !important; }

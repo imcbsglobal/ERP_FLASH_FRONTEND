@@ -282,7 +282,7 @@ function MobileClaimsListTable({
   };
 
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 15;
 
   const filtered = visibleClaims.filter((c) => {
     const q = search.toLowerCase();
@@ -878,8 +878,8 @@ function MobileClaimsListTable({
                                   height: 30,
                                   borderRadius: 6,
                                   border: "1px solid #c7d7f5",
-                                  background: "#eaf1fd",
-                                  color: "#1a73e8",
+                                  background: "#1a73e8",
+                                  color: "#fefeff",
                                   cursor: "pointer",
                                   display: "inline-flex",
                                   alignItems: "center",

@@ -74,26 +74,38 @@ const ImageCaptureList = ({ onGenerateLink }) => {
       }
     }
 
+    // Resolve branch — API sends it as a plain string on item.branch
+    const rawBranch =
+      (typeof item.branch === 'string' && item.branch.trim() !== '' ? item.branch.trim() : null)
+      || (typeof item.branch === 'object' && item.branch !== null ? (item.branch.name || item.branch.department || '').trim() : null)
+      || item.branch_name?.trim()
+      || '';
+
+    // Resolve verification time: API may use different field names
+    const rawVerificationTime =
+      item.verification_time
+      || item.verified_at
+      || item.captured_at
+      || item.created_at
+      || item.timestamp
+      || '';
+
     return {
       id:               item.id,
       clientDetails: {
-        name:    item.client_details?.name    || '',
-        contact: item.client_details?.contact || '',
-        phone:   item.client_details?.phone   || '',
+        name:    item.client_details?.name    || item.customer_name || '',
+        contact: item.client_details?.contact || item.customer_email || '',
+        phone:   item.client_details?.phone   || item.customer_phone || item.phone || '',
       },
       image:            normalizeImageUrl(item.image),
       location:         item.location         || '',
       coordinate:       item.coordinate       || '',
       latitude:         lat,
       longitude:        lng,
-      verificationTime: item.verification_time || '',
+      verificationTime: rawVerificationTime,
       status:           item.status           || 'pending',
       manualStatus:     toDisplayStatus(item.manual_status || 'pending'),
-      branch:           (item.branch != null && item.branch !== '')
-        ? item.branch
-        : (item.branch_name != null && item.branch_name !== '')
-          ? item.branch_name
-          : 'General',
+      branch:           rawBranch || 'General',
     };
   };
 
@@ -125,6 +137,24 @@ const ImageCaptureList = ({ onGenerateLink }) => {
   }, [branchesReady, filterBranch, isAdmin]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // ── Auto-remove expired rows from UI + re-fetch every 60 s ───
+  useEffect(() => {
+    // Every 30 s: remove any rows whose 14-day window has already passed
+    const pruneTimer = setInterval(() => {
+      const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000);
+      setCaptureData(prev => prev.filter(item => {
+        if (!item.verificationTime) return true;   // keep if no date known
+        const vt = new Date(item.verificationTime.replace(" ", "T"));
+        return isNaN(vt.getTime()) || vt > cutoff;
+      }));
+    }, 30_000);
+
+    // Every 60 s: re-fetch fresh list from server (picks up server-side purges)
+    const fetchTimer = setInterval(() => { fetchData(); }, 60_000);
+
+    return () => { clearInterval(pruneTimer); clearInterval(fetchTimer); };
+  }, [fetchData]);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -165,9 +195,11 @@ const ImageCaptureList = ({ onGenerateLink }) => {
   }, [currentUser, isAdmin, resolveUserBranchName]);
 
   // ── Date filter — branch filtering is done server-side via ?branch= or ?all_branches=1 ──
+  // Always show rows with no verificationTime; only apply date range when the field is present
   const filteredData = captureData.filter(item => {
+    if (!dateFrom && !dateTo) return true;
     const vt = item.verificationTime;
-    if (!vt) return !dateFrom && !dateTo;
+    if (!vt) return true;
     const d = new Date(vt);
     const matchFrom = !dateFrom || d >= new Date(dateFrom);
     const matchTo   = !dateTo   || d <= new Date(dateTo + "T23:59:59");
@@ -471,7 +503,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
   }
 
   /* ── Auto-delete countdown badge (verified_at + 14 days) ── */
-  const DeletionBadge = ({ verificationTime }) => {
+  const DeletionBadge = ({ verificationTime, itemId }) => {
     if (!verificationTime) return null;
 
     const verifiedDate = new Date(verificationTime.replace(' ', 'T'));
@@ -482,10 +514,28 @@ const ImageCaptureList = ({ onGenerateLink }) => {
     const msLeft = deleteDate.getTime() - now.getTime();
     const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
 
-    let bg, border, color, label;
+    // Already expired — remove from UI immediately
     if (daysLeft <= 0) {
-      bg = '#f3f4f6'; border = '#d1d5db'; color = '#6b7280'; label = 'Expired';
-    } else if (daysLeft <= 3) {
+      setTimeout(() => {
+        setCaptureData(prev => prev.filter(item => item.id !== itemId));
+      }, 0);
+      return (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', gap: 4,
+          background: '#f3f4f6', border: '1px solid #d1d5db',
+          color: '#6b7280', fontSize: 11, fontWeight: 700,
+          padding: '3px 8px', borderRadius: 20, whiteSpace: 'nowrap',
+        }}>
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#6b7280" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/><line x1="8" y1="8" x2="16" y2="16"/><line x1="16" y1="8" x2="8" y2="16"/>
+          </svg>
+          Deleting…
+        </span>
+      );
+    }
+
+    let bg, border, color, label;
+    if (daysLeft <= 3) {
       bg = '#fef2f2'; border = '#fecaca'; color = '#dc2626';
       label = daysLeft === 1 ? '1 day left' : `${daysLeft} days left`;
     } else if (daysLeft <= 7) {
@@ -596,6 +646,17 @@ const ImageCaptureList = ({ onGenerateLink }) => {
       {/* Styles */}
       <style>{`
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+        /* Force light theme on all filter inputs/selects — prevents OS dark mode making text invisible */
+        .imgcap-filter-bar select,
+        .imgcap-filter-bar input[type='date'] {
+          background-color: #ffffff !important;
+          color: #0d0d0e !important;
+          color-scheme: light !important;
+        }
+        .imgcap-filter-bar select option {
+          background-color: #ffffff !important;
+          color: #0d0d0e !important;
+        }
         @media (max-width: 600px) {
           .imgcap-page-title { font-size: 20px !important; }
           .imgcap-header-wrap { flex-direction: column !important; align-items: flex-start !important; gap: 12px; }
@@ -750,28 +811,28 @@ const ImageCaptureList = ({ onGenerateLink }) => {
         </div>
 
         {isAdmin && (
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "10px 14px", alignItems: "flex-end", margin: "0 0 14px 0", background: "#fff", border: "1px solid #e8eaed", borderRadius: 10, padding: "12px 16px" }}>
+          <div className="imgcap-filter-bar" style={{ display: "flex", flexWrap: "wrap", gap: "10px 14px", alignItems: "flex-end", margin: "0 0 14px 0", background: "#ffffff", border: "1px solid #e8eaed", borderRadius: 10, padding: "12px 16px" }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 180 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: "#5f6368", textTransform: "uppercase", letterSpacing: "0.4px" }}>Branch</label>
               <select
                 value={filterBranch}
                 onChange={(e) => setFilterBranch(e.target.value)}
                 disabled={!branchesReady}
-                style={{ padding: "7px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: "#fff", outline: "none", cursor: branchesReady ? "pointer" : "not-allowed", minWidth: 180 }}
+                style={{ padding: "7px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: "#ffffff", color: "#0d0d0e", outline: "none", cursor: branchesReady ? "pointer" : "not-allowed", minWidth: 180, colorScheme: "light" }}
               >
-                <option value="all">{branchesReady ? "All Branches" : "Loading..."}</option>
-                {branchList.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                <option value="all" style={{ background: "#ffffff", color: "#0d0d0e" }}>{branchesReady ? "All Branches" : "Loading..."}</option>
+                {branchList.map(b => <option key={b.id} value={b.name} style={{ background: "#ffffff", color: "#0d0d0e" }}>{b.name}</option>)}
               </select>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: "#5f6368", textTransform: "uppercase", letterSpacing: "0.4px" }}>From Date</label>
               <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-                style={{ padding: "7px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: "#fff", outline: "none" }} />
+                style={{ padding: "7px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: "#ffffff", color: "#0d0d0e", outline: "none", colorScheme: "light" }} />
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <label style={{ fontSize: 11, fontWeight: 600, color: "#5f6368", textTransform: "uppercase", letterSpacing: "0.4px" }}>To Date</label>
               <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-                style={{ padding: "7px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: "#fff", outline: "none" }} />
+                style={{ padding: "7px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: "#ffffff", color: "#0d0d0e", outline: "none", colorScheme: "light" }} />
             </div>
             {(filterBranch !== (userBranchName || "all") || dateFrom || dateTo) && (
               <button
@@ -832,8 +893,8 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                           display: 'inline-block',
                           padding: '2px 8px',
                           borderRadius: 12,
-                          background: item.branch === 'General' ? '#f3f4f6' : '#e8f0fe',
-                          color: item.branch === 'General' ? '#6b7280' : '#1a73e8',
+                          background: item.branch.toLowerCase() === 'general' ? '#f3f4f6' : '#e8f0fe',
+                          color: item.branch.toLowerCase() === 'general' ? '#6b7280' : '#1a73e8',
                           fontSize: 11,
                           fontWeight: 600,
                           whiteSpace: 'nowrap',
@@ -848,9 +909,9 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                         />
                       </td>
                       <td style={{...tableStyles.td, whiteSpace: 'normal', wordWrap: 'break-word', maxWidth: '200px'}}>{item.location}</td>
-                      <td style={tableStyles.td}>{item.verificationTime}</td>
+                      <td style={tableStyles.td}>{item.verificationTime || <span style={{color:"#aaa"}}>—</span>}</td>
                       <td style={tableStyles.td}>
-                        <DeletionBadge verificationTime={item.verificationTime} />
+                        <DeletionBadge verificationTime={item.verificationTime} itemId={item.id} />
                       </td>
                       <td style={tableStyles.td}>
                         <GpsBadge item={item} />
@@ -995,8 +1056,8 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                       display: 'inline-block',
                       padding: '2px 8px',
                       borderRadius: 12,
-                      background: item.branch === 'General' ? '#f3f4f6' : '#e8f0fe',
-                      color: item.branch === 'General' ? '#6b7280' : '#1a73e8',
+                      background: item.branch.toLowerCase() === 'general' ? '#f3f4f6' : '#e8f0fe',
+                      color: item.branch.toLowerCase() === 'general' ? '#6b7280' : '#1a73e8',
                       fontSize: 11,
                       fontWeight: 600,
                     }}>{item.branch}</span>
@@ -1018,7 +1079,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500, minWidth: 70, flexShrink: 0 }}>Verified At:</span>
-                    <span style={{ fontSize: 12, color: '#111827' }}>{item.verificationTime}</span>
+                    <span style={{ fontSize: 12, color: item.verificationTime ? '#111827' : '#aaa' }}>{item.verificationTime || '—'}</span>
                   </div>
                   {/* Auto-delete countdown */}
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -1026,7 +1087,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                     </svg>
                     <span style={{ fontSize: 12, color: '#6b7280', fontWeight: 500, minWidth: 70, flexShrink: 0 }}>Auto Delete:</span>
-                    <DeletionBadge verificationTime={item.verificationTime} />
+                    <DeletionBadge verificationTime={item.verificationTime} itemId={item.id} />
                   </div>
                   {/* Manual Status */}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 2 }}>
