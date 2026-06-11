@@ -268,7 +268,7 @@ const vmStyles = {
     padding: "16px 22px", background: "#1b85f0",
     borderRadius: "14px 14px 0 0",
   },
-  headerTitle: { fontSize: 16, fontWeight: 700, color: "#fff" },
+  headerTitle: { fontSize: 25, fontWeight: 700, color: "#fff" },
   headerClose: { background: "none", border: "none", cursor: "pointer", fontSize: 18, color: "#fff", lineHeight: 1, padding: 2 },
   body: { overflowY: "auto", flex: 1, padding: "20px 22px" },
   footer: {
@@ -1444,7 +1444,7 @@ const styles = {
   },
   headerTitle: {
     fontFamily: "'Google Sans', sans-serif",
-    fontSize: 20, fontWeight: 800, color: "#0c0c0c",
+    fontSize: 25, fontWeight: 800, color: "#0c0c0c",
     letterSpacing: "-0.02em", margin: 0,
   },
   headerAddBtn: {

@@ -2171,7 +2171,7 @@ const styles = {
   },
   headerTitle: {
     fontFamily: "'Google Sans', sans-serif",
-    fontSize: 20, fontWeight: 800, color: "#0e0d0d",
+    fontSize: 25, fontWeight: 800, color: "#0e0d0d",
     letterSpacing: "-0.02em", margin: 0,
   },
   addBtn: {

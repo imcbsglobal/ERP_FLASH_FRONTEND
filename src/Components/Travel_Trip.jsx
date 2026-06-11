@@ -975,7 +975,7 @@ export default function TravelList() {
 
           <div style={{ margin: "0 0 16px 0", width: "100%", flexShrink: 0 }}>
             {/* Title row */}
-            <h1 className="tt-title" style={{ margin: "0 0 12px 0", fontSize: 25, fontWeight: "600", color: "black", letterSpacing: -0.5 }}>
+            <h1 className="tt-title" style={{ margin: " 12px ", fontSize: 25, fontWeight: "600",textAlign: 'left', color: "black", letterSpacing: -0.5 }}>
               {isSuperAdmin
                 ? "All Travel Logs"
                 : (isAdmin || isManager)
