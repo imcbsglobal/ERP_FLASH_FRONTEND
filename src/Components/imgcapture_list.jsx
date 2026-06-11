@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import ImageCaptureLinkGenerator from './Image_link';
 import ImageCaptureFlow from './Image_capture';
-import { getAllCaptures, updateCaptureManualStatus, deleteCapture, authService, ENDPOINTS, authHeaders, apiFetch } from '../service/Api';
+import { getAllCaptures, updateCaptureManualStatus, deleteCapture, authService, ENDPOINTS, authHeaders, apiFetch, getBranches } from '../service/Api';
 import API_BASE_URL from '../service/apiConfig';
 
 const API_ORIGIN = API_BASE_URL.replace(/\/api$/, '');
@@ -41,7 +41,8 @@ const ImageCaptureList = ({ onGenerateLink }) => {
   const [filterBranch, setFilterBranch] = useState("all");
   const [branchList, setBranchList]     = useState([]);
   const [userBranchName, setUserBranchName] = useState("");
-  const [branchesReady, setBranchesReady] = useState(!isAdmin);
+  // All roles wait until their branch is resolved before the first fetch fires
+  const [branchesReady, setBranchesReady] = useState(false);
 
   const resolveUserBranchName = useCallback((user, branches = []) => {
     if (!user) return "";
@@ -123,9 +124,12 @@ const ImageCaptureList = ({ onGenerateLink }) => {
     if (!branchesReady) return;
     setLoading(true); setError('');
     try {
-      const filters = isAdmin
-        ? (filterBranch === "all" ? { allBranches: true } : { branch: filterBranch })
-        : {};
+      // Admins: send branch filter or all_branches flag.
+      // Users: send their locked branch so the request is always correctly scoped
+      //        (backend also enforces it server-side as a safety net).
+      const filters = filterBranch === "all"
+        ? { allBranches: true }
+        : { branch: filterBranch };
       const data = await getAllCaptures(filters);
       const list = Array.isArray(data) ? data : (data?.results ?? []);
       setCaptureData(list.map(normalize));
@@ -156,32 +160,33 @@ const ImageCaptureList = ({ onGenerateLink }) => {
     return () => { clearInterval(pruneTimer); clearInterval(fetchTimer); };
   }, [fetchData]);
 
-  useEffect(() => {
-    if (!isAdmin) return;
 
+
+  // ── Branch init: all roles ────────────────────────────────────
+  // Loads full branch list for the dropdown, defaults filter to the
+  // logged-in user's own branch. All roles (user/admin/super admin)
+  // can freely switch to any branch or "All Branches".
+  useEffect(() => {
     const initBranches = async () => {
       let allBranches = [];
       try {
-        // Fetch departments from FlashERP API — { department_id, department }[]
-        const res = await apiFetch(ENDPOINTS.departments, { headers: authHeaders() });
-        const raw = Array.isArray(res) ? res : (res?.data ?? res?.results ?? []);
-        allBranches = raw
-          .map(d => ({ id: d.department_id, name: d.department }))
-          .filter(b => b.name)
-          .sort((a, b) => a.name.localeCompare(b.name));
+        // Use the shared getBranches() helper — fetches via the local proxy with auth
+        const branches = await getBranches();
+        allBranches = branches.filter(b => b.name);
         setBranchList(allBranches);
-      } catch { /* ignore */ }
+      } catch(e) { console.error('[imgcapture] getBranches error:', e); }
 
       const applyDefaultBranch = (branchName) => {
-        // Both Admin and Super Admin default to their own branch on login,
-        // but can switch freely via the dropdown (including "All Branches")
-        if (!branchName) return;
-        setUserBranchName(branchName);
-        setFilterBranch(branchName);
+        // Default to the user's own branch. All roles can switch freely via the
+        // dropdown, including "All Branches". Falls back to "all" if unresolved.
+        setUserBranchName(branchName || "");
+        setFilterBranch(branchName || "all");
       };
 
+      // First pass: resolve from cached localStorage user
       applyDefaultBranch(resolveUserBranchName(currentUser, allBranches));
 
+      // Second pass: confirm with a fresh /me call
       try {
         const me = await authService.getMe();
         if (me) localStorage.setItem("user", JSON.stringify(me));
@@ -192,7 +197,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
     };
 
     initBranches();
-  }, [currentUser, isAdmin, resolveUserBranchName]);
+  }, [currentUser, resolveUserBranchName]);
 
   // ── Date filter — branch filtering is done server-side via ?branch= or ?all_branches=1 ──
   // Always show rows with no verificationTime; only apply date range when the field is present
@@ -657,10 +662,10 @@ const ImageCaptureList = ({ onGenerateLink }) => {
           background-color: #ffffff !important;
           color: #0d0d0e !important;
         }
-        @media (max-width: 600px) {
-          .imgcap-page-title { font-size: 20px !important; }
-          .imgcap-header-wrap { flex-direction: column !important; align-items: flex-start !important; gap: 12px; }
-          .imgcap-btn-group { width: 100%; flex-direction: row !important; }
+        @media (max-width: 768px) {
+          .imgcap-page-title { font-size: 18px !important; }
+          .imgcap-filter-bar { flex-wrap: wrap !important; }
+          .imgcap-btn-group { width: 100%; }
           .imgcap-btn-group button { flex: 1; justify-content: center; }
         }
         .imcb-footer { text-align: center; padding: 14px 16px; border-top: 1.5px solid #e8eaed; font-size: 12px; color: #9aa0a6; font-family: 'Google Sans', sans-serif; letter-spacing: 0.01em; flex-shrink: 0; background: #fff; width: 100%; box-sizing: border-box; position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; }
@@ -751,99 +756,87 @@ const ImageCaptureList = ({ onGenerateLink }) => {
         .gps-copy-btn--ok   { background: #f0fdf4; border-color: #86efac; color: #16a34a; }
       `}</style>
       <div className="max-w-7xl mx-auto p-6" style={{ flex: 1, width: '100%', paddingBottom: '60px' }}>
-        {/* Header */}
-        <div className="imgcap-header-wrap" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-          <div>
-            <h2 className="imgcap-page-title" style={{ margin: 0, fontSize: 25, fontWeight: 600,textAlign: 'left', color: "#0d0d0e", fontFamily: "'Google Sans', sans-serif" }}>Verified Customers</h2>
+        {/* Title */}
+        <h2 className="imgcap-page-title" style={{ margin: '12px ', fontSize: 25,textAlign: 'left', fontWeight: 700, color: '#0d0d0e', fontFamily: "'Google Sans', sans-serif" }}>
+          Verified Customers
+        </h2>
+
+        {/* Filters + Buttons — single row */}
+        <div className="imgcap-filter-bar" style={{ background: '#fff', border: '1px solid #e8eaed', borderRadius: 10, padding: '10px 14px', marginBottom: 14, display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'nowrap' }}>
+
+          {/* Branch */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: '1 1 160px', minWidth: 140 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: '#5f6368', letterSpacing: '0.7px', fontFamily: "'Google Sans', sans-serif" }}>Branch</label>
+            <select
+              value={filterBranch}
+              onChange={(e) => setFilterBranch(e.target.value)}
+              disabled={!branchesReady}
+              style={{ width: '100%', padding: '6px 10px', border: '1px solid #e8eaed', borderRadius: 7, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: '#fff', color: '#202124', outline: 'none', cursor: branchesReady ? 'pointer' : 'not-allowed', boxSizing: 'border-box', colorScheme: 'light' }}
+            >
+              <option value="all">{branchesReady ? 'All Branches' : 'Loading...'}</option>
+              {branchList.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+            </select>
           </div>
 
-        {/* Action Buttons */}
-        <div className="imgcap-btn-group" style={{ display: 'flex', flexDirection: 'row', alignItems: 'center', gap: '12px' }}>
-          <button
-            onClick={() => setModalMode('generateLink')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              backgroundColor: '#0990eb',
-              color: '#fff',
-              padding: '9px 18px',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: '600',
-              border: 'none',
-              cursor: 'pointer',
-              boxShadow: '0 1px 4px rgba(9,144,235,0.15)',
-              fontFamily: "'Google Sans', sans-serif",
-            }}
-          >
-            <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-            </svg>
-            Generate New Link
-          </button>
-
-          <button
-            onClick={() => setModalMode('manualCapture')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              backgroundColor: '#fff',
-              color: '#0990eb',
-              padding: '9px 18px',
-              borderRadius: '8px',
-              fontSize: '14px',
-              fontWeight: '600',
-              border: '1.5px solid #0990eb',
-              cursor: 'pointer',
-              boxShadow: '0 1px 4px rgba(9,144,235,0.08)',
-              fontFamily: "'Google Sans', sans-serif",
-            }}
-          >
-            <svg width="17" height="17" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            Manual Capture
-          </button>
-        </div>
-        </div>
-
-        {isAdmin && (
-          <div className="imgcap-filter-bar" style={{ display: "flex", flexWrap: "wrap", gap: "10px 14px", alignItems: "flex-end", margin: "0 0 14px 0", background: "#ffffff", border: "1px solid #e8eaed", borderRadius: 10, padding: "12px 16px" }}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 180 }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#5f6368", textTransform: "uppercase", letterSpacing: "0.4px" }}>Branch</label>
-              <select
-                value={filterBranch}
-                onChange={(e) => setFilterBranch(e.target.value)}
-                disabled={!branchesReady}
-                style={{ padding: "7px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: "#ffffff", color: "#0d0d0e", outline: "none", cursor: branchesReady ? "pointer" : "not-allowed", minWidth: 180, colorScheme: "light" }}
-              >
-                <option value="all" style={{ background: "#ffffff", color: "#0d0d0e" }}>{branchesReady ? "All Branches" : "Loading..."}</option>
-                {branchList.map(b => <option key={b.id} value={b.name} style={{ background: "#ffffff", color: "#0d0d0e" }}>{b.name}</option>)}
-              </select>
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#5f6368", textTransform: "uppercase", letterSpacing: "0.4px" }}>From Date</label>
-              <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-                style={{ padding: "7px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: "#ffffff", color: "#0d0d0e", outline: "none", colorScheme: "light" }} />
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: "#5f6368", textTransform: "uppercase", letterSpacing: "0.4px" }}>To Date</label>
-              <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-                style={{ padding: "7px 10px", border: "1.5px solid #e5e7eb", borderRadius: 8, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: "#ffffff", color: "#0d0d0e", outline: "none", colorScheme: "light" }} />
-            </div>
-            {(filterBranch !== (userBranchName || "all") || dateFrom || dateTo) && (
-              <button
-                onClick={() => { setFilterBranch(userBranchName || "all"); setDateFrom(""); setDateTo(""); }}
-                style={{ alignSelf: "flex-end", padding: "7px 14px", border: "1px solid #d1d9e0", borderRadius: 8, background: "#fff", color: "#5f6368", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "'Google Sans', sans-serif" }}
-              >
-                Clear Filters
-              </button>
-            )}
+          {/* From Date */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: '1 1 140px', minWidth: 130 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: '#5f6368', letterSpacing: '0.7px', fontFamily: "'Google Sans', sans-serif" }}>From Date</label>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.target.value)}
+              style={{ width: '100%', padding: '6px 10px', border: '1px solid #e8eaed', borderRadius: 7, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: '#fff', color: '#202124', outline: 'none', boxSizing: 'border-box', colorScheme: 'light' }}
+            />
           </div>
-        )}
+
+          {/* To Date */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: '1 1 140px', minWidth: 130 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: '#5f6368', letterSpacing: '0.7px', fontFamily: "'Google Sans', sans-serif" }}>To Date</label>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.target.value)}
+              style={{ width: '100%', padding: '6px 10px', border: '1px solid #e8eaed', borderRadius: 7, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: '#fff', color: '#202124', outline: 'none', boxSizing: 'border-box', colorScheme: 'light' }}
+            />
+          </div>
+
+          {/* Clear Filters */}
+          {(dateFrom || dateTo || filterBranch !== (userBranchName || 'all')) && (
+            <button
+              onClick={() => { setDateFrom(''); setDateTo(''); setFilterBranch(userBranchName || 'all'); }}
+              style={{ padding: '6px 16px', borderRadius: 7, border: '1px solid #e8eaed', background: '#fff', color: '#5f6368', fontWeight: 600, fontSize: 13, cursor: 'pointer', fontFamily: "'Google Sans', sans-serif", whiteSpace: 'nowrap', flexShrink: 0, alignSelf: 'flex-end' }}
+            >
+              Clear
+            </button>
+          )}
+
+          {/* Spacer */}
+          <div style={{ flex: 1 }} />
+
+          {/* Action Buttons */}
+          <div className="imgcap-btn-group" style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
+            <button
+              onClick={() => setModalMode('generateLink')}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, backgroundColor: '#0990eb', color: '#fff', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', boxShadow: '0 1px 4px rgba(9,144,235,0.15)', fontFamily: "'Google Sans', sans-serif", whiteSpace: 'nowrap' }}
+            >
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              Generate New Link
+            </button>
+            <button
+              onClick={() => setModalMode('manualCapture')}
+              style={{ display: 'flex', alignItems: 'center', gap: 7, backgroundColor: '#fff', color: '#0990eb', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: '1.5px solid #0990eb', cursor: 'pointer', boxShadow: '0 1px 4px rgba(9,144,235,0.08)', fontFamily: "'Google Sans', sans-serif", whiteSpace: 'nowrap' }}
+            >
+              <svg width="15" height="15" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+              Manual Capture
+            </button>
+          </div>
+
+        </div>
 
         {/* Loading / Error */}
         {loading && (
