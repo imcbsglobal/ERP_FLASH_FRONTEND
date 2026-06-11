@@ -334,30 +334,33 @@ const PaymentTable = ({ mode = 'all' }) => {
   // ── Fetch branch list + set default branch filter from logged-in user ──────
   useEffect(() => {
     const initBranches = async () => {
-      // 1. Fetch departments from FlashERP for the branch dropdown
+      // 1. Fetch branches from FlashERP departments API
       try {
         const data = await apiFetch(ENDPOINTS.departments, { headers: authHeaders() });
         const raw = Array.isArray(data) ? data : (data?.data ?? data?.results ?? []);
-        setBranchList(raw.map(d => d.department).filter(Boolean).sort());
+        const names = raw.map(d => d.department).filter(Boolean).sort();
+        setBranchList(names);
       } catch { /* ignore */ }
 
-      // 2. Get live branch_id for the logged-in user from /auth/me/
+      // 2. Get live branch name for the logged-in user from /auth/me/
       try {
         const me = await authService.getMe();
         if (me) localStorage.setItem('user', JSON.stringify(me));
-        if (me?.branch_id) {
-          // Resolve branch name from branch list or fetch directly
-          const branchData = await apiFetch(ENDPOINTS.branches, { headers: authHeaders() });
-          const allBranches = Array.isArray(branchData) ? branchData : (branchData?.results ?? []);
-          const match = allBranches.find(b => String(b.id) === String(me.branch_id));
-          if (match?.name) {
-            setUserBranchName(match.name);
-            // For Admin & Super Admin: default to their own branch but allow changing
-            // For regular User: lock to their branch
-            setFilterBranch(match.name);
-          }
+        // Try direct branch_name field first
+        let branchName = me?.branch_name || me?.branch || null;
+        // Fall back to resolving via branch_id from internal branches API
+        if (!branchName && me?.branch_id) {
+          try {
+            const branchData = await apiFetch(ENDPOINTS.branches, { headers: authHeaders() });
+            const allBranches = Array.isArray(branchData) ? branchData : (branchData?.results ?? []);
+            const match = allBranches.find(b => String(b.id) === String(me.branch_id));
+            branchName = match?.name || null;
+          } catch { /* ignore */ }
         }
-        // If no branch_id (e.g. platform-wide admin), stay on 'all'
+        if (branchName) {
+          setUserBranchName(branchName);
+          setFilterBranch(branchName);
+        }
       } catch { /* fallback: stay on 'all' */ }
     };
     initBranches();
@@ -1144,22 +1147,16 @@ const PaymentTable = ({ mode = 'all' }) => {
               </div>
               <div className="filter-item">
                 <label className="filter-label">Branch</label>
-                {isAdmin ? (
-                  <select
-                    className="pt-select"
-                    value={filterBranch}
-                    onChange={(e) => setFilterBranch(e.target.value)}
-                  >
-                    <option value="all">All Branches</option>
-                    {branchList.filter(b => b != null && b !== '').map(b => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                  </select>
-                ) : (
-                  <select className="pt-select" value={filterBranch} disabled>
-                    <option value={filterBranch}>{filterBranch || 'My Branch'}</option>
-                  </select>
-                )}
+                <select
+                  className="pt-select"
+                  value={filterBranch}
+                  onChange={(e) => setFilterBranch(e.target.value)}
+                >
+                  <option value="all">All Branches</option>
+                  {branchList.filter(b => b != null && b !== '').map(b => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="filter-row-dates">
