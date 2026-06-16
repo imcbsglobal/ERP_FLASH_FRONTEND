@@ -923,7 +923,6 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                               alert(err.message || 'Failed to update status.');
                             }
                           }}
-                          disabled={!isAdmin}
                           style={{
                             padding: "4px 6px",
                             borderRadius: 6,
@@ -931,12 +930,11 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                             fontSize: 11,
                             fontWeight: 600,
                             fontFamily: "'Google Sans', sans-serif",
-                            cursor: isAdmin ? "pointer" : "not-allowed",
+                            cursor: "pointer",
                             outline: "none",
                             width: "90px",
                             background: item.manualStatus === "Approved" ? "#10973f" : "rgb(247,170,4)",
                             color: item.manualStatus === "Approved" ? "#fafdfb" : "#f7f6f4",
-                            opacity: isAdmin ? 1 : 0.7,
                           }}
                         >
                           <option value="Pending">Pending</option>
@@ -1098,7 +1096,6 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                               alert(err.message || 'Failed to update status.');
                             }
                           }}
-                      disabled={!isAdmin}
                       style={{
                         padding: "4px 8px",
                         borderRadius: 6,
@@ -1106,12 +1103,11 @@ const ImageCaptureList = ({ onGenerateLink }) => {
                         fontSize: 11,
                         fontWeight: 600,
                         fontFamily: "'Google Sans', sans-serif",
-                        cursor: isAdmin ? "pointer" : "not-allowed",
+                        cursor: "pointer",
                         outline: "none",
                         minWidth: 90,
                         background: item.manualStatus === "Approved" ? "#10973f" : "rgb(247,170,4)",
                         color: item.manualStatus === "Approved" ? "#fafdfb" : "#f7f6f4",
-                        opacity: isAdmin ? 1 : 0.7,
                       }}
                     >
                       <option value="Pending">Pending</option>
