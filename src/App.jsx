@@ -5,6 +5,7 @@ import PaymentTable              from "./Components/collection_list";
 import PaymentForm               from "./Components/collection";
 import ImageCaptureLinkGenerator from "./Components/Image_link";
 import { CapturePage }           from "./Components/Image_capture";
+import Licensing                 from "./Components/Licensing";
 import './App.css';
 
 const getToken  = () => localStorage.getItem("access_token") || localStorage.getItem("access");
@@ -25,37 +26,39 @@ function PublicRoute({ children }) {
 
 function App() {
   return (
-    <Router>
-      <Routes>
+    <Licensing>
+      <Router>
+        <Routes>
 
-        <Route
-          path="/"
-          element={
-            getToken()
-              ? <Navigate to="/payments" replace />
-              : <Navigate to="/login"    replace />
-          }
-        />
+          <Route
+            path="/"
+            element={
+              getToken()
+                ? <Navigate to="/payments" replace />
+                : <Navigate to="/login"    replace />
+            }
+          />
 
-        <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
 
-        {/* Customer capture link — goes straight to image capture */}
-        <Route path="/image_capture/capture/:uuid" element={<CapturePage />} />
+          {/* Customer capture link — goes straight to image capture */}
+          <Route path="/image_capture/capture/:uuid" element={<CapturePage />} />
 
-        <Route
-          path="/"
-          element={<PrivateRoute><Layout onLogout={clearAuth} /></PrivateRoute>}
-        >
-          <Route path="payments"      element={<PaymentTable />} />
-          <Route path="payments/new"  element={<PaymentForm  />} />
-          <Route path="image-capture" element={<ImageCaptureLinkGenerator />} />
-          <Route index element={<Navigate to="/payments" replace />} />
-        </Route>
+          <Route
+            path="/"
+            element={<PrivateRoute><Layout onLogout={clearAuth} /></PrivateRoute>}
+          >
+            <Route path="payments"      element={<PaymentTable />} />
+            <Route path="payments/new"  element={<PaymentForm  />} />
+            <Route path="image-capture" element={<ImageCaptureLinkGenerator />} />
+            <Route index element={<Navigate to="/payments" replace />} />
+          </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
 
-      </Routes>
-    </Router>
+        </Routes>
+      </Router>
+    </Licensing>
   );
 }
 
