@@ -78,6 +78,7 @@ export const ENDPOINTS = {
   paymentSummary:   `${BASE_URL}/payments/summary/`,
   debtors:          `${BASE_URL}/payments/flasherp/debtors/`,
   departments:      `${BASE_URL}/payments/flasherp/departments/`,
+  products:         `${BASE_URL}/standbys/products/`,
 
   // Service Entries
   services:             `${BASE_URL}/services/`,
@@ -94,6 +95,9 @@ export const ENDPOINTS = {
 
   // Debtors (external FlashERP)
   debtorsExternal: `https://flasherp.imcbs.com/api/debtors/`,
+
+  // Product list (external FlashERP — proxied via backend, see ENDPOINTS.products)
+  productBatchesExternal: `https://flasherp.imcbs.com/api/products/`,
 
   // Suppliers
   suppliers:            `${BASE_URL}/suppliers/`,
@@ -1149,6 +1153,58 @@ export async function getAllDebtors() {
   return unique;
 }
 
+/**
+ * Fetch ALL products from the FlashERP productbatches endpoint (paginates automatically).
+ * Returns a deduplicated, alphabetically sorted list of product names.
+ */
+/**
+ * Normalize a raw product name from FlashERP — fixes double-backtick /
+ * stray-quote artifacts (e.g. `18.5``` -> `18.5"`) and collapses extra spaces.
+ */
+function _cleanProductName(raw) {
+  return (raw || '')
+    .replace(/`{2,}/g, '"')   // `` or ``` -> "
+    .replace(/`/g, "'")       // stray single backtick -> apostrophe
+    .replace(/\s+/g, ' ')     // collapse multiple spaces
+    .trim();
+}
+
+export async function getAllProducts() {
+  const all = [];
+  let page = 1;
+  const pageSize = 200;
+
+  while (true) {
+    const url = `${ENDPOINTS.products}?page=${page}&page_size=${pageSize}`;
+    let data;
+    try {
+      data = await apiFetch(url, { method: 'GET', headers: authHeaders() });
+    } catch {
+      break;
+    }
+    if (!data) break;
+
+    const results = Array.isArray(data) ? data : (data?.results ?? []);
+    if (results.length === 0) break;
+
+    results.forEach(p => {
+      const cleanName = _cleanProductName(p.name);
+      if (!cleanName) return;
+      all.push(cleanName);
+    });
+
+    const total = data?.count ?? null;
+    if (total !== null && all.length >= total) break;
+    if (results.length < pageSize) break;
+    page++;
+  }
+
+  // Deduplicate and sort alphabetically
+  const unique = Array.from(new Set(all));
+  unique.sort((a, b) => a.localeCompare(b));
+  return unique;
+}
+
 export async function fetchDepartments() {
   // Fetch from local /branches/ endpoint → { id, name, created_at }[]
   // Normalised to { department_id, department } for the branch dropdown in user_list.jsx
@@ -1287,7 +1343,7 @@ export async function startTrip(tripData) {
     fd.append('registration_number', tripData.registration_number ?? '');
     fd.append('date',                tripData.date);
     fd.append('time',                tripData.time);
-    fd.append('purpose_of_trip',     tripData.purpose_of_trip);
+    fd.append('purpose_of_trip',     tripData.purpose_of_trip ?? '');
     if (tripData.traveled_by   != null && tripData.traveled_by !== '')   fd.append('traveled_by',    tripData.traveled_by);
     if (tripData.odometer_start != null)                                  fd.append('odometer_start', tripData.odometer_start);
     if (tripData.maintenance_cost != null)                                fd.append('maintenance_cost', tripData.maintenance_cost);

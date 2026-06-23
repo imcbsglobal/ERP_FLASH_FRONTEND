@@ -46,11 +46,23 @@ const ImageCaptureList = ({ onGenerateLink }) => {
 
   const resolveUserBranchName = useCallback((user, branches = []) => {
     if (!user) return "";
+    const normalize = (s) => (s || "").trim().toLowerCase();
+
+    // 1. Match by branch_id
     if (user.branch_id) {
       const match = branches.find(b => String(b.id) === String(user.branch_id));
-      if (match?.name) return match.name;
+      if (match?.name) return match.name; // return canonical name from list
     }
-    return user.branch_name || user.branch || "";
+
+    // 2. Match by branch_name / branch string — case-insensitive against branchList
+    const raw = (user.branch_name || user.branch || "").trim();
+    if (raw) {
+      const match = branches.find(b => normalize(b.name) === normalize(raw));
+      if (match?.name) return match.name; // return canonical name from list
+      return raw; // fallback: return as-is if no match found
+    }
+
+    return "";
   }, []);
 
   const normalizeImageUrl = (url) => {
@@ -177,10 +189,13 @@ const ImageCaptureList = ({ onGenerateLink }) => {
       } catch(e) { console.error('[imgcapture] getBranches error:', e); }
 
       const applyDefaultBranch = (branchName) => {
-        // Default to the user's own branch. All roles can switch freely via the
-        // dropdown, including "All Branches". Falls back to "all" if unresolved.
-        setUserBranchName(branchName || "");
-        setFilterBranch(branchName || "all");
+        // Ensure the branch name matches a canonical entry in branchList (case-insensitive).
+        // This prevents the select from showing blank when the API returns a different casing.
+        const canonical = branchName
+          ? (allBranches.find(b => b.name.trim().toLowerCase() === branchName.trim().toLowerCase())?.name || branchName)
+          : "";
+        setUserBranchName(canonical);
+        setFilterBranch(canonical || "all");
       };
 
       // First pass: resolve from cached localStorage user
@@ -768,7 +783,7 @@ const ImageCaptureList = ({ onGenerateLink }) => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: '1 1 160px', minWidth: 140 }}>
             <label style={{ fontSize: 11, fontWeight: 600, color: '#5f6368', letterSpacing: '0.7px', fontFamily: "'Google Sans', sans-serif" }}>Branch</label>
             <select
-              value={filterBranch}
+              value={branchList.some(b => b.name === filterBranch) || filterBranch === 'all' ? filterBranch : 'all'}
               onChange={(e) => setFilterBranch(e.target.value)}
               disabled={!branchesReady}
               style={{ width: '100%', padding: '6px 10px', border: '1px solid #e8eaed', borderRadius: 7, fontSize: 13, fontFamily: "'Google Sans', sans-serif", background: '#fff', color: '#202124', outline: 'none', cursor: branchesReady ? 'pointer' : 'not-allowed', boxSizing: 'border-box', colorScheme: 'light' }}

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { apiFetch, authHeaders, ENDPOINTS, getCurrentUser, getUsers, getAllDebtors } from "../service/Api";
+import { apiFetch, authHeaders, ENDPOINTS, getCurrentUser, getUsers, getAllDebtors, getAllProducts } from "../service/Api";
 
 const getLoggedUserName = () => {
   const user = getCurrentUser();
@@ -147,6 +147,17 @@ export default function ServiceAdd({ onBack, editRow }) {
       .then((list) => setDebtors(list))
       .catch(() => setDebtors([]))
       .finally(() => setDebtorsLoading(false));
+  }, []);
+
+  const [products, setProducts] = useState([]);     // product names from FlashERP
+  const [productsLoading, setProductsLoading] = useState(true);
+
+  useEffect(() => {
+    setProductsLoading(true);
+    getAllProducts()
+      .then((list) => setProducts(list))
+      .catch(() => setProducts([]))
+      .finally(() => setProductsLoading(false));
   }, []);
 
   // When a customer is picked from the dropdown, auto-fill place & phone
@@ -313,22 +324,12 @@ export default function ServiceAdd({ onBack, editRow }) {
           {/* Product Details */}
           <SectionLabel label="Product Details" />
           <div className="sa-row3">
-            <SelectField label="Product" name="product"
+            <SearchableSelect label="Product" name="product"
               value={form.product} onChange={handleChange}
               error={errors.product} required
-              placeholder="— Select product —"
-              options={[
-                "Laptop",
-                "Desktop PC",
-                "AC Unit",
-                "Refrigerator",
-                "Washing Machine",
-                "Television",
-                "Microwave",
-                "Printer",
-                "Mobile Phone",
-                "Tablet",
-              ]} />
+              placeholder={productsLoading ? "Loading products…" : "Search product…"}
+              options={products}
+              loading={productsLoading} />
             <Field label="Model" name="model" placeholder="Model number / name"
               value={form.model} onChange={handleChange} />
             <Field label="Serial No" name="serialNo" placeholder="Serial / IMEI"

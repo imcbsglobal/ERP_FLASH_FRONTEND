@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { apiFetch, authHeaders, ENDPOINTS, getUsers, getAllDebtors } from "../service/Api";
+import { apiFetch, authHeaders, ENDPOINTS, getUsers, getAllDebtors, getAllProducts } from "../service/Api";
 
 function getLoggedUserName() {
   try {
@@ -43,6 +43,8 @@ export default function StandbyAdd({ onBack, editRow }) {
   const [userOptions, setUserOptions] = useState([]);
   const [debtors, setDebtors] = useState([]);       // [{ name, place, phone }]
   const [debtorsLoading, setDebtorsLoading] = useState(true);
+  const [products, setProducts] = useState([]);     // product names from FlashERP
+  const [productsLoading, setProductsLoading] = useState(true);
 
   useEffect(() => {
     getUsers({ status: "Active" })
@@ -59,6 +61,14 @@ export default function StandbyAdd({ onBack, editRow }) {
       .then((list) => setDebtors(list))
       .catch(() => setDebtors([]))
       .finally(() => setDebtorsLoading(false));
+  }, []);
+
+  useEffect(() => {
+    setProductsLoading(true);
+    getAllProducts()
+      .then((list) => setProducts(list))
+      .catch(() => setProducts([]))
+      .finally(() => setProductsLoading(false));
   }, []);
 
   // Populate form when editing an existing record
@@ -365,22 +375,12 @@ export default function StandbyAdd({ onBack, editRow }) {
           {/* ── Product Details ── */}
           <SectionLabel label="Product Details" />
           <div style={styles.row3} className="standby-row3">
-            <SelectField label="Product" name="product"
+            <SearchableSelect label="Product" name="product"
               value={form.product} onChange={handleChange}
               error={errors.product} required
-              placeholder="— Select product —"
-              options={[
-                "Laptop",
-                "Desktop PC",
-                "AC Unit",
-                "Refrigerator",
-                "Washing Machine",
-                "Television",
-                "Microwave",
-                "Printer",
-                "Mobile Phone",
-                "Tablet",
-              ]} />
+              placeholder="Type product name…"
+              options={products}
+              loading={productsLoading} />
             <Field label="Model" name="model" placeholder="Model number / name"
               value={form.model} onChange={handleChange} />
             <Field label="Serial No" name="serialNo" placeholder="Serial / IMEI"

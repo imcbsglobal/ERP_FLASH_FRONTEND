@@ -540,11 +540,6 @@ const PaymentForm = ({ initialData = null, onSuccess, onCancel }) => {
       newErrors.amount = 'Please enter a valid amount greater than 0';
     }
     if (!formData.paidFor.trim()) newErrors.paidFor = 'Paid for field is required';
-    if (formData.collectionType && formData.collectionType !== 'Cash' && !formData.paymentProof) {
-      if (!isEdit || !initialData?.paymentProofUrl) {
-        newErrors.paymentProof = 'Payment proof is required for this payment type';
-      }
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };

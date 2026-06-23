@@ -83,23 +83,33 @@ const StartTrip = ({ onClose, onStart, refreshKey }) => {
       setVehicleLoading(true);
       setVehicleError('');
       try {
-        // Always fetch fresh user data from /auth/me/ so branch_id is never stale
+        // Always fetch fresh user data from /auth/me/ so branch_id/role are never stale
         let branchId = null;
+        let role = '';
         try {
           const me = await authService.getMe();
           branchId = me?.branch_id ?? null;
+          role = (me?.role || '').trim().toLowerCase();
           // Also update localStorage so other parts of the app stay in sync
           if (me) localStorage.setItem('user', JSON.stringify(me));
         } catch {
           // Fallback to localStorage if /me/ fails (e.g. offline)
           try {
             const userJson = localStorage.getItem('user');
-            if (userJson) branchId = JSON.parse(userJson)?.branch_id ?? null;
+            if (userJson) {
+              const u = JSON.parse(userJson);
+              branchId = u?.branch_id ?? null;
+              role = (u?.role || '').trim().toLowerCase();
+            }
           } catch { /* ignore */ }
         }
 
+        // Admin / Super Admin see vehicles across ALL branches.
+        // Regular users only see vehicles belonging to their own branch.
+        const isUnrestricted = role === 'super admin' || role === 'admin';
+
         const fetchParams = { status: 'Active', exclude_ongoing: 'true' };
-        if (branchId != null) fetchParams.branch = branchId;
+        if (!isUnrestricted && branchId != null) fetchParams.branch = branchId;
 
         const res = await getVehicles(fetchParams);
         const list = Array.isArray(res) ? res : (res?.results || []);
@@ -244,7 +254,11 @@ const StartTrip = ({ onClose, onStart, refreshKey }) => {
     if (!form.vehicleId)            errs.vehicleId     = 'Please select a vehicle.';
     if (!form.date)                 errs.date          = 'Date is required.';
     if (!form.time)                 errs.time          = 'Time is required.';
-    if (!form.purposeOfTrip.trim()) errs.purposeOfTrip = 'Purpose of trip is required.';
+    if (!String(form.odometerStart).trim()) {
+      errs.odometerStart = 'Start odometer reading is required.';
+    } else if (isNaN(parseFloat(form.odometerStart)) || parseFloat(form.odometerStart) < 0) {
+      errs.odometerStart = 'Enter a valid odometer reading.';
+    }
     return errs;
   };
 
@@ -589,7 +603,7 @@ const StartTrip = ({ onClose, onStart, refreshKey }) => {
           <div className="st-grid3" style={{ ...S.grid3, marginTop: 16 }}>
             <div style={S.formGroup} className='st-form-group'>
               <label style={S.label}>
-                Purpose of Trip <span style={S.required}>*</span>
+                Purpose of Trip
               </label>
               <input
                 type="text"
@@ -618,7 +632,9 @@ const StartTrip = ({ onClose, onStart, refreshKey }) => {
               {errors.maintenanceCost && <span style={S.errorMsg}>{errors.maintenanceCost}</span>}
             </div>
             <div style={S.formGroup} className='st-form-group'>
-              <label style={S.label}>Odometer Start (km)</label>
+              <label style={S.label}>
+                Odometer Start (km) <span style={S.required}>*</span>
+              </label>
               <input
                 type="number"
                 name="odometerStart"
